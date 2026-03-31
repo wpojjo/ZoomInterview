@@ -1,0 +1,104 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model GuestSession {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  createdAt    DateTime @default(now())
+  expiresAt    DateTime
+
+  profile     Profile?
+  jobPostings JobPosting[]
+
+  @@map("guest_sessions")
+}
+
+model Profile {
+  id        String   @id @default(cuid())
+  sessionId String   @unique
+  name      String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  session        GuestSession    @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  educations     Education[]
+  careers        Career[]
+  certifications Certification[]
+  activities     Activity[]
+
+  @@map("profiles")
+}
+
+model Education {
+  id               String   @id @default(cuid())
+  profileId        String
+  schoolName       String
+  major            String
+  startDate        String
+  endDate          String?
+  graduationStatus String
+
+  profile Profile @relation(fields: [profileId], references: [id], onDelete: Cascade)
+
+  @@map("educations")
+}
+
+model Career {
+  id          String  @id @default(cuid())
+  profileId   String
+  companyName String
+  role        String
+  startDate   String
+  endDate     String?
+  description String?
+
+  profile Profile @relation(fields: [profileId], references: [id], onDelete: Cascade)
+
+  @@map("careers")
+}
+
+model Certification {
+  id           String @id @default(cuid())
+  profileId    String
+  name         String
+  acquiredDate String
+
+  profile Profile @relation(fields: [profileId], references: [id], onDelete: Cascade)
+
+  @@map("certifications")
+}
+
+model Activity {
+  id          String  @id @default(cuid())
+  profileId   String
+  title       String
+  role        String
+  startDate   String
+  endDate     String?
+  description String?
+
+  profile Profile @relation(fields: [profileId], references: [id], onDelete: Cascade)
+
+  @@map("activities")
+}
+
+model JobPosting {
+  id         String   @id @default(cuid())
+  sessionId  String
+  sourceType String
+  sourceUrl  String?
+  rawText    String?
+  fileName   String?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  session GuestSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  @@map("job_postings")
+}
