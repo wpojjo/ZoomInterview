@@ -1,30 +1,48 @@
 import { cookies } from "next/headers";
-import { prisma } from "@/lib/prisma";
+import { supabase } from "@/lib/supabase";
 import { SESSION_COOKIE } from "@/lib/session";
 import ProfileForm from "@/components/ProfileForm";
 
 async function getProfileData() {
   const cookieStore = await cookies();
   const token = cookieStore.get(SESSION_COOKIE)?.value;
-
   if (!token) return null;
 
-  const session = await prisma.guestSession.findUnique({
-    where: { sessionToken: token },
-    include: {
-      profile: {
-        include: {
-          educations: true,
-          careers: true,
-          certifications: true,
-          activities: true,
-        },
-      },
-    },
-  });
+  const { data: session } = await supabase
+    .from("guest_sessions")
+    .select("id, expiresAt")
+    .eq("sessionToken", token)
+    .maybeSingle();
 
-  if (!session || session.expiresAt <= new Date()) return null;
-  return session.profile;
+  if (!session || new Date(session.expiresAt) <= new Date()) return null;
+
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("*")
+    .eq("sessionId", session.id)
+    .maybeSingle();
+
+  if (!profile) return null;
+
+  const [
+    { data: educations },
+    { data: careers },
+    { data: certifications },
+    { data: activities },
+  ] = await Promise.all([
+    supabase.from("educations").select("*").eq("profileId", profile.id),
+    supabase.from("careers").select("*").eq("profileId", profile.id),
+    supabase.from("certifications").select("*").eq("profileId", profile.id),
+    supabase.from("activities").select("*").eq("profileId", profile.id),
+  ]);
+
+  return {
+    ...profile,
+    educations: educations ?? [],
+    careers: careers ?? [],
+    certifications: certifications ?? [],
+    activities: activities ?? [],
+  };
 }
 
 export default async function ProfilePage() {

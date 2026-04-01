@@ -1,26 +1,29 @@
 import { cookies } from "next/headers";
-import { prisma } from "@/lib/prisma";
+import { supabase } from "@/lib/supabase";
 import { SESSION_COOKIE } from "@/lib/session";
 import JobPostingForm from "@/components/JobPostingForm";
 
 async function getJobPostingData() {
   const cookieStore = await cookies();
   const token = cookieStore.get(SESSION_COOKIE)?.value;
-
   if (!token) return null;
 
-  const session = await prisma.guestSession.findUnique({
-    where: { sessionToken: token },
-    include: {
-      jobPostings: {
-        orderBy: { updatedAt: "desc" },
-        take: 1,
-      },
-    },
-  });
+  const { data: session } = await supabase
+    .from("guest_sessions")
+    .select("id, expiresAt")
+    .eq("sessionToken", token)
+    .maybeSingle();
 
-  if (!session || session.expiresAt <= new Date()) return null;
-  return session.jobPostings[0] ?? null;
+  if (!session || new Date(session.expiresAt) <= new Date()) return null;
+
+  const { data: rows } = await supabase
+    .from("job_postings")
+    .select("*")
+    .eq("sessionId", session.id)
+    .order("updatedAt", { ascending: false })
+    .limit(1);
+
+  return rows?.[0] ?? null;
 }
 
 export default async function JobPostingPage() {
