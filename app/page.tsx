@@ -1,21 +1,4 @@
 import Link from "next/link";
-import { cookies } from "next/headers";
-import { prisma } from "@/lib/prisma";
-import { SESSION_COOKIE, SESSION_MAX_AGE } from "@/lib/session";
-import { v4 as uuidv4 } from "uuid";
-
-async function ensureSession() {
-  "use server";
-  const cookieStore = await cookies();
-  const token = cookieStore.get(SESSION_COOKIE)?.value;
-  if (token) {
-    const session = await prisma.guestSession.findUnique({
-      where: { sessionToken: token },
-    });
-    if (session && session.expiresAt > new Date()) return;
-  }
-  // Will be handled by the API route on first navigation
-}
 
 export default function HomePage() {
   return (
