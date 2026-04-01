@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
+import { supabase } from "@/lib/supabase";
 import { getSessionFromCookie } from "@/lib/session";
 import { jobPostingSchema } from "@/lib/schemas";
+import { v4 as uuidv4 } from "uuid";
 
 export async function GET() {
   try {
@@ -10,12 +11,14 @@ export async function GET() {
       return NextResponse.json({ error: "세션이 없습니다" }, { status: 401 });
     }
 
-    const jobPosting = await prisma.jobPosting.findFirst({
-      where: { sessionId },
-      orderBy: { updatedAt: "desc" },
-    });
+    const { data: rows } = await supabase
+      .from("job_postings")
+      .select("*")
+      .eq("sessionId", sessionId)
+      .order("updatedAt", { ascending: false })
+      .limit(1);
 
-    return NextResponse.json({ jobPosting });
+    return NextResponse.json({ jobPosting: rows?.[0] ?? null });
   } catch (error) {
     console.error("JobPosting GET error:", error);
     return NextResponse.json({ error: "채용공고 조회 중 오류가 발생했습니다" }, { status: 500 });
@@ -40,22 +43,33 @@ export async function POST(request: NextRequest) {
     }
 
     const { sourceType, sourceUrl, rawText, fileName } = parsed.data;
+    const now = new Date().toISOString();
 
-    const existing = await prisma.jobPosting.findFirst({
-      where: { sessionId },
-      orderBy: { updatedAt: "desc" },
-    });
+    const { data: rows } = await supabase
+      .from("job_postings")
+      .select("id")
+      .eq("sessionId", sessionId)
+      .order("updatedAt", { ascending: false })
+      .limit(1);
+
+    const existing = rows?.[0] ?? null;
 
     let jobPosting;
     if (existing) {
-      jobPosting = await prisma.jobPosting.update({
-        where: { id: existing.id },
-        data: { sourceType, sourceUrl: sourceUrl || null, rawText: rawText || null, fileName: fileName || null },
-      });
+      const { data } = await supabase
+        .from("job_postings")
+        .update({ sourceType, sourceUrl: sourceUrl ?? null, rawText: rawText ?? null, fileName: fileName ?? null, updatedAt: now })
+        .eq("id", existing.id)
+        .select()
+        .single();
+      jobPosting = data;
     } else {
-      jobPosting = await prisma.jobPosting.create({
-        data: { sessionId, sourceType, sourceUrl: sourceUrl || null, rawText: rawText || null, fileName: fileName || null },
-      });
+      const { data } = await supabase
+        .from("job_postings")
+        .insert({ id: uuidv4(), sessionId, sourceType, sourceUrl: sourceUrl ?? null, rawText: rawText ?? null, fileName: fileName ?? null, updatedAt: now })
+        .select()
+        .single();
+      jobPosting = data;
     }
 
     return NextResponse.json({ jobPosting });
