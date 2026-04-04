@@ -13,10 +13,9 @@ export async function extractJobPostingInfo(text: string): Promise<JobPostingAna
       messages: [
         {
           role: "system",
-          content: `당신은 채용공고를 분석하는 전문가입니다. 채용공고 텍스트에서 다음 네 가지 정보를 추출하여 반드시 아래 JSON 형식으로만 응답하세요. 해당 내용이 없으면 빈 문자열("")로 반환하세요.
+          content: `당신은 채용공고를 분석하는 전문가입니다. 채용공고 텍스트에서 다음 세 가지 정보를 추출하여 반드시 아래 JSON 형식으로만 응답하세요. 해당 내용이 없으면 빈 문자열("")로 반환하세요.
 
 {
-  "companyInfo": "회사 소개 및 정보",
   "responsibilities": "담당업무 내용",
   "requirements": "필수 자격요건",
   "preferredQuals": "우대사항"

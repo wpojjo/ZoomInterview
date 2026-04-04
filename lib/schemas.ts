@@ -48,7 +48,6 @@ export const jobPostingSchema = z.object({
 });
 
 export const jobPostingAnalysisSchema = z.object({
-  companyInfo:      z.string(),
   responsibilities: z.string(),
   requirements:     z.string(),
   preferredQuals:   z.string(),

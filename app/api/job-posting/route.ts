@@ -62,7 +62,6 @@ export async function POST(request: NextRequest) {
           sourceUrl,
           rawText: null,
           fileName: null,
-          companyInfo: null,
           responsibilities: null,
           requirements: null,
           preferredQuals: null,
