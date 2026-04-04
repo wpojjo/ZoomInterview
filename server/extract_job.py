@@ -4,7 +4,7 @@ import requests
 from bs4 import BeautifulSoup
 from playwright.sync_api import sync_playwright
 
-OLLAMA_URL = "http://localhost:11434/api/generate"
+OLLAMA_URL = "http://192.168.219.105:11434/api/generate"
 MODEL = "qwen2.5:7b"
 
 

@@ -123,7 +123,7 @@ export default function JobPostingForm({ initialData }: { initialData?: InitialD
         </div>
       )}
 
-      {status === "success" && analysis && (
+      {(status === "success" || (status === "idle" && analysis)) && analysis && (
         <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-5 space-y-4">
           <h2 className="text-base font-semibold text-gray-900">분석 결과</h2>
           {(
@@ -140,6 +140,12 @@ export default function JobPostingForm({ initialData }: { initialData?: InitialD
               </p>
             </div>
           ))}
+          <Link
+            href="/interview"
+            className="flex items-center justify-center w-full bg-green-600 text-white font-semibold py-3 rounded-lg hover:bg-green-700 transition-colors text-sm"
+          >
+            면접 시작하기 →
+          </Link>
         </div>
       )}
     </div>

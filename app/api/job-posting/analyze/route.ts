@@ -37,7 +37,7 @@ export async function POST() {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ url: posting.sourceUrl }),
-      signal: AbortSignal.timeout(60_000),
+      signal: AbortSignal.timeout(120_000),
     });
 
     if (!res.ok) {
