@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import "./globals.css";
 import SessionInitializer from "@/components/SessionInitializer";
+import Header from "@/components/Header";
 
 export const metadata: Metadata = {
   title: "AI 면접 코치",
@@ -16,6 +17,7 @@ export default function RootLayout({
     <html lang="ko">
       <body className="bg-gray-50 text-gray-900 antialiased">
         <SessionInitializer />
+        <Header />
         {children}
       </body>
     </html>

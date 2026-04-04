@@ -181,10 +181,8 @@ export type Database = {
       job_postings: {
         Row: {
           createdAt: string
-          fileName: string | null
           id: string
           preferredQuals: string | null
-          rawText: string | null
           requirements: string | null
           responsibilities: string | null
           sessionId: string
@@ -194,10 +192,8 @@ export type Database = {
         }
         Insert: {
           createdAt?: string
-          fileName?: string | null
           id: string
           preferredQuals?: string | null
-          rawText?: string | null
           requirements?: string | null
           responsibilities?: string | null
           sessionId: string
@@ -207,10 +203,8 @@ export type Database = {
         }
         Update: {
           createdAt?: string
-          fileName?: string | null
           id?: string
           preferredQuals?: string | null
-          rawText?: string | null
           requirements?: string | null
           responsibilities?: string | null
           sessionId?: string
