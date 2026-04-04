@@ -14,7 +14,7 @@ export default function HomePage() {
             AI 면접 코치
           </h1>
           <p className="text-lg text-gray-500 dark:text-slate-400 max-w-md mx-auto leading-relaxed">
-            내 이력서와 채용공고를 분석해<br className="sm:hidden" /> 맞춤형 면접 질문을 드립니다
+            내 이력서와 채용공고를 분석하고<br />개인 맞춤 면접 질문을 받아보세요
           </p>
         </div>
 
@@ -24,7 +24,7 @@ export default function HomePage() {
             href="/login"
             className="w-full sm:w-auto inline-flex items-center justify-center gap-2 bg-blue-600 text-white font-semibold text-base px-8 py-3.5 rounded-xl hover:bg-blue-700 active:scale-95 transition-all shadow-lg shadow-blue-200 dark:shadow-blue-900/40"
           >
-            지금 시작하기 →
+            시작하기
           </Link>
           <Link
             href="/signup"
@@ -37,9 +37,9 @@ export default function HomePage() {
         {/* Steps */}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mt-4">
           {[
-            { step: "1", title: "프로필 입력", desc: "학력·경력·자격증을 입력하세요", color: "blue" },
-            { step: "2", title: "채용공고 등록", desc: "지원할 공고 링크를 붙여넣으세요", color: "indigo" },
-            { step: "3", title: "AI 면접 연습", desc: "맞춤 질문으로 실전처럼 연습하세요", color: "violet" },
+            { step: "1", title: "프로필 입력", desc: "학력·경력·자격증 입력", color: "blue" },
+            { step: "2", title: "채용공고 등록", desc: "지원할 공고 링크 붙여넣기", color: "indigo" },
+            { step: "3", title: "AI 면접 연습", desc: "맞춤 질문으로 실전 연습", color: "violet" },
           ].map((item) => (
             <div
               key={item.step}

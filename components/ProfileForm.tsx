@@ -64,8 +64,7 @@ function newActivity(): Activity {
   return { title: "", role: "", startDate: "", endDate: "", description: "" };
 }
 
-export default function ProfileForm({ initialData }: { initialData?: InitialData | null }) {
-  const [name, setName] = useState(initialData?.name ?? "");
+export default function ProfileForm({ name, initialData }: { name: string; initialData?: InitialData | null }) {
   const [educations, setEducations] = useState<Education[]>(
     initialData?.educations?.length
       ? initialData.educations.map((e) => ({ ...e, graduationStatus: e.graduationStatus as Education["graduationStatus"] }))
@@ -111,17 +110,6 @@ export default function ProfileForm({ initialData }: { initialData?: InitialData
 
   return (
     <div className="space-y-6">
-      {/* Name */}
-      <Card title="이름">
-        <input
-          type="text"
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-          placeholder="홍길동"
-          className="input"
-        />
-      </Card>
-
       {/* Education */}
       <Card
         title="학력"

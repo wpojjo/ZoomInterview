@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
-import { Message, TOTAL_QUESTIONS, FIRST_QUESTION } from "@/lib/interview";
+import { Message, TOTAL_QUESTIONS, getFirstQuestion } from "@/lib/interview";
 
 async function fetchQuestion(index: number, msgs: Message[]): Promise<string> {
   const res = await fetch("/api/interview/question", {
@@ -14,10 +14,10 @@ async function fetchQuestion(index: number, msgs: Message[]): Promise<string> {
   return data.question;
 }
 
-const INITIAL_MESSAGES: Message[] = [{ role: "interviewer", content: FIRST_QUESTION }];
-
-export default function InterviewSession() {
-  const [messages, setMessages] = useState<Message[]>(INITIAL_MESSAGES);
+export default function InterviewSession({ name }: { name: string }) {
+  const [messages, setMessages] = useState<Message[]>([
+    { role: "interviewer", content: getFirstQuestion(name) },
+  ]);
   const [answer, setAnswer] = useState("");
   const [questionIndex, setQuestionIndex] = useState(0);
   const [isLoading, setIsLoading] = useState(false);
@@ -78,7 +78,7 @@ export default function InterviewSession() {
           </a>
           <button
             onClick={() => {
-              setMessages(INITIAL_MESSAGES);
+              setMessages([{ role: "interviewer", content: getFirstQuestion(name) }]);
               setQuestionIndex(0);
               setIsDone(false);
               setAnswer("");

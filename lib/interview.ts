@@ -12,7 +12,9 @@ const QUESTION_CATEGORIES = [
 ] as const;
 
 export const TOTAL_QUESTIONS = QUESTION_CATEGORIES.length;
-export const FIRST_QUESTION = "자기소개와 지원동기를 말씀해주세요.";
+export function getFirstQuestion(name: string) {
+  return `안녕하세요, ${name}님. 간단한 자기소개와 지원동기를 말씀해주세요.`;
+}
 
 interface Education {
   schoolName: string;
