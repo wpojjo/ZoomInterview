@@ -157,27 +157,6 @@ export type Database = {
           },
         ]
       }
-      guest_sessions: {
-        Row: {
-          createdAt: string
-          expiresAt: string
-          id: string
-          sessionToken: string
-        }
-        Insert: {
-          createdAt?: string
-          expiresAt: string
-          id: string
-          sessionToken: string
-        }
-        Update: {
-          createdAt?: string
-          expiresAt?: string
-          id?: string
-          sessionToken?: string
-        }
-        Relationships: []
-      }
       job_postings: {
         Row: {
           createdAt: string
@@ -185,10 +164,10 @@ export type Database = {
           preferredQuals: string | null
           requirements: string | null
           responsibilities: string | null
-          sessionId: string
           sourceType: string
           sourceUrl: string | null
           updatedAt: string
+          userId: string
         }
         Insert: {
           createdAt?: string
@@ -196,10 +175,10 @@ export type Database = {
           preferredQuals?: string | null
           requirements?: string | null
           responsibilities?: string | null
-          sessionId: string
           sourceType: string
           sourceUrl?: string | null
           updatedAt?: string
+          userId: string
         }
         Update: {
           createdAt?: string
@@ -207,52 +186,36 @@ export type Database = {
           preferredQuals?: string | null
           requirements?: string | null
           responsibilities?: string | null
-          sessionId?: string
           sourceType?: string
           sourceUrl?: string | null
           updatedAt?: string
+          userId?: string
         }
-        Relationships: [
-          {
-            foreignKeyName: "job_postings_sessionId_fkey"
-            columns: ["sessionId"]
-            isOneToOne: false
-            referencedRelation: "guest_sessions"
-            referencedColumns: ["id"]
-          },
-        ]
+        Relationships: []
       }
       profiles: {
         Row: {
           createdAt: string
           id: string
           name: string
-          sessionId: string
           updatedAt: string
+          userId: string
         }
         Insert: {
           createdAt?: string
           id: string
           name: string
-          sessionId: string
           updatedAt?: string
+          userId: string
         }
         Update: {
           createdAt?: string
           id?: string
           name?: string
-          sessionId?: string
           updatedAt?: string
+          userId?: string
         }
-        Relationships: [
-          {
-            foreignKeyName: "profiles_sessionId_fkey"
-            columns: ["sessionId"]
-            isOneToOne: true
-            referencedRelation: "guest_sessions"
-            referencedColumns: ["id"]
-          },
-        ]
+        Relationships: []
       }
     }
     Views: {

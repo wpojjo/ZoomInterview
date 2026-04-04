@@ -38,9 +38,6 @@ export default function JobPostingForm({ initialData }: { initialData?: InitialD
     setAnalysis(null);
 
     try {
-      await fetch("/api/session");
-
-      // 1. 저장
       const saveRes = await fetch("/api/job-posting", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -53,7 +50,6 @@ export default function JobPostingForm({ initialData }: { initialData?: InitialD
         return;
       }
 
-      // 2. 분석
       const analyzeRes = await fetch("/api/job-posting/analyze", { method: "POST" });
       const analyzeData = await analyzeRes.json();
       if (!analyzeRes.ok) {
@@ -77,11 +73,11 @@ export default function JobPostingForm({ initialData }: { initialData?: InitialD
   const isLoading = status === "loading";
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       {/* URL 입력 */}
-      <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-5 space-y-4">
+      <div className="card p-5 space-y-4">
         <div className="space-y-2">
-          <label className="text-sm font-medium text-gray-700">채용공고 URL</label>
+          <label className="text-sm font-medium text-gray-700 dark:text-slate-300">채용공고 URL</label>
           <input
             type="url"
             value={url}
@@ -89,60 +85,75 @@ export default function JobPostingForm({ initialData }: { initialData?: InitialD
             onKeyDown={(e) => { if (e.key === "Enter") handleAnalyze(); }}
             placeholder="https://www.wanted.co.kr/wd/..."
             disabled={isLoading}
-            className="w-full border border-gray-300 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:bg-gray-50 disabled:text-gray-400"
+            className="input disabled:opacity-50"
           />
-          <p className="text-xs text-gray-400">원티드, 잡코리아, 링크드인 등의 채용공고 링크를 붙여넣으세요</p>
+          <p className="text-xs text-gray-400 dark:text-slate-500">원티드, 잡코리아, 링크드인 등의 채용공고 링크를 붙여넣으세요</p>
         </div>
 
         {status === "error" && (
-          <p className="text-red-500 text-sm">{errorMessage}</p>
+          <div className="bg-red-50 border border-red-100 text-red-600 text-sm rounded-xl px-4 py-3 dark:bg-red-900/30 dark:border-red-800 dark:text-red-400">
+            {errorMessage}
+          </div>
         )}
       </div>
 
       {/* 버튼 */}
-      <div className="flex items-center justify-between">
-        <Link
-          href="/profile"
-          className="text-gray-600 font-medium px-5 py-2.5 rounded-lg border border-gray-300 hover:bg-gray-50 transition-colors text-sm"
-        >
+      <div className="flex items-center justify-between gap-3">
+        <Link href="/profile" className="btn-secondary">
           ← 프로필 수정
         </Link>
         <button
           onClick={handleAnalyze}
           disabled={isLoading || !url.trim()}
-          className="bg-blue-600 text-white font-semibold px-6 py-2.5 rounded-lg hover:bg-blue-700 disabled:opacity-60 disabled:cursor-not-allowed transition-colors text-sm"
+          className="btn-primary"
         >
-          {isLoading ? "분석 중..." : "분석하기"}
+          {isLoading ? (
+            <span className="flex items-center gap-2">
+              <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24" fill="none">
+                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z" />
+              </svg>
+              분석 중...
+            </span>
+          ) : "분석하기"}
         </button>
       </div>
 
-      {/* 분석 결과 */}
+      {/* 로딩 */}
       {isLoading && (
-        <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-8 text-center">
-          <div className="text-gray-400 text-sm">채용공고를 분석하고 있습니다. 잠시 기다려주세요...</div>
+        <div className="card p-8 text-center space-y-2">
+          <div className="flex justify-center">
+            <svg className="animate-spin h-6 w-6 text-blue-500" viewBox="0 0 24 24" fill="none">
+              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z" />
+            </svg>
+          </div>
+          <p className="text-sm text-gray-400 dark:text-slate-500">채용공고를 분석하고 있습니다</p>
+          <p className="text-xs text-gray-300 dark:text-slate-600">최대 2분 정도 소요될 수 있습니다</p>
         </div>
       )}
 
+      {/* 분석 결과 */}
       {(status === "success" || (status === "idle" && analysis)) && analysis && (
-        <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-5 space-y-4">
-          <h2 className="text-base font-semibold text-gray-900">분석 결과</h2>
+        <div className="card p-5 space-y-4">
+          <h2 className="text-base font-semibold text-gray-900 dark:text-slate-100">분석 결과</h2>
           {(
             [
-              { key: "responsibilities" as const, label: "담당업무" },
-              { key: "requirements"     as const, label: "지원 자격" },
-              { key: "preferredQuals"   as const, label: "우대사항" },
+              { key: "responsibilities" as const, label: "담당업무", color: "blue" },
+              { key: "requirements"     as const, label: "지원 자격", color: "indigo" },
+              { key: "preferredQuals"   as const, label: "우대사항", color: "violet" },
             ]
           ).map(({ key, label }) => (
-            <div key={key} className="bg-gray-50 rounded-lg p-4">
-              <p className="text-xs font-semibold text-blue-600 mb-2">{label}</p>
-              <p className="text-sm text-gray-700 whitespace-pre-wrap">
+            <div key={key} className="bg-gray-50 dark:bg-slate-700/50 rounded-xl p-4">
+              <p className="text-xs font-semibold text-blue-600 dark:text-blue-400 mb-2">{label}</p>
+              <p className="text-sm text-gray-700 dark:text-slate-300 whitespace-pre-wrap leading-relaxed">
                 {analysis[key] || "해당 내용 없음"}
               </p>
             </div>
           ))}
           <Link
             href="/interview"
-            className="flex items-center justify-center w-full bg-green-600 text-white font-semibold py-3 rounded-lg hover:bg-green-700 transition-colors text-sm"
+            className="flex items-center justify-center w-full bg-green-600 text-white font-semibold py-3 rounded-xl hover:bg-green-700 active:scale-95 transition-all text-sm"
           >
             면접 시작하기 →
           </Link>

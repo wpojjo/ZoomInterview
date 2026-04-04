@@ -1,19 +1,19 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabase } from "@/lib/supabase";
-import { getSessionFromCookie } from "@/lib/session";
+import { getAuthUser } from "@/lib/auth";
 import { jobPostingSchema } from "@/lib/schemas";
 
 export async function GET() {
   try {
-    const sessionId = await getSessionFromCookie();
-    if (!sessionId) {
-      return NextResponse.json({ error: "세션이 없습니다" }, { status: 401 });
+    const userId = await getAuthUser();
+    if (!userId) {
+      return NextResponse.json({ error: "로그인이 필요합니다" }, { status: 401 });
     }
 
     const { data: rows } = await supabase
       .from("job_postings")
       .select("*")
-      .eq("sessionId", sessionId)
+      .eq("userId", userId)
       .order("updatedAt", { ascending: false })
       .limit(1);
 
@@ -26,9 +26,9 @@ export async function GET() {
 
 export async function POST(request: NextRequest) {
   try {
-    const sessionId = await getSessionFromCookie();
-    if (!sessionId) {
-      return NextResponse.json({ error: "세션이 없습니다" }, { status: 401 });
+    const userId = await getAuthUser();
+    if (!userId) {
+      return NextResponse.json({ error: "로그인이 필요합니다" }, { status: 401 });
     }
 
     const body = await request.json();
@@ -47,7 +47,7 @@ export async function POST(request: NextRequest) {
     const { data: rows } = await supabase
       .from("job_postings")
       .select("id")
-      .eq("sessionId", sessionId)
+      .eq("userId", userId)
       .order("updatedAt", { ascending: false })
       .limit(1);
 
@@ -74,7 +74,7 @@ export async function POST(request: NextRequest) {
         .from("job_postings")
         .insert({
           id: crypto.randomUUID(),
-          sessionId,
+          userId,
           sourceType: "LINK",
           sourceUrl,
           updatedAt: now,

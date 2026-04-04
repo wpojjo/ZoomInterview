@@ -2,58 +2,56 @@ import Link from "next/link";
 
 export default function HomePage() {
   return (
-    <main className="min-h-screen flex flex-col items-center justify-center px-4 py-16">
-      <div className="max-w-2xl w-full text-center space-y-8">
+    <main className="min-h-screen flex flex-col items-center justify-center px-4 py-16 bg-gradient-to-b from-blue-50 via-white to-white dark:from-slate-900 dark:via-slate-900 dark:to-slate-900">
+      <div className="max-w-2xl w-full text-center space-y-10">
+
         {/* Hero */}
-        <div className="space-y-4">
-          <div className="inline-flex items-center gap-2 bg-blue-50 text-blue-700 text-sm font-medium px-3 py-1 rounded-full border border-blue-200">
-            비회원 무료 체험
+        <div className="space-y-5">
+          <div className="inline-flex items-center gap-2 bg-blue-100 text-blue-700 text-xs font-semibold px-3 py-1.5 rounded-full dark:bg-blue-900/40 dark:text-blue-300">
+            AI 기반 면접 연습
           </div>
-          <h1 className="text-4xl font-bold text-gray-900 leading-tight">
+          <h1 className="text-4xl sm:text-5xl font-extrabold text-gray-900 leading-tight tracking-tight dark:text-slate-50">
             AI 면접 코치
           </h1>
-          <p className="text-xl text-gray-600">
-            내 이력서와 채용공고를 분석해 맞춤형 면접 질문을 드립니다
+          <p className="text-lg text-gray-500 dark:text-slate-400 max-w-md mx-auto leading-relaxed">
+            내 이력서와 채용공고를 분석해<br className="sm:hidden" /> 맞춤형 면접 질문을 드립니다
           </p>
         </div>
 
         {/* CTA */}
-        <Link
-          href="/profile"
-          className="inline-block bg-blue-600 text-white font-semibold text-lg px-10 py-4 rounded-xl hover:bg-blue-700 active:scale-95 transition-all shadow-md"
-        >
-          지금 시작하기 →
-        </Link>
+        <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
+          <Link
+            href="/login"
+            className="w-full sm:w-auto inline-flex items-center justify-center gap-2 bg-blue-600 text-white font-semibold text-base px-8 py-3.5 rounded-xl hover:bg-blue-700 active:scale-95 transition-all shadow-lg shadow-blue-200 dark:shadow-blue-900/40"
+          >
+            지금 시작하기 →
+          </Link>
+          <Link
+            href="/signup"
+            className="w-full sm:w-auto inline-flex items-center justify-center gap-2 bg-white text-gray-700 font-semibold text-base px-8 py-3.5 rounded-xl border border-gray-200 hover:bg-gray-50 active:scale-95 transition-all dark:bg-slate-800 dark:text-slate-200 dark:border-slate-700 dark:hover:bg-slate-700"
+          >
+            회원가입
+          </Link>
+        </div>
 
         {/* Steps */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mt-8">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mt-4">
           {[
-            { step: "1", title: "프로필 입력", desc: "학력·경력·자격증을 입력하세요" },
-            { step: "2", title: "채용공고 등록", desc: "지원할 공고를 붙여넣으세요" },
-            { step: "3", title: "AI 면접 연습", desc: "맞춤 질문으로 연습하세요" },
+            { step: "1", title: "프로필 입력", desc: "학력·경력·자격증을 입력하세요", color: "blue" },
+            { step: "2", title: "채용공고 등록", desc: "지원할 공고 링크를 붙여넣으세요", color: "indigo" },
+            { step: "3", title: "AI 면접 연습", desc: "맞춤 질문으로 실전처럼 연습하세요", color: "violet" },
           ].map((item) => (
             <div
               key={item.step}
-              className="bg-white rounded-xl p-5 border border-gray-200 shadow-sm text-left"
+              className="bg-white/80 backdrop-blur-sm rounded-2xl p-5 border border-gray-100 shadow-card text-left hover:shadow-card-md transition-shadow dark:bg-slate-800/80 dark:border-slate-700"
             >
-              <div className="w-8 h-8 bg-blue-100 text-blue-700 font-bold rounded-full flex items-center justify-center text-sm mb-3">
+              <div className="w-8 h-8 bg-blue-600 text-white font-bold rounded-lg flex items-center justify-center text-sm mb-3">
                 {item.step}
               </div>
-              <h3 className="font-semibold text-gray-900">{item.title}</h3>
-              <p className="text-sm text-gray-500 mt-1">{item.desc}</p>
+              <h3 className="font-semibold text-gray-900 dark:text-slate-100">{item.title}</h3>
+              <p className="text-sm text-gray-500 dark:text-slate-400 mt-1">{item.desc}</p>
             </div>
           ))}
-        </div>
-
-        {/* Notice */}
-        <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 text-sm text-amber-800 text-left space-y-1">
-          <p className="font-medium">비회원 체험 안내</p>
-          <ul className="list-disc list-inside space-y-1 text-amber-700">
-            <li>로그인 없이 즉시 시작할 수 있습니다</li>
-            <li>입력하신 정보는 이 기기의 세션(30일)에 저장됩니다</li>
-            <li>브라우저 쿠키를 삭제하면 데이터가 초기화됩니다</li>
-            <li>개인정보는 서버에 암호화되어 저장되며 다른 용도로 사용되지 않습니다</li>
-          </ul>
         </div>
       </div>
     </main>

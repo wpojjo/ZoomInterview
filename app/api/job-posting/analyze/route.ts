@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { supabase } from "@/lib/supabase";
-import { getSessionFromCookie } from "@/lib/session";
+import { getAuthUser } from "@/lib/auth";
 
 const PYTHON_SERVER_URL = process.env.PYTHON_SERVER_URL ?? "http://localhost:8000";
 
@@ -12,15 +12,15 @@ interface PythonExtractResult {
 
 export async function POST() {
   try {
-    const sessionId = await getSessionFromCookie();
-    if (!sessionId) {
-      return NextResponse.json({ error: "세션이 없습니다" }, { status: 401 });
+    const userId = await getAuthUser();
+    if (!userId) {
+      return NextResponse.json({ error: "로그인이 필요합니다" }, { status: 401 });
     }
 
     const { data: rows } = await supabase
       .from("job_postings")
       .select("*")
-      .eq("sessionId", sessionId)
+      .eq("userId", userId)
       .order("updatedAt", { ascending: false })
       .limit(1);
 

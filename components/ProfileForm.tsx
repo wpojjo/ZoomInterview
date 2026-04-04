@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { ProfileInput } from "@/lib/schemas";
 
 type ProfileData = ProfileInput & { id?: string };
@@ -80,6 +80,7 @@ export default function ProfileForm({ initialData }: { initialData?: InitialData
   const [activities, setActivities] = useState<Activity[]>(
     initialData?.activities?.length ? initialData.activities : []
   );
+  const router = useRouter();
   const [saving, setSaving] = useState(false);
   const [status, setStatus] = useState<"idle" | "success" | "error">("idle");
   const [errorMessage, setErrorMessage] = useState("");
@@ -88,10 +89,7 @@ export default function ProfileForm({ initialData }: { initialData?: InitialData
     setSaving(true);
     setStatus("idle");
     try {
-      // Ensure session exists first
-      await fetch("/api/session");
-
-      const res = await fetch("/api/profile", {
+        const res = await fetch("/api/profile", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ name, educations, careers, certifications, activities }),
@@ -101,7 +99,7 @@ export default function ProfileForm({ initialData }: { initialData?: InitialData
         setErrorMessage(data.error ?? "저장에 실패했습니다");
         setStatus("error");
       } else {
-        setStatus("success");
+        router.push("/job-posting");
       }
     } catch {
       setErrorMessage("네트워크 오류가 발생했습니다");
@@ -120,7 +118,7 @@ export default function ProfileForm({ initialData }: { initialData?: InitialData
           value={name}
           onChange={(e) => setName(e.target.value)}
           placeholder="홍길동"
-          className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+          className="input"
         />
       </Card>
 
@@ -130,13 +128,13 @@ export default function ProfileForm({ initialData }: { initialData?: InitialData
         onAdd={() => setEducations((prev) => [...prev, newEducation()])}
       >
         {educations.length === 0 && (
-          <p className="text-sm text-gray-400 text-center py-4">학력을 추가해주세요</p>
+          <p className="text-sm text-gray-400 dark:text-slate-500 text-center py-4">학력을 추가해주세요</p>
         )}
         {educations.map((edu, i) => (
-          <div key={i} className="border border-gray-200 rounded-lg p-4 space-y-3 relative">
+          <div key={i} className="border border-gray-100 dark:border-slate-600 rounded-xl p-4 space-y-3 relative bg-gray-50/50 dark:bg-slate-700/30">
             <button
               onClick={() => setEducations((prev) => prev.filter((_, idx) => idx !== i))}
-              className="absolute top-3 right-3 text-gray-400 hover:text-red-500 text-xs"
+              className="absolute top-3 right-3 text-gray-400 hover:text-red-500 text-xs transition-colors"
             >
               삭제
             </button>
@@ -200,10 +198,10 @@ export default function ProfileForm({ initialData }: { initialData?: InitialData
           <p className="text-sm text-gray-400 text-center py-4">경력을 추가해주세요</p>
         )}
         {careers.map((career, i) => (
-          <div key={i} className="border border-gray-200 rounded-lg p-4 space-y-3 relative">
+          <div key={i} className="border border-gray-100 dark:border-slate-600 rounded-xl p-4 space-y-3 relative bg-gray-50/50 dark:bg-slate-700/30">
             <button
               onClick={() => setCareers((prev) => prev.filter((_, idx) => idx !== i))}
-              className="absolute top-3 right-3 text-gray-400 hover:text-red-500 text-xs"
+              className="absolute top-3 right-3 text-gray-400 hover:text-red-500 text-xs transition-colors"
             >
               삭제
             </button>
@@ -265,10 +263,10 @@ export default function ProfileForm({ initialData }: { initialData?: InitialData
           <p className="text-sm text-gray-400 text-center py-4">자격증을 추가해주세요</p>
         )}
         {certifications.map((cert, i) => (
-          <div key={i} className="border border-gray-200 rounded-lg p-4 relative">
+          <div key={i} className="border border-gray-100 dark:border-slate-600 rounded-xl p-4 relative bg-gray-50/50 dark:bg-slate-700/30">
             <button
               onClick={() => setCertifications((prev) => prev.filter((_, idx) => idx !== i))}
-              className="absolute top-3 right-3 text-gray-400 hover:text-red-500 text-xs"
+              className="absolute top-3 right-3 text-gray-400 hover:text-red-500 text-xs transition-colors"
             >
               삭제
             </button>
@@ -304,10 +302,10 @@ export default function ProfileForm({ initialData }: { initialData?: InitialData
           <p className="text-sm text-gray-400 text-center py-4">대외활동을 추가해주세요</p>
         )}
         {activities.map((act, i) => (
-          <div key={i} className="border border-gray-200 rounded-lg p-4 space-y-3 relative">
+          <div key={i} className="border border-gray-100 dark:border-slate-600 rounded-xl p-4 space-y-3 relative bg-gray-50/50 dark:bg-slate-700/30">
             <button
               onClick={() => setActivities((prev) => prev.filter((_, idx) => idx !== i))}
-              className="absolute top-3 right-3 text-gray-400 hover:text-red-500 text-xs"
+              className="absolute top-3 right-3 text-gray-400 hover:text-red-500 text-xs transition-colors"
             >
               삭제
             </button>
@@ -361,32 +359,17 @@ export default function ProfileForm({ initialData }: { initialData?: InitialData
       </Card>
 
       {/* Save Button & Status */}
-      <div className="flex flex-col sm:flex-row items-center justify-between gap-4 pt-2">
-        <div className="h-8">
-          {status === "success" && (
-            <p className="text-green-600 text-sm font-medium flex items-center gap-1">
-              ✓ 저장되었습니다
-            </p>
-          )}
-          {status === "error" && (
-            <p className="text-red-500 text-sm">{errorMessage}</p>
-          )}
-        </div>
-        <div className="flex gap-3">
-          <button
-            onClick={handleSave}
-            disabled={saving}
-            className="bg-blue-600 text-white font-semibold px-6 py-2.5 rounded-lg hover:bg-blue-700 disabled:opacity-60 disabled:cursor-not-allowed transition-colors text-sm"
-          >
-            {saving ? "저장 중..." : "저장하기"}
-          </button>
-          <Link
-            href="/job-posting"
-            className="bg-gray-900 text-white font-semibold px-6 py-2.5 rounded-lg hover:bg-gray-800 transition-colors text-sm"
-          >
-            다음: 채용공고 입력 →
-          </Link>
-        </div>
+      <div className="flex flex-col sm:flex-row items-center justify-end gap-3 pt-2 pb-6">
+        {status === "error" && (
+          <p className="text-red-500 text-sm">{errorMessage}</p>
+        )}
+        <button
+          onClick={handleSave}
+          disabled={saving}
+          className="btn-primary w-full sm:w-auto px-8"
+        >
+          {saving ? "저장 중..." : "다음 →"}
+        </button>
       </div>
     </div>
   );
@@ -402,13 +385,13 @@ function Card({
   onAdd?: () => void;
 }) {
   return (
-    <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
-      <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
-        <h2 className="font-semibold text-gray-800">{title}</h2>
+    <div className="card overflow-hidden">
+      <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100 dark:border-slate-700">
+        <h2 className="font-semibold text-gray-800 dark:text-slate-100">{title}</h2>
         {onAdd && (
           <button
             onClick={onAdd}
-            className="text-blue-600 text-sm font-medium hover:text-blue-700 flex items-center gap-1"
+            className="text-blue-600 dark:text-blue-400 text-sm font-medium hover:text-blue-700 dark:hover:text-blue-300 transition-colors flex items-center gap-1"
           >
             + 추가
           </button>
@@ -428,7 +411,7 @@ function FormField({
 }) {
   return (
     <div className="space-y-1">
-      <label className="text-xs font-medium text-gray-600">{label}</label>
+      <label className="text-xs font-medium text-gray-500 dark:text-slate-400">{label}</label>
       {children}
     </div>
   );

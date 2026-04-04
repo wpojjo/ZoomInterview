@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabase } from "@/lib/supabase";
-import { getSessionFromCookie } from "@/lib/session";
+import { getAuthUser } from "@/lib/auth";
 import {
   generateInterviewQuestion,
   Message,
@@ -9,9 +9,9 @@ import {
 
 export async function POST(request: NextRequest) {
   try {
-    const sessionId = await getSessionFromCookie();
-    if (!sessionId) {
-      return NextResponse.json({ error: "세션이 없습니다" }, { status: 401 });
+    const userId = await getAuthUser();
+    if (!userId) {
+      return NextResponse.json({ error: "로그인이 필요합니다" }, { status: 401 });
     }
 
     const body = await request.json();
@@ -27,7 +27,7 @@ export async function POST(request: NextRequest) {
     const { data: profile } = await supabase
       .from("profiles")
       .select("*")
-      .eq("sessionId", sessionId)
+      .eq("userId", userId)
       .maybeSingle();
 
     if (!profile) {
@@ -52,7 +52,7 @@ export async function POST(request: NextRequest) {
     const { data: jobPosting } = await supabase
       .from("job_postings")
       .select("responsibilities, requirements, preferredQuals")
-      .eq("sessionId", sessionId)
+      .eq("userId", userId)
       .order("updatedAt", { ascending: false })
       .limit(1)
       .maybeSingle();

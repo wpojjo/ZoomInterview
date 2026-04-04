@@ -1,19 +1,19 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabase } from "@/lib/supabase";
-import { getSessionFromCookie } from "@/lib/session";
+import { getAuthUser } from "@/lib/auth";
 import { profileSchema } from "@/lib/schemas";
 
 export async function GET() {
   try {
-    const sessionId = await getSessionFromCookie();
-    if (!sessionId) {
-      return NextResponse.json({ error: "세션이 없습니다" }, { status: 401 });
+    const userId = await getAuthUser();
+    if (!userId) {
+      return NextResponse.json({ error: "로그인이 필요합니다" }, { status: 401 });
     }
 
     const { data: profile } = await supabase
       .from("profiles")
       .select("*")
-      .eq("sessionId", sessionId)
+      .eq("userId", userId)
       .maybeSingle();
 
     if (!profile) {
@@ -49,9 +49,9 @@ export async function GET() {
 
 export async function POST(request: NextRequest) {
   try {
-    const sessionId = await getSessionFromCookie();
-    if (!sessionId) {
-      return NextResponse.json({ error: "세션이 없습니다" }, { status: 401 });
+    const userId = await getAuthUser();
+    if (!userId) {
+      return NextResponse.json({ error: "로그인이 필요합니다" }, { status: 401 });
     }
 
     const body = await request.json();
@@ -70,7 +70,7 @@ export async function POST(request: NextRequest) {
     const { data: existing } = await supabase
       .from("profiles")
       .select("id")
-      .eq("sessionId", sessionId)
+      .eq("userId", userId)
       .maybeSingle();
 
     let profileId: string;
@@ -86,7 +86,7 @@ export async function POST(request: NextRequest) {
       await supabase.from("profiles").update({ name, updatedAt: now }).eq("id", profileId);
     } else {
       profileId = crypto.randomUUID();
-      await supabase.from("profiles").insert({ id: profileId, sessionId, name, updatedAt: now });
+      await supabase.from("profiles").insert({ id: profileId, userId, name, updatedAt: now });
     }
 
     if (educations.length > 0)

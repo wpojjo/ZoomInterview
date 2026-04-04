@@ -50,13 +50,8 @@ export default function InterviewSession() {
     setError("");
 
     try {
-      // 이전 답변을 포함한 전체 대화 히스토리로 다음 질문 생성
       const question = await fetchQuestion(nextIndex, updatedMessages);
-
-      setMessages([
-        ...updatedMessages,
-        { role: "interviewer", content: question },
-      ]);
+      setMessages([...updatedMessages, { role: "interviewer", content: question }]);
       setQuestionIndex(nextIndex);
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : "질문 생성에 실패했습니다");
@@ -65,21 +60,20 @@ export default function InterviewSession() {
     }
   }
 
-  function handleRetry() {
-    setError("");
-  }
-
   if (isDone) {
     return (
-      <div className="flex flex-col items-center justify-center py-20 space-y-4 text-center">
-        <div className="text-4xl">🎉</div>
-        <h2 className="text-xl font-bold text-gray-900">면접이 완료됐습니다!</h2>
-        <p className="text-gray-500 text-sm">수고하셨습니다. 총 {TOTAL_QUESTIONS}개의 질문에 답하셨습니다.</p>
-        <div className="flex gap-3 pt-4">
-          <a
-            href="/job-posting"
-            className="px-5 py-2.5 rounded-lg border border-gray-300 text-gray-600 text-sm font-medium hover:bg-gray-50 transition-colors"
-          >
+      <div className="card flex flex-col items-center justify-center py-16 px-6 space-y-4 text-center">
+        <div className="w-16 h-16 bg-green-100 dark:bg-green-900/30 rounded-2xl flex items-center justify-center text-3xl">
+          🎉
+        </div>
+        <div>
+          <h2 className="text-xl font-bold text-gray-900 dark:text-slate-50">면접 완료!</h2>
+          <p className="text-gray-500 dark:text-slate-400 text-sm mt-1">
+            총 {TOTAL_QUESTIONS}개의 질문에 답하셨습니다. 수고하셨습니다.
+          </p>
+        </div>
+        <div className="flex flex-col sm:flex-row gap-3 pt-2 w-full sm:w-auto">
+          <a href="/job-posting" className="btn-secondary text-center">
             채용공고 변경
           </a>
           <button
@@ -89,7 +83,7 @@ export default function InterviewSession() {
               setIsDone(false);
               setAnswer("");
             }}
-            className="px-5 py-2.5 rounded-lg bg-blue-600 text-white text-sm font-semibold hover:bg-blue-700 transition-colors"
+            className="btn-primary"
           >
             다시 연습하기
           </button>
@@ -102,24 +96,24 @@ export default function InterviewSession() {
   const pastMessages = messages.slice(0, -1);
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       {/* 진행 상황 */}
       <div className="flex items-center gap-3">
-        <div className="flex gap-1.5">
+        <div className="flex gap-1.5 flex-1">
           {Array.from({ length: TOTAL_QUESTIONS }).map((_, i) => (
             <div
               key={i}
-              className={`h-1.5 w-6 rounded-full transition-colors ${
+              className={`h-1.5 flex-1 rounded-full transition-all duration-300 ${
                 i < questionIndex
                   ? "bg-blue-600"
                   : i === questionIndex
-                  ? "bg-blue-300"
-                  : "bg-gray-200"
+                  ? "bg-blue-300 dark:bg-blue-700"
+                  : "bg-gray-200 dark:bg-slate-700"
               }`}
             />
           ))}
         </div>
-        <span className="text-xs text-gray-400">
+        <span className="text-xs text-gray-400 dark:text-slate-500 whitespace-nowrap">
           {questionIndex + 1} / {TOTAL_QUESTIONS}
         </span>
       </div>
@@ -133,10 +127,10 @@ export default function InterviewSession() {
               className={`flex ${m.role === "candidate" ? "justify-end" : "justify-start"}`}
             >
               <div
-                className={`max-w-[80%] rounded-2xl px-4 py-3 text-sm leading-relaxed ${
+                className={`max-w-[85%] sm:max-w-[75%] rounded-2xl px-4 py-3 text-sm leading-relaxed ${
                   m.role === "interviewer"
-                    ? "bg-gray-100 text-gray-800 rounded-tl-sm"
-                    : "bg-blue-600 text-white rounded-tr-sm"
+                    ? "bg-white dark:bg-slate-800 border border-gray-100 dark:border-slate-700 text-gray-700 dark:text-slate-300 rounded-tl-sm shadow-card"
+                    : "bg-blue-600 text-white rounded-tr-sm shadow-sm"
                 }`}
               >
                 {m.content}
@@ -147,27 +141,31 @@ export default function InterviewSession() {
       )}
 
       {/* 현재 질문 */}
-      <div className="bg-white rounded-xl border border-blue-100 shadow-sm p-5 space-y-1">
-        <p className="text-xs font-semibold text-blue-600 mb-2">면접관</p>
-        <p className="text-gray-900 text-base leading-relaxed">{currentQuestion}</p>
+      <div className="card border-blue-100 dark:border-blue-900/50 p-5 space-y-1">
+        <p className="text-xs font-semibold text-blue-600 dark:text-blue-400 mb-2">면접관</p>
+        <p className="text-gray-900 dark:text-slate-100 text-base leading-relaxed">{currentQuestion}</p>
       </div>
 
-      {/* 로딩 중 */}
+      {/* 로딩 */}
       {isLoading && (
         <div className="flex justify-start">
-          <div className="bg-gray-100 rounded-2xl rounded-tl-sm px-4 py-3 text-sm text-gray-400">
-            질문을 생성하고 있습니다...
+          <div className="bg-white dark:bg-slate-800 border border-gray-100 dark:border-slate-700 rounded-2xl rounded-tl-sm px-4 py-3 shadow-card">
+            <div className="flex gap-1 items-center">
+              <span className="w-1.5 h-1.5 bg-gray-400 rounded-full animate-bounce [animation-delay:0ms]" />
+              <span className="w-1.5 h-1.5 bg-gray-400 rounded-full animate-bounce [animation-delay:150ms]" />
+              <span className="w-1.5 h-1.5 bg-gray-400 rounded-full animate-bounce [animation-delay:300ms]" />
+            </div>
           </div>
         </div>
       )}
 
       {/* 오류 */}
       {error && (
-        <div className="flex items-center gap-3">
-          <p className="text-red-500 text-sm">{error}</p>
+        <div className="bg-red-50 dark:bg-red-900/30 border border-red-100 dark:border-red-800 rounded-xl px-4 py-3 flex items-center justify-between">
+          <p className="text-red-600 dark:text-red-400 text-sm">{error}</p>
           <button
-            onClick={handleRetry}
-            className="text-sm text-blue-600 underline"
+            onClick={() => setError("")}
+            className="text-sm text-blue-600 dark:text-blue-400 font-medium hover:underline ml-3"
           >
             재시도
           </button>
@@ -175,7 +173,7 @@ export default function InterviewSession() {
       )}
 
       {/* 답변 입력 */}
-      <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-4 space-y-3">
+      <div className="card p-4 space-y-3">
         <textarea
           value={answer}
           onChange={(e) => setAnswer(e.target.value)}
@@ -185,16 +183,16 @@ export default function InterviewSession() {
           placeholder="답변을 입력하세요 (Ctrl+Enter로 제출)"
           disabled={isLoading}
           rows={4}
-          className="w-full resize-none border-0 outline-none text-sm text-gray-800 placeholder-gray-400 disabled:opacity-50"
+          className="w-full resize-none border-0 outline-none text-sm text-gray-800 dark:text-slate-200 placeholder-gray-400 dark:placeholder-slate-500 bg-transparent disabled:opacity-50"
         />
-        <div className="flex justify-between items-center">
-          <span className="text-xs text-gray-400">{answer.length}자</span>
+        <div className="flex justify-between items-center pt-1 border-t border-gray-100 dark:border-slate-700">
+          <span className="text-xs text-gray-400 dark:text-slate-500">{answer.length}자</span>
           <button
             onClick={handleSubmit}
             disabled={isLoading || !answer.trim()}
-            className="bg-blue-600 text-white text-sm font-semibold px-5 py-2 rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            className="btn-primary py-2 px-5"
           >
-            {questionIndex + 1 >= TOTAL_QUESTIONS ? "면접 완료" : "답변 제출"}
+            {questionIndex + 1 >= TOTAL_QUESTIONS ? "면접 완료" : "제출 →"}
           </button>
         </div>
       </div>
