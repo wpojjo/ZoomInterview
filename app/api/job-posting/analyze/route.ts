@@ -4,21 +4,41 @@ import { getSessionFromCookie } from "@/lib/session";
 import { extractJobPostingInfo } from "@/lib/claude";
 
 const MAX_CHARS = 20_000;
+const PYTHON_SERVER_URL = process.env.PYTHON_SERVER_URL ?? "http://localhost:8000";
 
-async function fetchAndStripHtml(url: string): Promise<string> {
-  const res = await fetch(url, {
-    headers: { "User-Agent": "Mozilla/5.0 (compatible; AI-Interview-Bot/1.0)" },
-    signal: AbortSignal.timeout(10_000),
+interface PythonExtractResult {
+  "업무 내용"?: string[];
+  "지원 자격"?: string[];
+  "우대 사항"?: string[];
+}
+
+async function extractViaPlaywright(url: string): Promise<{
+  responsibilities: string;
+  requirements: string;
+  preferredQuals: string;
+  companyInfo: null;
+}> {
+  const res = await fetch(`${PYTHON_SERVER_URL}/extract`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ url }),
+    signal: AbortSignal.timeout(60_000),
   });
-  if (!res.ok) throw new Error(`URL 페이지를 가져올 수 없습니다 (${res.status}). 텍스트로 직접 붙여넣기를 이용해주세요.`);
-  const html = await res.text();
-  return html
-    .replace(/<script[\s\S]*?<\/script>/gi, "")
-    .replace(/<style[\s\S]*?<\/style>/gi, "")
-    .replace(/<[^>]+>/g, " ")
-    .replace(/\s+/g, " ")
-    .trim()
-    .slice(0, MAX_CHARS);
+
+  if (!res.ok) {
+    const detail = await res.json().catch(() => ({}));
+    throw new Error(detail?.detail ?? `크롤링 서버 오류 (${res.status})`);
+  }
+
+  const data: PythonExtractResult = await res.json();
+  const join = (arr?: string[]) => (arr ?? []).join("\n");
+
+  return {
+    responsibilities: join(data["업무 내용"]),
+    requirements: join(data["지원 자격"]),
+    preferredQuals: join(data["우대 사항"]),
+    companyInfo: null,
+  };
 }
 
 export async function POST() {
@@ -40,26 +60,32 @@ export async function POST() {
       return NextResponse.json({ error: "저장된 채용공고가 없습니다" }, { status: 404 });
     }
 
-    let textToAnalyze: string;
-
     if (posting.sourceType === "PDF") {
       return NextResponse.json(
         { error: "PDF 분석은 아직 지원되지 않습니다. 텍스트로 붙여넣기를 이용해주세요." },
         { status: 400 }
       );
-    } else if (posting.sourceType === "LINK") {
+    }
+
+    let analysis: {
+      companyInfo: string | null;
+      responsibilities: string;
+      requirements: string;
+      preferredQuals: string;
+    };
+
+    if (posting.sourceType === "LINK") {
       if (!posting.sourceUrl) {
         return NextResponse.json({ error: "URL이 없습니다" }, { status: 400 });
       }
-      textToAnalyze = await fetchAndStripHtml(posting.sourceUrl);
+      analysis = await extractViaPlaywright(posting.sourceUrl);
     } else {
       if (!posting.rawText) {
         return NextResponse.json({ error: "텍스트가 없습니다" }, { status: 400 });
       }
-      textToAnalyze = posting.rawText.slice(0, MAX_CHARS);
+      const result = await extractJobPostingInfo(posting.rawText.slice(0, MAX_CHARS));
+      analysis = result;
     }
-
-    const analysis = await extractJobPostingInfo(textToAnalyze);
 
     const now = new Date().toISOString();
     const { data: updated } = await supabase
