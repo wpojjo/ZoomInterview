@@ -36,3 +36,11 @@ next-env.d.ts
 # claude code
 CLAUDE.md
 .claude/
+
+# playwright mcp
+.playwright-mcp/
+test-*.png
+
+# python cache
+server/__pycache__/
+**/*.pyc
