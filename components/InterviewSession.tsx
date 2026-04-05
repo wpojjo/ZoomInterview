@@ -92,8 +92,10 @@ export default function InterviewSession({ name }: { name: string }) {
     );
   }
 
-  const currentQuestion = messages.findLast((m) => m.role === "interviewer")?.content ?? "";
-  const pastMessages = messages.slice(0, -1);
+  const isAnswered = messages[messages.length - 1]?.role === "candidate";
+  const lastInterviewerIdx = messages.reduce((acc, m, i) => m.role === "interviewer" ? i : acc, -1);
+  const currentQuestion = isAnswered ? "" : (messages[lastInterviewerIdx]?.content ?? "");
+  const pastMessages = isAnswered ? messages : messages.slice(0, lastInterviewerIdx);
 
   return (
     <div className="space-y-4">
@@ -141,10 +143,12 @@ export default function InterviewSession({ name }: { name: string }) {
       )}
 
       {/* 현재 질문 */}
-      <div className="card border-blue-100 dark:border-blue-900/50 p-5 space-y-1">
-        <p className="text-xs font-semibold text-blue-600 dark:text-blue-400 mb-2">면접관</p>
-        <p className="text-gray-900 dark:text-slate-100 text-base leading-relaxed">{currentQuestion}</p>
-      </div>
+      {currentQuestion && (
+        <div className="card border-blue-100 dark:border-blue-900/50 p-5 space-y-1">
+          <p className="text-xs font-semibold text-blue-600 dark:text-blue-400 mb-2">면접관</p>
+          <p className="text-gray-900 dark:text-slate-100 text-base leading-relaxed">{currentQuestion}</p>
+        </div>
+      )}
 
       {/* 로딩 */}
       {isLoading && (
