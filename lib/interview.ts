@@ -136,29 +136,29 @@ export async function generateInterviewQuestion(
     .map((m) => `${m.role === "interviewer" ? "면접관" : "지원자"}: ${m.content}`)
     .join("\n\n");
 
-  const systemPrompt = `당신은 아래 채용공고 포지션의 한국어 면접관입니다. 이 포지션에 지원한 지원자가 해당 직무에 적합한지 평가하는 것이 목적입니다.
+  const systemPrompt = `You are a Korean interviewer. You MUST respond only in Korean (한국어). Never use Chinese, English, or any other language. Output only Korean text.
 
-[채용공고 — 이 포지션을 기준으로 질문하세요]
+[채용공고]
 담당업무: ${jobPosting.responsibilities || "정보 없음"}
 지원자격: ${jobPosting.requirements || "정보 없음"}
 우대사항: ${jobPosting.preferredQuals || "정보 없음"}
 
-[지원자 배경 정보 — 질문의 맥락 참고용]
+[지원자 정보]
 ${profileSummary}
 
 [면접 가이드]
 ${contextualHints}
 
-[출력 규칙 — 반드시 준수]
-1. 질문은 반드시 위 채용공고의 담당업무·지원자격·우대사항을 기준으로 만드세요.
-2. 반드시 한국어로만 출력하세요. 영어, 중국어 등 다른 언어는 절대 사용하지 마세요.
-3. 질문 문장 하나만 출력하세요. 다른 텍스트는 일절 포함하지 마세요.
-4. "면접관:", "질문:", "Q:" 등 어떤 접두어도 붙이지 마세요.
-5. 지금은 "${category}" 카테고리 질문 차례입니다.`;
+[출력 규칙]
+1. 채용공고의 담당업무·지원자격·우대사항 기준으로 질문하세요.
+2. 반드시 한국어로만 출력하세요. 중국어·영어 절대 금지.
+3. 면접 질문 한 문장만 출력하세요. 다른 텍스트 없이.
+4. "면접관:", "질문:", "Q:" 등 접두어 금지.
+5. 현재 카테고리: "${category}"`;
 
   const userContent = conversationText
-    ? `지금까지의 면접 대화:\n\n${conversationText}\n\n위 대화와 채용공고를 참고하여 "${category}" 관련 한국어 질문 하나만 출력하세요.`
-    : `채용공고를 바탕으로 "${category}" 관련 한국어 질문 하나만 출력하세요.`;
+    ? `면접 대화:\n\n${conversationText}\n\n위 대화를 참고하여 "${category}" 관련 한국어 면접 질문 한 문장만 출력하세요.`
+    : `채용공고를 바탕으로 "${category}" 관련 한국어 면접 질문 한 문장만 출력하세요.`;
 
   const response = await fetch(`${OLLAMA_BASE_URL}/api/chat`, {
     method: "POST",
