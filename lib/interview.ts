@@ -162,7 +162,7 @@ ${contextualHints}
 
   const response = await fetch(`${OLLAMA_BASE_URL}/api/chat`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: { "Content-Type": "application/json", "ngrok-skip-browser-warning": "true" },
     body: JSON.stringify({
       model: OLLAMA_MODEL,
       stream: false,
