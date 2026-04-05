@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect } from "react";
 import { Message, TOTAL_QUESTIONS, getFirstQuestion } from "@/lib/interview";
+import type { FeedbackResult } from "@/app/api/interview/feedback/route";
 
 const ANSWER_TIME_LIMIT = 80;
 
@@ -16,10 +17,31 @@ async function fetchQuestion(index: number, msgs: Message[]): Promise<string> {
   return data.question;
 }
 
+async function fetchFeedback(msgs: Message[]): Promise<FeedbackResult> {
+  const res = await fetch("/api/interview/feedback", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ messages: msgs }),
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error ?? "피드백 생성에 실패했습니다");
+  return data.feedback;
+}
+
 function formatTime(seconds: number) {
   const m = Math.floor(seconds / 60);
   const s = seconds % 60;
   return `${m}:${s.toString().padStart(2, "0")}`;
+}
+
+function ScoreRing({ score }: { score: number }) {
+  const color = score >= 80 ? "text-green-500" : score >= 60 ? "text-blue-500" : "text-orange-500";
+  return (
+    <div className={`text-5xl font-bold ${color}`}>
+      {score}
+      <span className="text-2xl text-gray-400 dark:text-slate-500 font-normal">/100</span>
+    </div>
+  );
 }
 
 export default function InterviewSession({ name }: { name: string }) {
@@ -30,20 +52,21 @@ export default function InterviewSession({ name }: { name: string }) {
   const [questionIndex, setQuestionIndex] = useState(0);
   const [isLoading, setIsLoading] = useState(false);
   const [isDone, setIsDone] = useState(false);
+  const [isFetchingFeedback, setIsFetchingFeedback] = useState(false);
+  const [feedback, setFeedback] = useState<FeedbackResult | null>(null);
+  const [feedbackError, setFeedbackError] = useState("");
   const [error, setError] = useState("");
   const [timeLeft, setTimeLeft] = useState(ANSWER_TIME_LIMIT);
   const bottomRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages, isLoading]);
+  }, [messages, isLoading, isDone]);
 
-  // 새 질문이 올 때마다 타이머 리셋
   useEffect(() => {
     setTimeLeft(ANSWER_TIME_LIMIT);
   }, [questionIndex]);
 
-  // 타이머 카운트다운
   useEffect(() => {
     if (isDone || isLoading) return;
     if (timeLeft <= 0) return;
@@ -65,6 +88,16 @@ export default function InterviewSession({ name }: { name: string }) {
     const nextIndex = questionIndex + 1;
     if (nextIndex >= TOTAL_QUESTIONS) {
       setIsDone(true);
+      setIsFetchingFeedback(true);
+      setFeedbackError("");
+      try {
+        const result = await fetchFeedback(updatedMessages);
+        setFeedback(result);
+      } catch (e: unknown) {
+        setFeedbackError(e instanceof Error ? e.message : "피드백 생성에 실패했습니다");
+      } finally {
+        setIsFetchingFeedback(false);
+      }
       return;
     }
 
@@ -82,34 +115,106 @@ export default function InterviewSession({ name }: { name: string }) {
     }
   }
 
-  if (isDone) {
+  function handleRestart() {
+    setMessages([{ role: "interviewer", content: getFirstQuestion(name) }]);
+    setQuestionIndex(0);
+    setIsDone(false);
+    setAnswer("");
+    setTimeLeft(ANSWER_TIME_LIMIT);
+    setFeedback(null);
+    setFeedbackError("");
+  }
+
+  // 피드백 로딩 화면
+  if (isDone && isFetchingFeedback) {
     return (
-      <div className="card flex flex-col items-center justify-center py-16 px-6 space-y-4 text-center">
-        <div className="w-16 h-16 bg-green-100 dark:bg-green-900/30 rounded-2xl flex items-center justify-center text-3xl">
-          🎉
+      <div className="card flex flex-col items-center justify-center py-20 px-6 space-y-4 text-center">
+        <div className="flex gap-1.5">
+          <span className="w-2 h-2 bg-blue-500 rounded-full animate-bounce [animation-delay:0ms]" />
+          <span className="w-2 h-2 bg-blue-500 rounded-full animate-bounce [animation-delay:150ms]" />
+          <span className="w-2 h-2 bg-blue-500 rounded-full animate-bounce [animation-delay:300ms]" />
         </div>
-        <div>
+        <p className="text-gray-600 dark:text-slate-400 font-medium">면접 피드백을 생성하고 있습니다</p>
+        <p className="text-gray-400 dark:text-slate-500 text-sm">잠시만 기다려주세요...</p>
+      </div>
+    );
+  }
+
+  // 피드백 결과 화면
+  if (isDone && feedback) {
+    return (
+      <div className="space-y-6">
+        {/* 헤더 */}
+        <div className="card p-6 text-center space-y-3">
           <h2 className="text-xl font-bold text-gray-900 dark:text-slate-50">면접 완료!</h2>
-          <p className="text-gray-500 dark:text-slate-400 text-sm mt-1">
-            총 {TOTAL_QUESTIONS}개의 질문에 답하셨습니다. 수고하셨습니다.
+          <p className="text-gray-500 dark:text-slate-400 text-sm">
+            {name}님의 면접 피드백입니다
           </p>
+          <ScoreRing score={feedback.score} />
         </div>
-        <div className="flex flex-col sm:flex-row gap-3 pt-2 w-full sm:w-auto">
+
+        {/* 총평 */}
+        <div className="card p-6 space-y-4">
+          <h3 className="font-bold text-gray-900 dark:text-slate-50">종합 평가</h3>
+          <div className="space-y-3">
+            <div className="bg-green-50 dark:bg-green-900/20 rounded-xl p-4">
+              <p className="text-xs font-semibold text-green-600 dark:text-green-400 mb-1">강점</p>
+              <p className="text-sm text-gray-700 dark:text-slate-300 leading-relaxed">{feedback.overall.strengths}</p>
+            </div>
+            <div className="bg-orange-50 dark:bg-orange-900/20 rounded-xl p-4">
+              <p className="text-xs font-semibold text-orange-600 dark:text-orange-400 mb-1">약점</p>
+              <p className="text-sm text-gray-700 dark:text-slate-300 leading-relaxed">{feedback.overall.weaknesses}</p>
+            </div>
+            <div className="bg-blue-50 dark:bg-blue-900/20 rounded-xl p-4">
+              <p className="text-xs font-semibold text-blue-600 dark:text-blue-400 mb-1">핵심 조언</p>
+              <p className="text-sm text-gray-700 dark:text-slate-300 leading-relaxed">{feedback.overall.advice}</p>
+            </div>
+          </div>
+        </div>
+
+        {/* 질문별 피드백 */}
+        <div className="space-y-3">
+          <h3 className="font-bold text-gray-900 dark:text-slate-50 px-1">질문별 피드백</h3>
+          {feedback.perQuestion.map((q, i) => (
+            <div key={i} className="card p-5 space-y-3">
+              <p className="text-xs font-semibold text-blue-600 dark:text-blue-400">Q{i + 1}</p>
+              <p className="text-sm text-gray-700 dark:text-slate-300 leading-relaxed">{q.question}</p>
+              <div className="space-y-2 pt-1">
+                <div className="flex gap-2">
+                  <span className="text-green-500 text-xs font-semibold mt-0.5 shrink-0">잘한 점</span>
+                  <p className="text-xs text-gray-600 dark:text-slate-400 leading-relaxed">{q.good}</p>
+                </div>
+                <div className="flex gap-2">
+                  <span className="text-orange-500 text-xs font-semibold mt-0.5 shrink-0">개선점</span>
+                  <p className="text-xs text-gray-600 dark:text-slate-400 leading-relaxed">{q.improve}</p>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {/* 액션 버튼 */}
+        <div className="flex flex-col sm:flex-row gap-3">
           <a href="/job-posting" className="btn-secondary text-center">
             채용공고 변경
           </a>
-          <button
-            onClick={() => {
-              setMessages([{ role: "interviewer", content: getFirstQuestion(name) }]);
-              setQuestionIndex(0);
-              setIsDone(false);
-              setAnswer("");
-              setTimeLeft(ANSWER_TIME_LIMIT);
-            }}
-            className="btn-primary"
-          >
+          <button onClick={handleRestart} className="btn-primary">
             다시 연습하기
           </button>
+        </div>
+      </div>
+    );
+  }
+
+  // 피드백 에러 화면
+  if (isDone && feedbackError) {
+    return (
+      <div className="card flex flex-col items-center justify-center py-16 px-6 space-y-4 text-center">
+        <h2 className="text-xl font-bold text-gray-900 dark:text-slate-50">면접 완료!</h2>
+        <p className="text-red-500 text-sm">{feedbackError}</p>
+        <div className="flex gap-3">
+          <a href="/job-posting" className="btn-secondary">채용공고 변경</a>
+          <button onClick={handleRestart} className="btn-primary">다시 연습하기</button>
         </div>
       </div>
     );
