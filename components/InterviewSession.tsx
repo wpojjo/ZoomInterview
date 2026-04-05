@@ -3,6 +3,8 @@
 import { useState, useRef, useEffect } from "react";
 import { Message, TOTAL_QUESTIONS, getFirstQuestion } from "@/lib/interview";
 
+const ANSWER_TIME_LIMIT = 120;
+
 async function fetchQuestion(index: number, msgs: Message[]): Promise<string> {
   const res = await fetch("/api/interview/question", {
     method: "POST",
@@ -14,6 +16,12 @@ async function fetchQuestion(index: number, msgs: Message[]): Promise<string> {
   return data.question;
 }
 
+function formatTime(seconds: number) {
+  const m = Math.floor(seconds / 60);
+  const s = seconds % 60;
+  return `${m}:${s.toString().padStart(2, "0")}`;
+}
+
 export default function InterviewSession({ name }: { name: string }) {
   const [messages, setMessages] = useState<Message[]>([
     { role: "interviewer", content: getFirstQuestion(name) },
@@ -23,11 +31,25 @@ export default function InterviewSession({ name }: { name: string }) {
   const [isLoading, setIsLoading] = useState(false);
   const [isDone, setIsDone] = useState(false);
   const [error, setError] = useState("");
+  const [timeLeft, setTimeLeft] = useState(ANSWER_TIME_LIMIT);
   const bottomRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, isLoading]);
+
+  // 새 질문이 올 때마다 타이머 리셋
+  useEffect(() => {
+    setTimeLeft(ANSWER_TIME_LIMIT);
+  }, [questionIndex]);
+
+  // 타이머 카운트다운
+  useEffect(() => {
+    if (isDone || isLoading) return;
+    if (timeLeft <= 0) return;
+    const timer = setTimeout(() => setTimeLeft((t) => t - 1), 1000);
+    return () => clearTimeout(timer);
+  }, [timeLeft, isDone, isLoading]);
 
   async function handleSubmit() {
     const trimmed = answer.trim();
@@ -82,6 +104,7 @@ export default function InterviewSession({ name }: { name: string }) {
               setQuestionIndex(0);
               setIsDone(false);
               setAnswer("");
+              setTimeLeft(ANSWER_TIME_LIMIT);
             }}
             className="btn-primary"
           >
@@ -96,6 +119,9 @@ export default function InterviewSession({ name }: { name: string }) {
   const lastInterviewerIdx = messages.reduce((acc, m, i) => m.role === "interviewer" ? i : acc, -1);
   const currentQuestion = isAnswered ? "" : (messages[lastInterviewerIdx]?.content ?? "");
   const pastMessages = isAnswered ? messages : messages.slice(0, lastInterviewerIdx);
+
+  const isTimeWarning = timeLeft <= 30 && timeLeft > 0;
+  const isTimeUp = timeLeft === 0;
 
   return (
     <div className="space-y-4">
@@ -128,15 +154,19 @@ export default function InterviewSession({ name }: { name: string }) {
               key={i}
               className={`flex ${m.role === "candidate" ? "justify-end" : "justify-start"}`}
             >
-              <div
-                className={`max-w-[85%] sm:max-w-[75%] rounded-2xl px-4 py-3 text-sm leading-relaxed ${
-                  m.role === "interviewer"
-                    ? "bg-white dark:bg-slate-800 border border-gray-100 dark:border-slate-700 text-gray-700 dark:text-slate-300 rounded-tl-sm shadow-card"
-                    : "bg-blue-600 text-white rounded-tr-sm shadow-sm"
-                }`}
-              >
-                {m.content}
-              </div>
+              {m.role === "interviewer" && (
+                <div className="flex flex-col gap-1 max-w-[85%] sm:max-w-[75%]">
+                  <span className="text-xs font-semibold text-blue-600 dark:text-blue-400 pl-1">면접관</span>
+                  <div className="bg-white dark:bg-slate-800 border border-gray-100 dark:border-slate-700 text-gray-700 dark:text-slate-300 rounded-2xl rounded-tl-sm px-4 py-3 text-sm leading-relaxed shadow-card">
+                    {m.content}
+                  </div>
+                </div>
+              )}
+              {m.role === "candidate" && (
+                <div className="max-w-[85%] sm:max-w-[75%] bg-blue-600 text-white rounded-2xl rounded-tr-sm px-4 py-3 text-sm leading-relaxed shadow-sm">
+                  {m.content}
+                </div>
+              )}
             </div>
           ))}
         </div>
@@ -176,6 +206,13 @@ export default function InterviewSession({ name }: { name: string }) {
         </div>
       )}
 
+      {/* 시간 초과 경고 */}
+      {isTimeUp && (
+        <div className="bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-800 rounded-xl px-4 py-3 text-center">
+          <p className="text-red-600 dark:text-red-400 text-sm font-semibold">⏰ 시간이 초과됐습니다. 빠르게 답변을 마무리해주세요!</p>
+        </div>
+      )}
+
       {/* 답변 입력 */}
       <div className="card p-4 space-y-3">
         <textarea
@@ -190,7 +227,11 @@ export default function InterviewSession({ name }: { name: string }) {
           className="w-full resize-none border-0 outline-none text-sm text-gray-800 dark:text-slate-200 placeholder-gray-400 dark:placeholder-slate-500 bg-transparent disabled:opacity-50"
         />
         <div className="flex justify-between items-center pt-1 border-t border-gray-100 dark:border-slate-700">
-          <span className="text-xs text-gray-400 dark:text-slate-500">{answer.length}자</span>
+          <span className={`text-xs font-medium tabular-nums ${
+            isTimeUp ? "text-red-500" : isTimeWarning ? "text-orange-500" : "text-gray-400 dark:text-slate-500"
+          }`}>
+            {isTimeUp ? "시간 초과" : formatTime(timeLeft)}
+          </span>
           <button
             onClick={handleSubmit}
             disabled={isLoading || !answer.trim()}
