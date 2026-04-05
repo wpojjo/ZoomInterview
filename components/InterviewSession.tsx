@@ -3,7 +3,7 @@
 import { useState, useRef, useEffect } from "react";
 import { Message, TOTAL_QUESTIONS, getFirstQuestion } from "@/lib/interview";
 
-const ANSWER_TIME_LIMIT = 120;
+const ANSWER_TIME_LIMIT = 80;
 
 async function fetchQuestion(index: number, msgs: Message[]): Promise<string> {
   const res = await fetch("/api/interview/question", {
