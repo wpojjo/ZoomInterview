@@ -68,6 +68,25 @@ http://localhost:3000 접속
 Ollama가 별도 기기에서 실행 중이라면 OLLAMA_BASE_URL을 해당 기기의 IP로 설정하고,
 OLLAMA_HOST=0.0.0.0 ollama serve 로 외부 접근을 허용해야 합니다.
 
+## Vercel 배포 시 Ollama 연결 (ngrok)
+
+Vercel에 배포된 경우 Ollama 서버를 외부에서 접근 가능하게 ngrok으로 터널링해야 합니다.
+
+**Ollama가 있는 기기(맥북 등)에서 실행:**
+
+```bash
+# 1. Ollama 실행 (외부 Origin 허용)
+OLLAMA_ORIGINS="*" OLLAMA_HOST="0.0.0.0" ollama serve
+
+# 2. 새 터미널에서 ngrok 터널 실행
+ngrok http 11434
+```
+
+**Vercel 대시보드 설정:**
+- Settings → Environment Variables → `OLLAMA_BASE_URL`을 ngrok 주소로 변경 후 Redeploy
+
+> 주의: ngrok 무료 플랜은 재실행 시 주소가 바뀌므로 Vercel 환경변수도 매번 업데이트 필요.
+
 ## 프로젝트 구조
 
 ```
