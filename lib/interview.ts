@@ -11,6 +11,15 @@ const QUESTION_CATEGORIES = [
   "회사/문화 적합성",   // 4
 ] as const;
 
+// 각 카테고리별 질문 의도 — 모델이 카테고리를 정확히 이해하도록 영어로 설명
+const CATEGORY_GUIDE: Record<string, string> = {
+  "자기소개/지원동기": "Ask about the candidate's background and specific reasons for applying to this company and role.",
+  "직무 역량": "Verify technical skills and competencies required for the job based on responsibilities and requirements in the job posting.",
+  "경험 기반": "Draw out concrete past experiences (projects, internships, activities) using the STAR method (Situation, Task, Action, Result).",
+  "심화": "Follow up on unclear or interesting points from the candidate's previous answers to dig deeper.",
+  "회사/문화 적합성": "Assess the candidate's understanding of the company's values and culture, and their organizational fit.",
+};
+
 export const TOTAL_QUESTIONS = QUESTION_CATEGORIES.length;
 export function getFirstQuestion(name: string) {
   return `안녕하세요, ${name}님. 간단한 자기소개와 지원동기를 말씀해주세요.`;
@@ -89,23 +98,28 @@ function buildProfileSummary(profile: ProfileContext): string {
   return lines.join("\n");
 }
 
+// 지원자 프로필을 분석해 면접관에게 전달할 상황별 힌트를 생성
+// (경력자/신입 여부, 전공-직무 불일치 여부 등)
 function buildContextualHints(
   profile: ProfileContext,
   jobPosting: JobPostingContext,
 ): string {
   const hints: string[] = [];
 
+  // 경력자면 이직 동기 질문을 유도하고, 이전 직무 기술 질문은 금지
   if (profile.careers.length > 0) {
     const careerNames = profile.careers.map((c) => `${c.companyName}(${c.role})`).join(", ");
     hints.push(
-      `- 지원자는 경력자입니다(${careerNames}). 이전 직장과 이번 채용공고 포지션이 다를 수 있으므로, 이직·지원 동기나 이 직무에 기여할 수 있는 점을 물어볼 수 있습니다. 이전 직무 자체에 대한 기술 질문은 하지 마세요.`,
+      `- The candidate is an experienced hire (${careerNames}). Focus on their motivation for switching jobs and how their past experience contributes to this role. Do NOT ask technical questions specific to their previous job.`,
     );
   } else {
+    // 신입은 프로젝트·인턴·활동 경험 위주로 질문
     hints.push(
-      "- 지원자는 신입입니다. 채용공고 직무 관련 경험(인턴, 프로젝트, 활동 등)을 위주로 질문하세요.",
+      "- The candidate is a new graduate with no full-time work experience. Focus on internships, personal projects, and extracurricular activities related to the job.",
     );
   }
 
+  // 전공과 지원 직무가 다를 경우 지원 동기를 추가로 파악
   if (profile.educations.length > 0) {
     const major = profile.educations[0].major ?? "";
     const jobText = (jobPosting.responsibilities + jobPosting.requirements).toLowerCase();
@@ -114,7 +128,7 @@ function buildContextualHints(
     const jobIsIT = itKeywords.some((k) => jobText.includes(k));
     if (!majorIsIT && jobIsIT) {
       hints.push(
-        `- 지원자의 전공(${major})이 지원 직무와 다릅니다. 전공과 다른 분야에 지원한 이유를 물어볼 수 있습니다.`,
+        `- The candidate's major (${major}) does not match the job field. You may ask why they are applying to a field outside their major.`,
       );
     }
   }
@@ -136,29 +150,32 @@ export async function generateInterviewQuestion(
     .map((m) => `${m.role === "interviewer" ? "면접관" : "지원자"}: ${m.content}`)
     .join("\n\n");
 
-  const systemPrompt = `You are a Korean interviewer. You MUST respond only in Korean (한국어). Never use Chinese, English, or any other language. Output only Korean text.
+  const categoryGuide = CATEGORY_GUIDE[category] ?? category;
 
-[채용공고]
-담당업무: ${jobPosting.responsibilities || "정보 없음"}
-지원자격: ${jobPosting.requirements || "정보 없음"}
-우대사항: ${jobPosting.preferredQuals || "정보 없음"}
+  // system: 면접관 역할·채용공고·지원자 정보·출력 규칙 주입
+  const systemPrompt = `You are a professional Korean job interviewer. Always respond in Korean only.
 
-[지원자 정보]
+[Job Posting]
+Responsibilities: ${jobPosting.responsibilities || "N/A"}
+Requirements: ${jobPosting.requirements || "N/A"}
+Preferred Qualifications: ${jobPosting.preferredQuals || "N/A"}
+
+[Candidate Profile]
 ${profileSummary}
 
-[면접 가이드]
+[Interview Guide]
 ${contextualHints}
 
-[출력 규칙]
-1. 채용공고의 담당업무·지원자격·우대사항 기준으로 질문하세요.
-2. 반드시 한국어로만 출력하세요. 중국어·영어 절대 금지.
-3. 면접 질문 한 문장만 출력하세요. 다른 텍스트 없이.
-4. "면접관:", "질문:", "Q:" 등 접두어 금지.
-5. 현재 카테고리: "${category}"`;
+[Output Rules]
+1. Base your question on the job posting's responsibilities and requirements.
+2. Output exactly one interview question in Korean. No extra text.
+3. Do not prefix with "면접관:", "질문:", "Q:", or anything similar.
+4. Current category: "${category}" — ${categoryGuide}`;
 
+  // user: 대화 히스토리가 있으면 꼬리질문, 없으면 첫 질문 생성 요청
   const userContent = conversationText
-    ? `면접 대화:\n\n${conversationText}\n\n위 대화를 참고하여 "${category}" 관련 한국어 면접 질문 한 문장만 출력하세요.`
-    : `채용공고를 바탕으로 "${category}" 관련 한국어 면접 질문 한 문장만 출력하세요.`;
+    ? `[Interview Conversation]\n${conversationText}\n\nBased on the conversation above, generate one Korean interview question for the "${category}" category. If the candidate's last answer lacks specifics or has an interesting point, prioritize a follow-up question on that.`
+    : `Based on the job posting and candidate profile, generate one Korean interview question for the "${category}" category.`;
 
   const response = await fetch(`${OLLAMA_BASE_URL}/api/chat`, {
     method: "POST",
