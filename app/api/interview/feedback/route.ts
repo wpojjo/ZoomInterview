@@ -4,11 +4,23 @@ import { supabase } from "@/lib/supabase";
 
 const OLLAMA_BASE_URL = process.env.OLLAMA_BASE_URL ?? "http://localhost:11434";
 const OLLAMA_MODEL = process.env.OLLAMA_MODEL ?? "qwen2.5:7b";
+const FEEDBACK_TIMEOUT_MS = 180_000;
+
+export interface Message {
+  role: "interviewer" | "candidate";
+  content: string;
+}
 
 export interface QuestionFeedback {
   question: string;
   good: string;
   improve: string;
+  score: {
+    specificity: number;
+    jobRelevance: number;
+    logic: number;
+    growth: number;
+  };
 }
 
 export interface FeedbackResult {
@@ -28,20 +40,19 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "로그인이 필요합니다" }, { status: 401 });
     }
 
-    const { messages } = await req.json();
+    const { messages }: { messages: Message[] } = await req.json();
 
-    const { data: jobPosting } = await supabase
+    const { data: jobPosting, error: dbError } = await supabase
       .from("job_postings")
       .select("responsibilities, requirements, preferredQuals")
       .eq("userId", userId)
       .order("updatedAt", { ascending: false })
       .limit(1)
       .maybeSingle();
+    if (dbError) console.warn("job_postings 조회 실패:", dbError.message);
 
     const conversationText = messages
-      .map((m: { role: string; content: string }) =>
-        `${m.role === "interviewer" ? "면접관" : "지원자"}: ${m.content}`
-      )
+      .map((m) => `${m.role === "interviewer" ? "면접관" : "지원자"}: ${m.content}`)
       .join("\n\n");
 
     // 채용공고가 있을 때만 섹션 포함 — 직무 연관성 채점에 활용
@@ -52,21 +63,39 @@ Requirements: ${jobPosting.requirements || "N/A"}
 Preferred Qualifications: ${jobPosting.preferredQuals || "N/A"}`
       : "";
 
-    // system: 코치 역할·채용공고·채점 기준 주입
-    // 채점 기준을 명시해야 점수가 일관되게 나옴
     const systemPrompt = `You are a professional Korean interview coach. Always respond in Korean only.
 Analyze the interview conversation below and evaluate the candidate's answers.
 ${jobPostingSection}
 
-[Scoring Criteria — total 100 points]
-- Specificity (30pts): Does the answer include concrete numbers, examples, or evidence?
-- Job Relevance (30pts): Does the answer align with the job posting's requirements?
-- Logic & Clarity (20pts): Is the answer clear, structured, and to the point?
-- Growth Potential (20pts): Does the candidate show self-awareness and willingness to improve?
+[Scoring Criteria — evaluate each answer on these four dimensions]
+1. Specificity (0-30pts)
+   - 30: Concrete numbers, specific project names, measurable outcomes cited
+   - 20: Some concrete details but lacking data or specifics
+   - 10: Vague, general statements only
+   - 0: No meaningful content
+
+2. Job Relevance (0-30pts)
+   - 30: Directly addresses the job's requirements or responsibilities listed above
+   - 20: Partially relevant but misses key requirements
+   - 10: Loosely related to the job
+   - 0: Unrelated to the position (or no job posting provided, give 15 as neutral)
+
+3. Logic & Clarity (0-20pts)
+   - 20: Structured answer (e.g. STAR method), clear and concise
+   - 13: Mostly clear but some rambling or missing structure
+   - 7: Hard to follow, jumps between points
+   - 0: Incoherent or non-answer
+
+4. Growth Potential (0-20pts)
+   - 20: Shows self-reflection, names specific lessons learned or improvement plans
+   - 13: Some self-awareness but surface-level
+   - 7: Defensive or no acknowledgement of areas to improve
+   - 0: Completely dismissive of growth
+
+Final score = average of per-question scores (sum of all four dimensions per question, averaged across questions). Round to nearest integer.
 
 Output ONLY valid JSON. No markdown, no code blocks, no extra text.`;
 
-    // user: 대화 내용과 JSON 출력 형식 지정
     const userContent = `[Interview Conversation]
 ${conversationText}
 
@@ -76,7 +105,13 @@ Analyze the interview conversation above and respond ONLY in the following JSON 
     {
       "question": "한 줄 질문 요약 (Korean)",
       "good": "잘한 점 1-2문장 (Korean)",
-      "improve": "개선할 점 1-2문장 (Korean)"
+      "improve": "개선할 점 1-2문장 (Korean)",
+      "score": {
+        "specificity": <0~30 사이 정수>,
+        "jobRelevance": <0~30 사이 정수>,
+        "logic": <0~20 사이 정수>,
+        "growth": <0~20 사이 정수>
+      }
     }
   ],
   "overall": {
@@ -84,12 +119,12 @@ Analyze the interview conversation above and respond ONLY in the following JSON 
     "weaknesses": "전체적인 약점 2-3문장 (Korean)",
     "advice": "핵심 조언 한 문장 (Korean)"
   },
-  "score": 75
+  "score": <각 질문 점수 합산 평균, 0~100 사이 정수>
 }
 
 Rules:
 - All text values must be written in Korean only.
-- score must be a number from 0 to 100 based on the scoring criteria.
+- score values must be integers within the specified ranges — do NOT use the example numbers above as defaults.
 - perQuestion must have one entry per interviewer question.
 - Output ONLY the JSON object, nothing else.`;
 
@@ -104,7 +139,7 @@ Rules:
           { role: "user", content: userContent },
         ],
       }),
-      signal: AbortSignal.timeout(180_000),
+      signal: AbortSignal.timeout(FEEDBACK_TIMEOUT_MS),
     });
 
     if (!response.ok) throw new Error(`Ollama 요청 실패 (${response.status})`);
