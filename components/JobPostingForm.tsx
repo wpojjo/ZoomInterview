@@ -29,6 +29,13 @@ export default function JobPostingForm({ initialData }: { initialData?: InitialD
         }
       : null
   );
+  const [manualMode, setManualMode] = useState(false);
+  const [manualFields, setManualFields] = useState({
+    responsibilities: "",
+    requirements: "",
+    preferredQuals: "",
+  });
+  const [manualLoading, setManualLoading] = useState(false);
 
   async function handleAnalyze() {
     if (!url.trim()) return;
@@ -70,6 +77,39 @@ export default function JobPostingForm({ initialData }: { initialData?: InitialD
     }
   }
 
+  async function handleManualSave() {
+    if (!manualFields.responsibilities.trim() || !manualFields.requirements.trim()) return;
+
+    setManualLoading(true);
+    try {
+      const res = await fetch("/api/job-posting/manual", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          responsibilities: manualFields.responsibilities.trim(),
+          requirements: manualFields.requirements.trim(),
+          preferredQuals: manualFields.preferredQuals.trim(),
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setErrorMessage(data.error ?? "저장에 실패했습니다");
+        return;
+      }
+      setAnalysis({
+        responsibilities: data.jobPosting.responsibilities ?? "",
+        requirements:     data.jobPosting.requirements     ?? "",
+        preferredQuals:   data.jobPosting.preferredQuals   ?? "",
+      });
+      setManualMode(false);
+      setStatus("success");
+    } catch {
+      setErrorMessage("네트워크 오류가 발생했습니다");
+    } finally {
+      setManualLoading(false);
+    }
+  }
+
   const isLoading = status === "loading";
 
   return (
@@ -91,11 +131,68 @@ export default function JobPostingForm({ initialData }: { initialData?: InitialD
         </div>
 
         {status === "error" && (
-          <div className="bg-red-50 border border-red-100 text-red-600 text-sm rounded-xl px-4 py-3 dark:bg-red-900/30 dark:border-red-800 dark:text-red-400">
-            {errorMessage}
+          <div className="space-y-3">
+            <div className="bg-red-50 border border-red-100 text-red-600 text-sm rounded-xl px-4 py-3 dark:bg-red-900/30 dark:border-red-800 dark:text-red-400">
+              {errorMessage}
+            </div>
+            {!manualMode && (
+              <button
+                onClick={() => { setManualMode(true); setErrorMessage(""); }}
+                className="w-full text-sm text-blue-600 dark:text-blue-400 border border-blue-200 dark:border-blue-800 rounded-xl py-2 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors"
+              >
+                직접 입력하기
+              </button>
+            )}
           </div>
         )}
       </div>
+
+      {/* 수동 입력 폼 */}
+      {manualMode && (
+        <div className="card p-5 space-y-4">
+          <div className="flex items-center justify-between">
+            <h2 className="text-base font-semibold text-gray-900 dark:text-slate-100">직접 입력</h2>
+            <button
+              onClick={() => { setManualMode(false); setStatus("error"); setErrorMessage(errorMessage || "분석에 실패했습니다"); }}
+              className="text-xs text-gray-400 dark:text-slate-500 hover:text-gray-600 dark:hover:text-slate-300"
+            >
+              URL로 다시 시도
+            </button>
+          </div>
+          {(
+            [
+              { key: "responsibilities" as const, label: "담당업무", required: true, placeholder: "주요 업무 내용을 입력하세요" },
+              { key: "requirements"     as const, label: "지원자격", required: true, placeholder: "필수 자격 요건을 입력하세요" },
+              { key: "preferredQuals"   as const, label: "우대사항", required: false, placeholder: "우대 사항을 입력하세요 (선택)" },
+            ]
+          ).map(({ key, label, required, placeholder }) => (
+            <div key={key} className="space-y-1">
+              <label className="text-sm font-medium text-gray-700 dark:text-slate-300">
+                {label}{required && <span className="text-red-500 ml-0.5">*</span>}
+              </label>
+              <textarea
+                value={manualFields[key]}
+                onChange={(e) => setManualFields((prev) => ({ ...prev, [key]: e.target.value }))}
+                placeholder={placeholder}
+                rows={4}
+                className="input resize-none"
+              />
+            </div>
+          ))}
+          {errorMessage && (
+            <div className="bg-red-50 border border-red-100 text-red-600 text-sm rounded-xl px-4 py-3 dark:bg-red-900/30 dark:border-red-800 dark:text-red-400">
+              {errorMessage}
+            </div>
+          )}
+          <button
+            onClick={handleManualSave}
+            disabled={manualLoading || !manualFields.responsibilities.trim() || !manualFields.requirements.trim()}
+            className="btn-primary w-full disabled:opacity-50"
+          >
+            {manualLoading ? "저장 중..." : "저장하기"}
+          </button>
+        </div>
+      )}
 
       {/* 버튼 */}
       <div className="flex items-center justify-between gap-3">

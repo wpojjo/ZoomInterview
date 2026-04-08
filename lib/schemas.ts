@@ -47,5 +47,12 @@ export const jobPostingSchema = z.object({
   sourceUrl: z.string().url("올바른 URL을 입력해주세요"),
 });
 
+export const jobPostingManualSchema = z.object({
+  responsibilities: z.string().min(1, "담당업무를 입력해주세요"),
+  requirements: z.string().min(1, "지원자격을 입력해주세요"),
+  preferredQuals: z.string(),
+});
+
 export type ProfileInput = z.infer<typeof profileSchema>;
 export type JobPostingInput = z.infer<typeof jobPostingSchema>;
+export type JobPostingManualInput = z.infer<typeof jobPostingManualSchema>;
