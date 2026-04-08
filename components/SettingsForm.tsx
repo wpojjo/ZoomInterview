@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "nextjs-toploader/app";
+import { createSupabaseBrowserClient } from "@/lib/supabase-browser";
 
 interface Education {
   id?: string;
@@ -57,54 +58,92 @@ function newActivity(): Activity {
   return { title: "", role: "", startDate: "", endDate: "", description: "" };
 }
 
-export default function ProfileForm({ name, initialData }: { name: string; initialData?: InitialData | null }) {
+export default function SettingsForm({ initialData }: { initialData: InitialData }) {
+  const [name, setName] = useState(initialData.name ?? "");
   const [educations, setEducations] = useState<Education[]>(
-    initialData?.educations?.length
+    initialData.educations?.length
       ? initialData.educations.map((e) => ({ ...e, graduationStatus: e.graduationStatus as Education["graduationStatus"] }))
       : []
   );
-  const [careers, setCareers] = useState<Career[]>(initialData?.careers ?? []);
-  const [certifications, setCertifications] = useState<Certification[]>(initialData?.certifications ?? []);
-  const [activities, setActivities] = useState<Activity[]>(initialData?.activities ?? []);
+  const [careers, setCareers] = useState<Career[]>(initialData.careers ?? []);
+  const [certifications, setCertifications] = useState<Certification[]>(initialData.certifications ?? []);
+  const [activities, setActivities] = useState<Activity[]>(initialData.activities ?? []);
+
   const router = useRouter();
   const [saving, setSaving] = useState(false);
-  const [status, setStatus] = useState<"idle" | "error">("idle");
-  const [errorMessage, setErrorMessage] = useState("");
+  const [saveStatus, setSaveStatus] = useState<"idle" | "success" | "error">("idle");
+  const [saveError, setSaveError] = useState("");
+
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [deleteConfirm, setDeleteConfirm] = useState("");
+  const [deleting, setDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState("");
+
+  const initials = name.trim() ? name.trim()[0] : "?";
 
   async function handleSave() {
+    if (!name.trim()) { setSaveError("이름을 입력해주세요"); setSaveStatus("error"); return; }
     setSaving(true);
-    setStatus("idle");
+    setSaveStatus("idle");
     try {
       const res = await fetch("/api/profile", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name, educations, careers, certifications, activities }),
+        body: JSON.stringify({ name: name.trim(), educations, careers, certifications, activities }),
       });
       const data = await res.json();
       if (!res.ok) {
-        setErrorMessage(data.error ?? "저장에 실패했습니다");
-        setStatus("error");
+        setSaveError(data.error ?? "저장에 실패했습니다");
+        setSaveStatus("error");
       } else {
-        router.push("/job-posting");
+        setSaveStatus("success");
+        setTimeout(() => setSaveStatus("idle"), 3000);
       }
     } catch {
-      setErrorMessage("네트워크 오류가 발생했습니다");
-      setStatus("error");
+      setSaveError("네트워크 오류가 발생했습니다");
+      setSaveStatus("error");
     } finally {
       setSaving(false);
     }
   }
 
+  async function handleDeleteAccount() {
+    if (deleteConfirm !== name.trim()) return;
+    setDeleting(true);
+    setDeleteError("");
+    try {
+      const res = await fetch("/api/account", { method: "DELETE" });
+      if (!res.ok) {
+        const data = await res.json();
+        setDeleteError(data.error ?? "탈퇴에 실패했습니다");
+        setDeleting(false);
+        return;
+      }
+      const supabase = createSupabaseBrowserClient();
+      await supabase.auth.signOut();
+      router.push("/login");
+    } catch {
+      setDeleteError("네트워크 오류가 발생했습니다");
+      setDeleting(false);
+    }
+  }
+
   return (
-    <div className="space-y-5 pb-6">
-      {/* 이름 확인 카드 */}
+    <div className="space-y-5 pb-10">
+      {/* 프로필 헤더 카드 */}
       <div className="card px-6 py-5 flex items-center gap-5">
-        <div className="w-14 h-14 rounded-2xl bg-blue-600 flex items-center justify-center shrink-0">
-          <span className="text-white text-xl font-bold">{name[0]}</span>
+        <div className="w-14 h-14 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center shrink-0 shadow-md">
+          <span className="text-white text-xl font-bold">{initials}</span>
         </div>
-        <div>
-          <p className="text-xs font-medium text-gray-400 dark:text-slate-500 mb-0.5">이름</p>
-          <p className="text-lg font-semibold text-gray-900 dark:text-slate-50">{name}</p>
+        <div className="flex-1 min-w-0">
+          <p className="text-xs font-medium text-gray-400 dark:text-slate-500 mb-1">이름</p>
+          <input
+            type="text"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            placeholder="이름을 입력하세요"
+            className="w-full bg-transparent text-lg font-semibold text-gray-900 dark:text-slate-50 placeholder-gray-300 dark:placeholder-slate-600 focus:outline-none border-b border-gray-300 dark:border-slate-600 hover:border-gray-400 dark:hover:border-slate-500 focus:border-blue-500 dark:focus:border-blue-400 pb-0.5 transition-colors"
+          />
         </div>
       </div>
 
@@ -230,15 +269,90 @@ export default function ProfileForm({ name, initialData }: { name: string; initi
       </Section>
 
       {/* 저장 버튼 */}
-      <div className="flex flex-col sm:flex-row items-center justify-end gap-3 pt-1">
-        {status === "error" && <p className="text-red-500 text-sm">{errorMessage}</p>}
-        <button onClick={handleSave} disabled={saving} className="btn-primary w-full sm:w-auto px-8">
-          {saving ? "저장 중..." : "다음 →"}
+      <div className="flex items-center justify-end gap-3 pt-1">
+        {saveStatus === "error" && <p className="text-red-500 text-sm">{saveError}</p>}
+        {saveStatus === "success" && (
+          <span className="flex items-center gap-1.5 text-green-600 dark:text-green-400 text-sm font-medium">
+            <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+            저장되었습니다
+          </span>
+        )}
+        <button onClick={handleSave} disabled={saving} className="btn-primary px-8">
+          {saving ? "저장 중..." : "저장하기"}
         </button>
       </div>
+
+      {/* 위험 구역 */}
+      <div className="mt-4 rounded-2xl border border-red-100 dark:border-red-900/40 overflow-hidden">
+        <div className="px-6 py-4 bg-red-50/60 dark:bg-red-900/10 border-b border-red-100 dark:border-red-900/40">
+          <h3 className="text-sm font-semibold text-red-700 dark:text-red-400">주의</h3>
+        </div>
+        <div className="px-6 py-5 flex items-center justify-between gap-4">
+          <div>
+            <p className="text-sm font-medium text-gray-800 dark:text-slate-200">계정 삭제</p>
+            <p className="text-xs text-gray-500 dark:text-slate-400 mt-0.5">모든 데이터가 영구 삭제되며 복구할 수 없습니다</p>
+          </div>
+          <button
+            onClick={() => setShowDeleteModal(true)}
+            className="shrink-0 text-sm font-medium text-red-600 dark:text-red-400 border border-red-200 dark:border-red-800 px-4 py-2 rounded-xl hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
+          >
+            회원 탈퇴
+          </button>
+        </div>
+      </div>
+
+      {/* 탈퇴 확인 모달 */}
+      {showDeleteModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4" onClick={(e) => { if (e.target === e.currentTarget) { setShowDeleteModal(false); setDeleteConfirm(""); setDeleteError(""); } }}>
+          <div className="bg-white dark:bg-slate-800 rounded-2xl w-full max-w-sm shadow-2xl overflow-hidden">
+            <div className="px-6 pt-6 pb-5 space-y-4">
+              <div className="w-11 h-11 rounded-full bg-red-100 dark:bg-red-900/30 flex items-center justify-center">
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-red-600 dark:text-red-400"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+              </div>
+              <div>
+                <h3 className="text-base font-bold text-gray-900 dark:text-slate-50">정말 탈퇴하시겠습니까?</h3>
+                <p className="text-sm text-gray-500 dark:text-slate-400 mt-1">
+                  프로필, 채용공고, 면접 기록이 모두 삭제됩니다. 이 작업은 되돌릴 수 없습니다.
+                </p>
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-xs font-medium text-gray-500 dark:text-slate-400">
+                  확인을 위해 이름 <span className="font-bold text-gray-700 dark:text-slate-200">{name.trim()}</span>을 입력하세요
+                </label>
+                <input
+                  type="text"
+                  value={deleteConfirm}
+                  onChange={(e) => setDeleteConfirm(e.target.value)}
+                  placeholder={name.trim()}
+                  className="input"
+                  autoFocus
+                />
+              </div>
+              {deleteError && <p className="text-red-500 text-sm">{deleteError}</p>}
+            </div>
+            <div className="px-6 pb-6 flex gap-2.5">
+              <button
+                onClick={() => { setShowDeleteModal(false); setDeleteConfirm(""); setDeleteError(""); }}
+                className="flex-1 btn-secondary"
+              >
+                취소
+              </button>
+              <button
+                onClick={handleDeleteAccount}
+                disabled={deleteConfirm !== name.trim() || deleting}
+                className="flex-1 py-2.5 text-sm font-semibold text-white bg-red-600 rounded-xl hover:bg-red-700 disabled:opacity-40 disabled:cursor-not-allowed transition-all"
+              >
+                {deleting ? "탈퇴 중..." : "탈퇴하기"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
+
+// ── 하위 컴포넌트 ──────────────────────────────────────────
 
 function Section({
   title,

@@ -1,3 +1,4 @@
+import { redirect } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import { getAuthUser } from "@/lib/auth";
 import ProfileNameForm from "@/components/ProfileNameForm";
@@ -12,6 +13,7 @@ export default async function ProfilePage() {
       .select("name")
       .eq("userId", userId)
       .maybeSingle();
+    if (data?.name) redirect("/job-posting");
     existingName = data?.name;
   }
 

@@ -1,6 +1,9 @@
 import Link from "next/link";
+import { getAuthUser } from "@/lib/auth";
 
-export default function HomePage() {
+export default async function HomePage() {
+  const userId = await getAuthUser();
+
   return (
     <main className="min-h-screen flex flex-col items-center justify-center px-4 py-16 bg-gradient-to-b from-blue-50 via-white to-white dark:from-slate-900 dark:via-slate-900 dark:to-slate-900">
       <div className="max-w-2xl w-full text-center space-y-10">
@@ -20,26 +23,37 @@ export default function HomePage() {
 
         {/* CTA */}
         <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
-          <Link
-            href="/login"
-            className="w-full sm:w-auto inline-flex items-center justify-center gap-2 bg-blue-600 text-white font-semibold text-base px-8 py-3.5 rounded-xl hover:bg-blue-700 active:scale-95 transition-all shadow-lg shadow-blue-200 dark:shadow-blue-900/40"
-          >
-            시작하기
-          </Link>
-          <Link
-            href="/signup"
-            className="w-full sm:w-auto inline-flex items-center justify-center gap-2 bg-white text-gray-700 font-semibold text-base px-8 py-3.5 rounded-xl border border-gray-200 hover:bg-gray-50 active:scale-95 transition-all dark:bg-slate-800 dark:text-slate-200 dark:border-slate-700 dark:hover:bg-slate-700"
-          >
-            회원가입
-          </Link>
+          {userId ? (
+            <Link
+              href="/job-posting"
+              className="w-full sm:w-auto inline-flex items-center justify-center gap-2 bg-blue-600 text-white font-semibold text-base px-8 py-3.5 rounded-xl hover:bg-blue-700 active:scale-95 transition-all shadow-lg shadow-blue-200 dark:shadow-blue-900/40"
+            >
+              면접 시작하기 →
+            </Link>
+          ) : (
+            <>
+              <Link
+                href="/login"
+                className="w-full sm:w-auto inline-flex items-center justify-center gap-2 bg-blue-600 text-white font-semibold text-base px-8 py-3.5 rounded-xl hover:bg-blue-700 active:scale-95 transition-all shadow-lg shadow-blue-200 dark:shadow-blue-900/40"
+              >
+                시작하기
+              </Link>
+              <Link
+                href="/signup"
+                className="w-full sm:w-auto inline-flex items-center justify-center gap-2 bg-white text-gray-700 font-semibold text-base px-8 py-3.5 rounded-xl border border-gray-200 hover:bg-gray-50 active:scale-95 transition-all dark:bg-slate-800 dark:text-slate-200 dark:border-slate-700 dark:hover:bg-slate-700"
+              >
+                회원가입
+              </Link>
+            </>
+          )}
         </div>
 
         {/* Steps */}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mt-4">
           {[
-            { step: "1", title: "프로필 입력", desc: "학력·경력·자격증 입력", color: "blue" },
-            { step: "2", title: "채용공고 등록", desc: "지원할 공고 링크 붙여넣기", color: "indigo" },
-            { step: "3", title: "AI 면접 연습", desc: "맞춤 질문으로 실전 연습", color: "violet" },
+            { step: "1", title: "프로필 입력", desc: "학력·경력·자격증 입력" },
+            { step: "2", title: "채용공고 등록", desc: "지원할 공고 링크 붙여넣기" },
+            { step: "3", title: "AI 면접 연습", desc: "맞춤 질문으로 실전 연습" },
           ].map((item) => (
             <div
               key={item.step}

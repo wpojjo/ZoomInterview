@@ -196,7 +196,7 @@ export default function JobPostingForm({ initialData }: { initialData?: InitialD
 
       {/* 버튼 */}
       <div className="flex items-center justify-between gap-3">
-        <Link href="/profile" className="btn-secondary">
+        <Link href="/settings" className="btn-secondary">
           ← 프로필 수정
         </Link>
         <button
