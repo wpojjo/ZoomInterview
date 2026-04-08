@@ -44,6 +44,87 @@ function ScoreRing({ score }: { score: number }) {
   );
 }
 
+type AvatarState = "speaking" | "thinking" | "idle";
+
+function InterviewerAvatar({ state }: { state: AvatarState }) {
+  const ringColor =
+    state === "speaking"
+      ? "ring-blue-500"
+      : state === "thinking"
+      ? "ring-gray-400"
+      : "ring-green-500";
+
+  return (
+    <div className="flex flex-col items-center gap-3">
+      {/* Avatar with animated rings */}
+      <div className="relative flex items-center justify-center">
+        {/* Ping rings for speaking */}
+        {state === "speaking" && (
+          <>
+            <span className="absolute w-28 h-28 rounded-full bg-blue-400/20 animate-ping" />
+            <span className="absolute w-24 h-24 rounded-full bg-blue-400/25 animate-ping [animation-delay:300ms]" />
+          </>
+        )}
+        {/* Pulse ring for thinking */}
+        {state === "thinking" && (
+          <span className="absolute w-28 h-28 rounded-full bg-gray-400/20 animate-pulse" />
+        )}
+        {/* Static ring for idle */}
+        {state === "idle" && (
+          <span className="absolute w-28 h-28 rounded-full border-4 border-green-400/40" />
+        )}
+
+        {/* Avatar circle */}
+        <div
+          className={`relative w-20 h-20 rounded-full overflow-hidden ring-4 ${ringColor} bg-gradient-to-br from-blue-600 to-indigo-700 flex-shrink-0`}
+        >
+          {/* Person silhouette */}
+          <svg viewBox="0 0 80 80" className="w-full h-full" fill="none">
+            <circle cx="40" cy="30" r="13" fill="rgba(255,255,255,0.92)" />
+            <ellipse cx="40" cy="72" rx="22" ry="16" fill="rgba(255,255,255,0.75)" />
+          </svg>
+        </div>
+      </div>
+
+      {/* Label and status */}
+      <div className="text-center space-y-1">
+        <p className="text-sm font-semibold text-gray-800 dark:text-slate-200">AI 면접관</p>
+        <div className="flex items-center justify-center gap-1.5 h-5">
+          {state === "speaking" && (
+            <>
+              {[0, 100, 200, 100, 0].map((delay, i) => (
+                <span
+                  key={i}
+                  className="w-1 bg-blue-500 rounded-full animate-bounce"
+                  style={{
+                    height: `${[8, 14, 10, 14, 8][i]}px`,
+                    animationDelay: `${delay}ms`,
+                  }}
+                />
+              ))}
+              <span className="text-xs text-blue-500 font-medium ml-1">질문 중</span>
+            </>
+          )}
+          {state === "thinking" && (
+            <>
+              <span className="w-1.5 h-1.5 bg-gray-400 rounded-full animate-bounce [animation-delay:0ms]" />
+              <span className="w-1.5 h-1.5 bg-gray-400 rounded-full animate-bounce [animation-delay:150ms]" />
+              <span className="w-1.5 h-1.5 bg-gray-400 rounded-full animate-bounce [animation-delay:300ms]" />
+              <span className="text-xs text-gray-400 dark:text-slate-500 ml-1">생각 중</span>
+            </>
+          )}
+          {state === "idle" && (
+            <>
+              <span className="w-1.5 h-1.5 bg-green-500 rounded-full" />
+              <span className="text-xs text-gray-400 dark:text-slate-500">답변 대기 중</span>
+            </>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function InterviewSession({ name }: { name: string }) {
   const [messages, setMessages] = useState<Message[]>([
     { role: "interviewer", content: getFirstQuestion(name) },
@@ -144,7 +225,6 @@ export default function InterviewSession({ name }: { name: string }) {
   if (isDone && feedback) {
     return (
       <div className="space-y-6">
-        {/* 헤더 */}
         <div className="card p-6 text-center space-y-3">
           <h2 className="text-xl font-bold text-gray-900 dark:text-slate-50">면접 완료!</h2>
           <p className="text-gray-500 dark:text-slate-400 text-sm">
@@ -153,7 +233,6 @@ export default function InterviewSession({ name }: { name: string }) {
           <ScoreRing score={feedback.score} />
         </div>
 
-        {/* 총평 */}
         <div className="card p-6 space-y-4">
           <h3 className="font-bold text-gray-900 dark:text-slate-50">종합 평가</h3>
           <div className="space-y-3">
@@ -172,7 +251,6 @@ export default function InterviewSession({ name }: { name: string }) {
           </div>
         </div>
 
-        {/* 질문별 피드백 */}
         <div className="space-y-3">
           <h3 className="font-bold text-gray-900 dark:text-slate-50 px-1">질문별 피드백</h3>
           {feedback.perQuestion.map((q, i) => (
@@ -193,7 +271,6 @@ export default function InterviewSession({ name }: { name: string }) {
           ))}
         </div>
 
-        {/* 액션 버튼 */}
         <div className="flex flex-col sm:flex-row gap-3">
           <a href="/job-posting" className="btn-secondary text-center">
             채용공고 변경
@@ -228,6 +305,8 @@ export default function InterviewSession({ name }: { name: string }) {
   const isTimeWarning = timeLeft <= 30 && timeLeft > 0;
   const isTimeUp = timeLeft === 0;
 
+  const avatarState: AvatarState = isLoading ? "thinking" : currentQuestion ? "speaking" : "idle";
+
   return (
     <div className="space-y-4">
       {/* 진행 상황 */}
@@ -251,6 +330,28 @@ export default function InterviewSession({ name }: { name: string }) {
         </span>
       </div>
 
+      {/* 면접관 영역 */}
+      <div className="card p-6 space-y-5">
+        <InterviewerAvatar state={avatarState} />
+
+        {/* 현재 질문 말풍선 */}
+        {(currentQuestion || isLoading) && (
+          <div className="bg-blue-50 dark:bg-blue-950/40 border border-blue-100 dark:border-blue-900/50 rounded-2xl px-4 py-3.5">
+            {isLoading ? (
+              <div className="flex gap-1.5 items-center py-0.5">
+                <span className="w-1.5 h-1.5 bg-blue-400 rounded-full animate-bounce [animation-delay:0ms]" />
+                <span className="w-1.5 h-1.5 bg-blue-400 rounded-full animate-bounce [animation-delay:150ms]" />
+                <span className="w-1.5 h-1.5 bg-blue-400 rounded-full animate-bounce [animation-delay:300ms]" />
+              </div>
+            ) : (
+              <p className="text-sm text-gray-800 dark:text-slate-200 leading-relaxed">
+                {currentQuestion}
+              </p>
+            )}
+          </div>
+        )}
+      </div>
+
       {/* 이전 대화 */}
       {pastMessages.length > 0 && (
         <div className="space-y-3">
@@ -268,33 +369,15 @@ export default function InterviewSession({ name }: { name: string }) {
                 </div>
               )}
               {m.role === "candidate" && (
-                <div className="max-w-[85%] sm:max-w-[75%] bg-blue-600 text-white rounded-2xl rounded-tr-sm px-4 py-3 text-sm leading-relaxed shadow-sm">
-                  {m.content}
+                <div className="flex flex-col gap-1 items-end max-w-[85%] sm:max-w-[75%]">
+                  <span className="text-xs font-semibold text-gray-400 dark:text-slate-500 pr-1">나</span>
+                  <div className="bg-blue-600 text-white rounded-2xl rounded-tr-sm px-4 py-3 text-sm leading-relaxed shadow-sm">
+                    {m.content}
+                  </div>
                 </div>
               )}
             </div>
           ))}
-        </div>
-      )}
-
-      {/* 현재 질문 */}
-      {currentQuestion && (
-        <div className="card border-blue-100 dark:border-blue-900/50 p-5 space-y-1">
-          <p className="text-xs font-semibold text-blue-600 dark:text-blue-400 mb-2">면접관</p>
-          <p className="text-gray-900 dark:text-slate-100 text-base leading-relaxed">{currentQuestion}</p>
-        </div>
-      )}
-
-      {/* 로딩 */}
-      {isLoading && (
-        <div className="flex justify-start">
-          <div className="bg-white dark:bg-slate-800 border border-gray-100 dark:border-slate-700 rounded-2xl rounded-tl-sm px-4 py-3 shadow-card">
-            <div className="flex gap-1 items-center">
-              <span className="w-1.5 h-1.5 bg-gray-400 rounded-full animate-bounce [animation-delay:0ms]" />
-              <span className="w-1.5 h-1.5 bg-gray-400 rounded-full animate-bounce [animation-delay:150ms]" />
-              <span className="w-1.5 h-1.5 bg-gray-400 rounded-full animate-bounce [animation-delay:300ms]" />
-            </div>
-          </div>
         </div>
       )}
 
