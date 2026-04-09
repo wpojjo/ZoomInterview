@@ -37,6 +37,18 @@ export default function JobPostingForm({ initialData }: { initialData?: InitialD
   });
   const [manualLoading, setManualLoading] = useState(false);
 
+  function enterManualMode() {
+    setManualMode(true);
+    setErrorMessage("");
+    if (analysis) {
+      setManualFields({
+        responsibilities: analysis.responsibilities,
+        requirements:     analysis.requirements,
+        preferredQuals:   analysis.preferredQuals,
+      });
+    }
+  }
+
   async function handleAnalyze() {
     if (!url.trim()) return;
 
@@ -131,19 +143,18 @@ export default function JobPostingForm({ initialData }: { initialData?: InitialD
         </div>
 
         {status === "error" && (
-          <div className="space-y-3">
-            <div className="bg-red-50 border border-red-100 text-red-600 text-sm rounded-xl px-4 py-3 dark:bg-red-900/30 dark:border-red-800 dark:text-red-400">
-              {errorMessage}
-            </div>
-            {!manualMode && (
-              <button
-                onClick={() => { setManualMode(true); setErrorMessage(""); }}
-                className="w-full text-sm text-blue-600 dark:text-blue-400 border border-blue-200 dark:border-blue-800 rounded-xl py-2 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors"
-              >
-                직접 입력하기
-              </button>
-            )}
+          <div className="bg-red-50 border border-red-100 text-red-600 text-sm rounded-xl px-4 py-3 dark:bg-red-900/30 dark:border-red-800 dark:text-red-400">
+            {errorMessage}
           </div>
+        )}
+
+        {!manualMode && (
+          <button
+            onClick={enterManualMode}
+            className="w-full text-sm text-blue-600 dark:text-blue-400 border border-blue-200 dark:border-blue-800 rounded-xl py-2 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-colors"
+          >
+            직접 입력하기
+          </button>
         )}
       </div>
 
@@ -153,7 +164,7 @@ export default function JobPostingForm({ initialData }: { initialData?: InitialD
           <div className="flex items-center justify-between">
             <h2 className="text-base font-semibold text-gray-900 dark:text-slate-100">직접 입력</h2>
             <button
-              onClick={() => { setManualMode(false); setStatus("error"); setErrorMessage(errorMessage || "분석에 실패했습니다"); }}
+              onClick={() => { setManualMode(false); setStatus("idle"); setErrorMessage(""); }}
               className="text-xs text-gray-400 dark:text-slate-500 hover:text-gray-600 dark:hover:text-slate-300"
             >
               URL로 다시 시도
@@ -248,12 +259,20 @@ export default function JobPostingForm({ initialData }: { initialData?: InitialD
               </p>
             </div>
           ))}
-          <Link
-            href="/interview"
-            className="flex items-center justify-center w-full bg-green-600 text-white font-semibold py-3 rounded-xl hover:bg-green-700 active:scale-95 transition-all text-sm"
-          >
-            면접 시작하기 →
-          </Link>
+          <div className="flex gap-3">
+            <button
+              onClick={enterManualMode}
+              className="flex-1 text-sm border border-gray-200 dark:border-slate-600 text-gray-600 dark:text-slate-300 font-semibold py-3 rounded-xl hover:bg-gray-50 dark:hover:bg-slate-700/50 active:scale-95 transition-all"
+            >
+              수정하기
+            </button>
+            <Link
+              href="/interview"
+              className="flex-1 flex items-center justify-center bg-green-600 text-white font-semibold py-3 rounded-xl hover:bg-green-700 active:scale-95 transition-all text-sm"
+            >
+              면접 시작하기 →
+            </Link>
+          </div>
         </div>
       )}
     </div>
