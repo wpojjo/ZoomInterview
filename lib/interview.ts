@@ -1,29 +1,38 @@
 const OLLAMA_BASE_URL = process.env.OLLAMA_BASE_URL ?? "http://localhost:11434";
 const OLLAMA_MODEL = process.env.OLLAMA_MODEL ?? "qwen2.5:7b";
 
-export type Message = { role: "interviewer" | "candidate"; content: string };
+export type AgentId = "organization" | "logic" | "technical";
+export type Difficulty = "easy" | "normal" | "hard";
 
-const QUESTION_CATEGORIES = [
-  "자기소개/지원동기",  // 0 — 고정 질문
-  "직무 역량",          // 1
-  "경험 기반",          // 2
-  "심화",               // 3
-  "회사/문화 적합성",   // 4
-] as const;
-
-// 각 카테고리별 질문 의도 — 모델이 카테고리를 정확히 이해하도록 영어로 설명
-const CATEGORY_GUIDE: Record<string, string> = {
-  "자기소개/지원동기": "Ask about the candidate's background and specific reasons for applying to this company and role.",
-  "직무 역량": "Verify technical skills and competencies required for the job based on responsibilities and requirements in the job posting.",
-  "경험 기반": "Draw out concrete past experiences (projects, internships, activities) using the STAR method (Situation, Task, Action, Result).",
-  "심화": "Follow up on unclear or interesting points from the candidate's previous answers to dig deeper.",
-  "회사/문화 적합성": "Assess the candidate's understanding of the company's values and culture, and their organizational fit.",
+export const MAX_FOLLOWUPS: Record<Difficulty, number> = {
+  easy: 0,
+  normal: 1,
+  hard: 3,
 };
 
-export const TOTAL_QUESTIONS = QUESTION_CATEGORIES.length;
-export function getFirstQuestion(name: string) {
-  return `안녕하세요, ${name}님. 간단한 자기소개와 지원동기를 말씀해주세요.`;
-}
+export const AGENT_ORDER: AgentId[] = ["organization", "logic", "technical"];
+export const TOTAL_AGENTS = AGENT_ORDER.length;
+
+export const AGENTS: Record<AgentId, { label: string; criterion: string }> = {
+  organization: {
+    label: "조직 전문가",
+    criterion: "성장 가능성, 자기 인식, 진정성, 조직 문화 적합성",
+  },
+  logic: {
+    label: "논리 전문가",
+    criterion: "답변 구조, 논리적 흐름, STAR 메서드",
+  },
+  technical: {
+    label: "기술 전문가",
+    criterion: "직무 연관성, 기술 구체성",
+  },
+};
+
+export type Message = {
+  role: "interviewer" | "candidate";
+  content: string;
+  agentId?: AgentId;
+};
 
 interface Education {
   schoolName: string;
@@ -98,28 +107,23 @@ function buildProfileSummary(profile: ProfileContext): string {
   return lines.join("\n");
 }
 
-// 지원자 프로필을 분석해 면접관에게 전달할 상황별 힌트를 생성
-// (경력자/신입 여부, 전공-직무 불일치 여부 등)
 function buildContextualHints(
   profile: ProfileContext,
   jobPosting: JobPostingContext,
 ): string {
   const hints: string[] = [];
 
-  // 경력자면 이직 동기 질문을 유도하고, 이전 직무 기술 질문은 금지
   if (profile.careers.length > 0) {
     const careerNames = profile.careers.map((c) => `${c.companyName}(${c.role})`).join(", ");
     hints.push(
       `- The candidate is an experienced hire (${careerNames}). Focus on their motivation for switching jobs and how their past experience contributes to this role. Do NOT ask technical questions specific to their previous job.`,
     );
   } else {
-    // 신입은 프로젝트·인턴·활동 경험 위주로 질문
     hints.push(
       "- The candidate is a new graduate with no full-time work experience. Focus on internships, personal projects, and extracurricular activities related to the job.",
     );
   }
 
-  // 전공과 지원 직무가 다를 경우 지원 동기를 추가로 파악
   if (profile.educations.length > 0) {
     const major = profile.educations[0].major ?? "";
     const jobText = (jobPosting.responsibilities + jobPosting.requirements).toLowerCase();
@@ -136,24 +140,25 @@ function buildContextualHints(
   return hints.join("\n");
 }
 
-export async function generateInterviewQuestion(
+export function getFirstQuestion(name: string) {
+  return `안녕하세요, ${name}님. 간단한 자기소개와 지원동기를 말씀해주세요.`;
+}
+
+function buildAgentSystemPrompt(
+  agentId: AgentId,
   profile: ProfileContext,
   jobPosting: JobPostingContext,
-  messages: Message[],
-  questionIndex: number,
-): Promise<string> {
-  const category = QUESTION_CATEGORIES[questionIndex] ?? "심화";
+): string {
   const profileSummary = buildProfileSummary(profile);
   const contextualHints = buildContextualHints(profile, jobPosting);
 
-  const conversationText = messages
-    .map((m) => `${m.role === "interviewer" ? "면접관" : "지원자"}: ${m.content}`)
-    .join("\n\n");
+  const agentRole: Record<AgentId, string> = {
+    organization: `You are an organizational culture and HR specialist interviewer. Your evaluation focuses on: growth potential, self-awareness, authenticity, and organizational culture fit. Ask questions that reveal the candidate's values, motivations, and alignment with the company culture.`,
+    logic: `You are a logical thinking and communication specialist interviewer. Your evaluation focuses on: answer structure, logical flow, and STAR method (Situation, Task, Action, Result). Ask questions based on past experiences and assess how clearly and logically the candidate communicates.`,
+    technical: `You are a technical skills specialist interviewer. Your evaluation focuses on: job relevance and technical specificity (concrete numbers, project names, measurable results). Ask questions about technical skills and competencies required for the job.`,
+  };
 
-  const categoryGuide = CATEGORY_GUIDE[category] ?? category;
-
-  // system: 면접관 역할·채용공고·지원자 정보·출력 규칙 주입
-  const systemPrompt = `You are a professional Korean job interviewer. Always respond in Korean only.
+  return `${agentRole[agentId]} Always respond in Korean only.
 
 [Job Posting]
 Responsibilities: ${jobPosting.responsibilities || "N/A"}
@@ -167,16 +172,11 @@ ${profileSummary}
 ${contextualHints}
 
 [Output Rules]
-1. Base your question on the job posting's responsibilities and requirements.
-2. Output exactly one interview question in Korean. No extra text.
-3. Do not prefix with "면접관:", "질문:", "Q:", or anything similar.
-4. Current category: "${category}" — ${categoryGuide}`;
+1. Output exactly one interview question in Korean. No extra text.
+2. Do not prefix with "면접관:", "질문:", "Q:", or anything similar.`;
+}
 
-  // user: 대화 히스토리가 있으면 꼬리질문, 없으면 첫 질문 생성 요청
-  const userContent = conversationText
-    ? `[Interview Conversation]\n${conversationText}\n\nBased on the conversation above, generate one Korean interview question for the "${category}" category. If the candidate's last answer lacks specifics or has an interesting point, prioritize a follow-up question on that.`
-    : `Based on the job posting and candidate profile, generate one Korean interview question for the "${category}" category.`;
-
+async function callOllama(systemPrompt: string, userContent: string): Promise<string> {
   const response = await fetch(`${OLLAMA_BASE_URL}/api/chat`, {
     method: "POST",
     headers: { "Content-Type": "application/json", "ngrok-skip-browser-warning": "true" },
@@ -188,6 +188,7 @@ ${contextualHints}
         { role: "user", content: userContent },
       ],
     }),
+    signal: AbortSignal.timeout(180_000),
   });
 
   if (!response.ok) {
@@ -196,7 +197,72 @@ ${contextualHints}
 
   const data = await response.json();
   const raw: string = (data.message?.content ?? "").trim();
-
-  // "면접관:", "Q:", "질문:" 등 접두어 제거
   return raw.replace(/^(면접관|질문|interviewer|question)\s*:\s*/i, "").trim();
+}
+
+// 에이전트의 기본 질문 생성
+export async function generateAgentBaseQuestion(
+  agentId: AgentId,
+  profile: ProfileContext,
+  jobPosting: JobPostingContext,
+  messages: Message[],
+): Promise<string> {
+  // 조직 전문가 첫 질문은 고정
+  if (agentId === "organization" && messages.length === 0) {
+    return getFirstQuestion(profile.name);
+  }
+
+  const systemPrompt = buildAgentSystemPrompt(agentId, profile, jobPosting);
+
+  const baseQuestionGuide: Record<AgentId, string> = {
+    organization: `Based on the job posting and candidate profile, ask a warm, welcoming question about the candidate's motivation for applying and their background. This is the opening question of the interview.`,
+    logic: `Based on the interview conversation so far, ask a question that requires the candidate to describe a specific past experience using the STAR method (Situation, Task, Action, Result). Focus on experiences relevant to the job.`,
+    technical: `Based on the job posting requirements and the interview so far, ask a question about specific technical skills or competencies relevant to this role. Request concrete examples with measurable outcomes.`,
+  };
+
+  const conversationText = messages
+    .map((m) => `${m.role === "interviewer" ? "면접관" : "지원자"}: ${m.content}`)
+    .join("\n\n");
+
+  const userContent = conversationText
+    ? `[Interview Conversation So Far]\n${conversationText}\n\n${baseQuestionGuide[agentId]}`
+    : baseQuestionGuide[agentId];
+
+  return callOllama(systemPrompt, userContent);
+}
+
+// 에이전트의 꼬리질문 생성. null 반환 시 다음 에이전트로 넘어감
+export async function generateAgentFollowUpQuestion(
+  agentId: AgentId,
+  profile: ProfileContext,
+  jobPosting: JobPostingContext,
+  messages: Message[],
+): Promise<string | null> {
+  const systemPrompt = buildAgentSystemPrompt(agentId, profile, jobPosting);
+
+  const conversationText = messages
+    .map((m) => `${m.role === "interviewer" ? "면접관" : "지원자"}: ${m.content}`)
+    .join("\n\n");
+
+  const agentCriteria: Record<AgentId, string> = {
+    organization: "growth potential, self-awareness, and authenticity",
+    logic: "logical structure and STAR method completeness (Situation, Task, Action, Result)",
+    technical: "technical specificity with concrete numbers, project names, and measurable results",
+  };
+
+  const userContent = `[Interview Conversation]\n${conversationText}
+
+The candidate just answered your last question. Evaluate whether their answer sufficiently addresses your evaluation criteria: ${agentCriteria[agentId]}.
+
+Rules:
+- If the answer lacks important specifics or needs clarification, output EXACTLY ONE follow-up question in Korean. The question must reference a specific part of the candidate's last answer.
+- If the answer is sufficiently detailed and complete from your perspective, output EXACTLY: DONE
+- Do not add any explanation. Output only the follow-up question OR the word DONE.`;
+
+  const raw = await callOllama(systemPrompt, userContent);
+
+  if (raw.trim().toUpperCase() === "DONE" || raw.trim() === "") {
+    return null;
+  }
+  return raw;
 }

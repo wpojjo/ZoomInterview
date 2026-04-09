@@ -2,9 +2,10 @@ import { NextRequest, NextResponse } from "next/server";
 import { supabase } from "@/lib/supabase";
 import { getAuthUser } from "@/lib/auth";
 import {
-  generateInterviewQuestion,
+  generateAgentBaseQuestion,
+  generateAgentFollowUpQuestion,
+  AgentId,
   Message,
-  TOTAL_QUESTIONS,
 } from "@/lib/interview";
 
 export async function POST(request: NextRequest) {
@@ -15,14 +16,11 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { messages, questionIndex } = body as {
+    const { messages, agentId, isFollowUpRequest } = body as {
       messages: Message[];
-      questionIndex: number;
+      agentId: AgentId;
+      isFollowUpRequest: boolean;
     };
-
-    if (questionIndex >= TOTAL_QUESTIONS) {
-      return NextResponse.json({ done: true });
-    }
 
     const { data: profile } = await supabase
       .from("profiles")
@@ -64,21 +62,38 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const question = await generateInterviewQuestion(
-      {
-        name: profile.name,
-        educations: educations ?? [],
-        careers: careers ?? [],
-        certifications: certifications ?? [],
-        activities: activities ?? [],
-      },
-      {
-        responsibilities: jobPosting.responsibilities ?? "",
-        requirements: jobPosting.requirements ?? "",
-        preferredQuals: jobPosting.preferredQuals ?? "",
-      },
+    const profileContext = {
+      name: profile.name,
+      educations: educations ?? [],
+      careers: careers ?? [],
+      certifications: certifications ?? [],
+      activities: activities ?? [],
+    };
+
+    const jobPostingContext = {
+      responsibilities: jobPosting.responsibilities ?? "",
+      requirements: jobPosting.requirements ?? "",
+      preferredQuals: jobPosting.preferredQuals ?? "",
+    };
+
+    if (isFollowUpRequest) {
+      const followUp = await generateAgentFollowUpQuestion(
+        agentId,
+        profileContext,
+        jobPostingContext,
+        messages,
+      );
+      if (followUp === null) {
+        return NextResponse.json({ followUp: false });
+      }
+      return NextResponse.json({ question: followUp, followUp: true });
+    }
+
+    const question = await generateAgentBaseQuestion(
+      agentId,
+      profileContext,
+      jobPostingContext,
       messages,
-      questionIndex,
     );
 
     return NextResponse.json({ question });
