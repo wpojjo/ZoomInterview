@@ -1,20 +1,36 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
-import { Message, TOTAL_QUESTIONS, getFirstQuestion } from "@/lib/interview";
+import {
+  Message,
+  Difficulty,
+  AgentId,
+  AGENTS,
+  AGENT_ORDER,
+  TOTAL_AGENTS,
+  MAX_FOLLOWUPS,
+  getFirstQuestion,
+} from "@/lib/interview";
 import type { FeedbackResult } from "@/app/api/interview/feedback/route";
+import DifficultySelect from "@/components/DifficultySelect";
 
 const ANSWER_TIME_LIMIT = 80;
 
-async function fetchQuestion(index: number, msgs: Message[]): Promise<string> {
+type Phase = "selecting" | "interviewing";
+
+async function fetchQuestion(
+  messages: Message[],
+  agentId: AgentId,
+  isFollowUpRequest: boolean,
+): Promise<{ question?: string; followUp?: boolean }> {
   const res = await fetch("/api/interview/question", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ messages: msgs, questionIndex: index }),
+    body: JSON.stringify({ messages, agentId, isFollowUpRequest }),
   });
   const data = await res.json();
   if (!res.ok) throw new Error(data.error ?? "질문 생성에 실패했습니다");
-  return data.question;
+  return data;
 }
 
 async function fetchFeedback(msgs: Message[]): Promise<FeedbackResult> {
@@ -44,12 +60,27 @@ function ScoreRing({ score }: { score: number }) {
   );
 }
 
+function AgentBadge({ agentId }: { agentId: AgentId }) {
+  const colorMap: Record<AgentId, string> = {
+    organization: "text-purple-600 dark:text-purple-400",
+    logic: "text-blue-600 dark:text-blue-400",
+    technical: "text-green-600 dark:text-green-400",
+  };
+  return (
+    <span className={`text-xs font-semibold ${colorMap[agentId]}`}>
+      {AGENTS[agentId].label}
+    </span>
+  );
+}
+
 export default function InterviewSession({ name }: { name: string }) {
-  const [messages, setMessages] = useState<Message[]>([
-    { role: "interviewer", content: getFirstQuestion(name) },
-  ]);
+  const [phase, setPhase] = useState<Phase>("selecting");
+  const [difficulty, setDifficulty] = useState<Difficulty>("normal");
+  const [agentIndex, setAgentIndex] = useState(0);
+  const [followUpCount, setFollowUpCount] = useState(0);
+
+  const [messages, setMessages] = useState<Message[]>([]);
   const [answer, setAnswer] = useState("");
-  const [questionIndex, setQuestionIndex] = useState(0);
   const [isLoading, setIsLoading] = useState(false);
   const [isDone, setIsDone] = useState(false);
   const [isFetchingFeedback, setIsFetchingFeedback] = useState(false);
@@ -59,39 +90,83 @@ export default function InterviewSession({ name }: { name: string }) {
   const [timeLeft, setTimeLeft] = useState(ANSWER_TIME_LIMIT);
   const bottomRef = useRef<HTMLDivElement>(null);
 
+  // 면접 시작: 조직 전문가 첫 질문 고정 설정
+  function handleDifficultySelect(d: Difficulty) {
+    setDifficulty(d);
+    setMessages([{ role: "interviewer", content: getFirstQuestion(name), agentId: "organization" }]);
+    setAgentIndex(0);
+    setFollowUpCount(0);
+    setPhase("interviewing");
+  }
+
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, isLoading, isDone]);
 
   useEffect(() => {
     setTimeLeft(ANSWER_TIME_LIMIT);
-  }, [questionIndex]);
+  }, [messages.length]);
 
   useEffect(() => {
-    if (isDone || isLoading) return;
+    if (isDone || isLoading || phase !== "interviewing") return;
     if (timeLeft <= 0) return;
     const timer = setTimeout(() => setTimeLeft((t) => t - 1), 1000);
     return () => clearTimeout(timer);
-  }, [timeLeft, isDone, isLoading]);
+  }, [timeLeft, isDone, isLoading, phase]);
 
   async function handleSubmit() {
     const trimmed = answer.trim();
     if (!trimmed || isLoading) return;
 
+    const currentAgentId = AGENT_ORDER[agentIndex];
     const updatedMessages: Message[] = [
       ...messages,
       { role: "candidate", content: trimmed },
     ];
     setMessages(updatedMessages);
     setAnswer("");
+    setIsLoading(true);
+    setError("");
 
-    const nextIndex = questionIndex + 1;
-    if (nextIndex >= TOTAL_QUESTIONS) {
+    try {
+      const maxFollowUps = MAX_FOLLOWUPS[difficulty];
+      const canFollowUp = followUpCount < maxFollowUps;
+
+      if (canFollowUp) {
+        // 꼬리질문 시도
+        const result = await fetchQuestion(updatedMessages, currentAgentId, true);
+
+        if (result.followUp === false) {
+          // 에이전트 만족 → 다음 에이전트로
+          await advanceToNextAgent(updatedMessages);
+        } else if (result.question) {
+          setMessages([
+            ...updatedMessages,
+            { role: "interviewer", content: result.question, agentId: currentAgentId },
+          ]);
+          setFollowUpCount((c) => c + 1);
+        }
+      } else {
+        // 꼬리질문 한도 초과 → 다음 에이전트로
+        await advanceToNextAgent(updatedMessages);
+      }
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : "질문 생성에 실패했습니다");
+    } finally {
+      setIsLoading(false);
+    }
+  }
+
+  async function advanceToNextAgent(currentMessages: Message[]) {
+    const nextAgentIndex = agentIndex + 1;
+
+    if (nextAgentIndex >= TOTAL_AGENTS) {
+      // 모든 에이전트 완료 → 피드백
       setIsDone(true);
       setIsFetchingFeedback(true);
       setFeedbackError("");
       try {
-        const result = await fetchFeedback(updatedMessages);
+        const result = await fetchFeedback(currentMessages);
         setFeedback(result);
       } catch (e: unknown) {
         setFeedbackError(e instanceof Error ? e.message : "피드백 생성에 실패했습니다");
@@ -101,28 +176,35 @@ export default function InterviewSession({ name }: { name: string }) {
       return;
     }
 
-    setIsLoading(true);
-    setError("");
-
-    try {
-      const question = await fetchQuestion(nextIndex, updatedMessages);
-      setMessages([...updatedMessages, { role: "interviewer", content: question }]);
-      setQuestionIndex(nextIndex);
-    } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : "질문 생성에 실패했습니다");
-    } finally {
-      setIsLoading(false);
+    // 다음 에이전트 기본 질문 요청
+    const nextAgentId = AGENT_ORDER[nextAgentIndex];
+    const result = await fetchQuestion(currentMessages, nextAgentId, false);
+    if (result.question) {
+      setMessages([
+        ...currentMessages,
+        { role: "interviewer", content: result.question, agentId: nextAgentId },
+      ]);
+      setAgentIndex(nextAgentIndex);
+      setFollowUpCount(0);
     }
   }
 
   function handleRestart() {
-    setMessages([{ role: "interviewer", content: getFirstQuestion(name) }]);
-    setQuestionIndex(0);
+    setPhase("selecting");
+    setMessages([]);
+    setAgentIndex(0);
+    setFollowUpCount(0);
     setIsDone(false);
     setAnswer("");
     setTimeLeft(ANSWER_TIME_LIMIT);
     setFeedback(null);
     setFeedbackError("");
+    setError("");
+  }
+
+  // 난이도 선택 화면
+  if (phase === "selecting") {
+    return <DifficultySelect onSelect={handleDifficultySelect} />;
   }
 
   // 피드백 로딩 화면
@@ -144,7 +226,6 @@ export default function InterviewSession({ name }: { name: string }) {
   if (isDone && feedback) {
     return (
       <div className="space-y-6">
-        {/* 헤더 */}
         <div className="card p-6 text-center space-y-3">
           <h2 className="text-xl font-bold text-gray-900 dark:text-slate-50">면접 완료!</h2>
           <p className="text-gray-500 dark:text-slate-400 text-sm">
@@ -153,7 +234,6 @@ export default function InterviewSession({ name }: { name: string }) {
           <ScoreRing score={feedback.score} />
         </div>
 
-        {/* 총평 */}
         <div className="card p-6 space-y-4">
           <h3 className="font-bold text-gray-900 dark:text-slate-50">종합 평가</h3>
           <div className="space-y-3">
@@ -172,7 +252,6 @@ export default function InterviewSession({ name }: { name: string }) {
           </div>
         </div>
 
-        {/* 질문별 피드백 */}
         <div className="space-y-3">
           <h3 className="font-bold text-gray-900 dark:text-slate-50 px-1">질문별 피드백</h3>
           {feedback.perQuestion.map((q, i) => (
@@ -193,14 +272,9 @@ export default function InterviewSession({ name }: { name: string }) {
           ))}
         </div>
 
-        {/* 액션 버튼 */}
         <div className="flex flex-col sm:flex-row gap-3">
-          <a href="/job-posting" className="btn-secondary text-center">
-            채용공고 변경
-          </a>
-          <button onClick={handleRestart} className="btn-primary">
-            다시 연습하기
-          </button>
+          <a href="/job-posting" className="btn-secondary text-center">채용공고 변경</a>
+          <button onClick={handleRestart} className="btn-primary">다시 연습하기</button>
         </div>
       </div>
     );
@@ -223,6 +297,7 @@ export default function InterviewSession({ name }: { name: string }) {
   const isAnswered = messages[messages.length - 1]?.role === "candidate";
   const lastInterviewerIdx = messages.reduce((acc, m, i) => m.role === "interviewer" ? i : acc, -1);
   const currentQuestion = isAnswered ? "" : (messages[lastInterviewerIdx]?.content ?? "");
+  const currentQuestionAgentId = isAnswered ? undefined : (messages[lastInterviewerIdx]?.agentId);
   const pastMessages = isAnswered ? messages : messages.slice(0, lastInterviewerIdx);
 
   const isTimeWarning = timeLeft <= 30 && timeLeft > 0;
@@ -230,38 +305,48 @@ export default function InterviewSession({ name }: { name: string }) {
 
   return (
     <div className="space-y-4">
-      {/* 진행 상황 */}
-      <div className="flex items-center gap-3">
-        <div className="flex gap-1.5 flex-1">
-          {Array.from({ length: TOTAL_QUESTIONS }).map((_, i) => (
-            <div
-              key={i}
-              className={`h-1.5 flex-1 rounded-full transition-all duration-300 ${
-                i < questionIndex
-                  ? "bg-blue-600"
-                  : i === questionIndex
-                  ? "bg-blue-300 dark:bg-blue-700"
-                  : "bg-gray-200 dark:bg-slate-700"
-              }`}
-            />
-          ))}
-        </div>
-        <span className="text-xs text-gray-400 dark:text-slate-500 whitespace-nowrap">
-          {questionIndex + 1} / {TOTAL_QUESTIONS}
-        </span>
+      {/* 진행 상황 — 에이전트 3단계 */}
+      <div className="flex items-center gap-2">
+        {AGENT_ORDER.map((aid, i) => {
+          const isDoneAgent = i < agentIndex;
+          const isCurrentAgent = i === agentIndex;
+          const colorMap: Record<AgentId, string> = {
+            organization: "bg-purple-500",
+            logic: "bg-blue-500",
+            technical: "bg-green-500",
+          };
+          const dimMap: Record<AgentId, string> = {
+            organization: "bg-purple-200 dark:bg-purple-900/40",
+            logic: "bg-blue-200 dark:bg-blue-900/40",
+            technical: "bg-green-200 dark:bg-green-900/40",
+          };
+          return (
+            <div key={aid} className="flex-1 space-y-1">
+              <div
+                className={`h-1.5 rounded-full transition-all duration-300 ${
+                  isDoneAgent ? colorMap[aid] : isCurrentAgent ? dimMap[aid] : "bg-gray-200 dark:bg-slate-700"
+                }`}
+              />
+              <p className={`text-xs text-center truncate ${
+                isCurrentAgent
+                  ? "font-semibold text-gray-700 dark:text-slate-300"
+                  : "text-gray-400 dark:text-slate-600"
+              }`}>
+                {AGENTS[aid].label}
+              </p>
+            </div>
+          );
+        })}
       </div>
 
       {/* 이전 대화 */}
       {pastMessages.length > 0 && (
         <div className="space-y-3">
           {pastMessages.map((m, i) => (
-            <div
-              key={i}
-              className={`flex ${m.role === "candidate" ? "justify-end" : "justify-start"}`}
-            >
+            <div key={i} className={`flex ${m.role === "candidate" ? "justify-end" : "justify-start"}`}>
               {m.role === "interviewer" && (
                 <div className="flex flex-col gap-1 max-w-[85%] sm:max-w-[75%]">
-                  <span className="text-xs font-semibold text-blue-600 dark:text-blue-400 pl-1">면접관</span>
+                  {m.agentId && <AgentBadge agentId={m.agentId} />}
                   <div className="bg-white dark:bg-slate-800 border border-gray-100 dark:border-slate-700 text-gray-700 dark:text-slate-300 rounded-2xl rounded-tl-sm px-4 py-3 text-sm leading-relaxed shadow-card">
                     {m.content}
                   </div>
@@ -280,8 +365,8 @@ export default function InterviewSession({ name }: { name: string }) {
       {/* 현재 질문 */}
       {currentQuestion && (
         <div className="card border-blue-100 dark:border-blue-900/50 p-5 space-y-1">
-          <p className="text-xs font-semibold text-blue-600 dark:text-blue-400 mb-2">면접관</p>
-          <p className="text-gray-900 dark:text-slate-100 text-base leading-relaxed">{currentQuestion}</p>
+          {currentQuestionAgentId && <AgentBadge agentId={currentQuestionAgentId} />}
+          <p className="text-gray-900 dark:text-slate-100 text-base leading-relaxed pt-1">{currentQuestion}</p>
         </div>
       )}
 
@@ -342,7 +427,7 @@ export default function InterviewSession({ name }: { name: string }) {
             disabled={isLoading || !answer.trim()}
             className="btn-primary py-2 px-5"
           >
-            {questionIndex + 1 >= TOTAL_QUESTIONS ? "면접 완료" : "제출 →"}
+            제출 →
           </button>
         </div>
       </div>
