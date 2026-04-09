@@ -92,17 +92,6 @@ npm run dev
 
 브라우저에서 [http://localhost:3000](http://localhost:3000) 접속.
 
----
-
-## Supabase 이메일 인증 비활성화 (개발 환경 권장)
-
-로컬 개발 환경에서는 회원가입 시 인증 메일이 실제로 발송되기 때문에, 메일 확인 전까지 로그인이 안 될 수 있습니다. 아래 설정으로 이메일 인증을 건너뛸 수 있습니다.
-
-1. Supabase 대시보드 → **Authentication** → **Providers** → **Email**
-2. **Confirm email** 토글 비활성화
-3. Save
-
----
 
 ## Vercel 배포 + Ollama 연결 (ngrok)
 
