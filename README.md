@@ -28,7 +28,7 @@
 | 프레임워크 | Next.js 14 (App Router) + TypeScript | SSR·API Route를 단일 프레임워크로 처리, 풀스택 개발 단순화 |
 | 인증 · DB | Supabase Auth + Supabase PostgreSQL | 인증·DB를 별도 서버 없이 관리, 빠른 프로토타이핑 |
 | 크롤링 | Jina Reader API (r.jina.ai) | 별도 크롤러 서버 없이 URL만으로 텍스트 추출 가능 |
-| LLM | Ollama (qwen2.5:7b) — 자체 호스팅 | API 비용 없이 자체 호스팅으로 LLM 운영 |
+| LLM | Ollama (자체 호스팅, 모델 환경변수로 설정) | API 비용 없이 자체 호스팅으로 LLM 운영 |
 | 스타일링 | Tailwind CSS | 유틸리티 기반으로 빠른 UI 작성 |
 | 검증 | Zod | TypeScript 타입과 런타임 검증을 동시에 처리 |
 
@@ -42,9 +42,10 @@
        ├── /api/profile              → 프로필 CRUD
        ├── /api/job-posting/analyze  → Jina Reader 크롤링 + Ollama 분석
        ├── /api/job-posting/manual   → 수동 입력 폴백
-       ├── /api/interview/question   → Ollama 맞춤 질문 생성
-       ├── /api/interview/feedback   → Ollama 면접 피드백 생성
-       └── /api/account             → 회원탈퇴 (DB + Auth 삭제)
+       ├── /api/interview/question              → Ollama 맞춤 질문 생성 (에이전트별)
+       ├── /api/interview/debate               → 토론 오케스트레이터 (fire-and-forget)
+       ├── /api/interview/debate/[id]/status   → 토론 진행 상태 폴링
+       └── /api/account                        → 회원탈퇴 (DB + Auth 삭제)
 ```
 
 ## 프로젝트 구조
@@ -74,9 +75,12 @@ ai-interview/
 |------|------|
 | `middleware.ts` | 보호 라우트 전체의 인증 검사. 미인증 시 /login 리다이렉트 |
 | `lib/auth.ts` | `getAuthUser()` — 모든 Server Component·API Route에서 공통으로 사용하는 인증 함수 |
+| `lib/agents.ts` | 3개 에이전트 정의 + Round 0 독립 평가 + Round 1 상호 반론 + 중재자 최종 점수 Ollama 호출 |
+| `lib/interview.ts` | 에이전트별 첫 질문 생성 + 꼬리질문 여부 판단 Ollama 호출 |
 | `app/api/job-posting/analyze/route.ts` | Jina Reader로 채용공고 텍스트 추출 후 Ollama로 담당업무·자격요건·우대사항 구조화 |
-| `app/api/interview/question/route.ts` | 프로필 + 채용공고 + 대화 히스토리 기반 맞춤 면접 질문 생성 |
-| `app/api/interview/feedback/route.ts` | 전체 답변 분석 후 항목별 피드백 + 100점 만점 총점 생성 |
+| `app/api/interview/question/route.ts` | 에이전트 ID + 대화 히스토리 기반 맞춤 질문 / 꼬리질문 생성 |
+| `app/api/interview/debate/route.ts` | 토론 오케스트레이터: Round 0→1→중재자 순차 실행, DB 상태 갱신 (fire-and-forget) |
+| `app/api/interview/debate/[sessionId]/status/route.ts` | 클라이언트 폴링용 상태 엔드포인트 |
 
 ### 주요 코드 흐름
 
@@ -92,11 +96,16 @@ URL 입력
 
 **면접 진행**
 ```
-면접 시작
-  → /api/interview/question → 첫 질문 (자기소개/지원동기, 이름 개인화)
-  → 80초 타이머 + 답변 입력 (5회 반복, 꼬리질문 포함)
-  → /api/interview/feedback → 전체 답변 일괄 분석
-  → 질문별 잘한점·개선점 + 강점·약점·조언 + 점수 표시
+난이도 선택 (이지 / 노말 / 하드)
+  → 조직 전문가: 자기소개/지원동기 질문 (+ 꼬리질문 0~3회)
+  → 논리 전문가: 경험기반 질문 (+ 꼬리질문)
+  → 기술 전문가: 직무역량 질문 (+ 꼬리질문)
+  → POST /api/interview/debate → sessionId 즉시 반환 (fire-and-forget)
+       Round 0: 3 에이전트 병렬 독립 평가 (Promise.allSettled)
+       Round 1: 3 에이전트 병렬 상호 반론 + 점수 재조정
+       중재자: Round 1 revisedScore 평균 → 최종 점수
+  → 클라이언트 1.5초 폴링 (GET /api/interview/debate/[sessionId]/status)
+  → 결과 화면: 최종 점수 · 에이전트별 평가 · 토론 요약 · 개선 포인트
 ```
 
 ---
