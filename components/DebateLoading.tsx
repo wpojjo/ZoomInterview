@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import type { AgentEvaluation, ModeratorResult } from "@/lib/agents";
+import type { AgentEvaluation, AgentReply, ModeratorResult } from "@/lib/agents";
 import type { AgentId } from "@/lib/interview";
 
 export interface DebateResultData {
@@ -29,24 +29,34 @@ function stageIndex(status: string): number {
   return idx === -1 ? STAGES.length : idx;
 }
 
-const AGENT_COLORS: Record<AgentId, { border: string; badge: string }> = {
+const AGENT_COLORS: Record<AgentId, { border: string; badge: string; text: string }> = {
   organization: {
     border: "border-purple-100 dark:border-purple-900/40",
     badge: "bg-purple-100 dark:bg-purple-900/40 text-purple-700 dark:text-purple-300",
+    text: "text-purple-600 dark:text-purple-400",
   },
   logic: {
     border: "border-blue-100 dark:border-blue-900/40",
     badge: "bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300",
+    text: "text-blue-600 dark:text-blue-400",
   },
   technical: {
     border: "border-green-100 dark:border-green-900/40",
     badge: "bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-300",
+    text: "text-green-600 dark:text-green-400",
   },
+};
+
+const STANCE_LABEL: Record<string, { label: string; color: string }> = {
+  agree:    { label: "동의",   color: "text-green-600 dark:text-green-400 bg-green-50 dark:bg-green-900/20" },
+  disagree: { label: "반박",   color: "text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/20" },
+  partial:  { label: "부분동의", color: "text-orange-600 dark:text-orange-400 bg-orange-50 dark:bg-orange-900/20" },
 };
 
 export default function DebateLoading({ sessionId, onDone, onError }: Props) {
   const [currentStatus, setCurrentStatus] = useState("evaluating");
   const [agentEvaluations, setAgentEvaluations] = useState<AgentEvaluation[]>([]);
+  const [debateReplies, setDebateReplies] = useState<AgentReply[]>([]);
   const intervalRef = useRef<ReturnType<typeof setInterval>>();
 
   useEffect(() => {
@@ -60,6 +70,9 @@ export default function DebateLoading({ sessionId, onDone, onError }: Props) {
 
         if (data.agentEvaluations?.length > 0) {
           setAgentEvaluations(data.agentEvaluations);
+        }
+        if (data.debateReplies?.length > 0) {
+          setDebateReplies(data.debateReplies);
         }
 
         if (data.status === "done") {
@@ -138,7 +151,7 @@ export default function DebateLoading({ sessionId, onDone, onError }: Props) {
         </p>
       </div>
 
-      {/* Round 0 완료 즉시 표시 */}
+      {/* Round 0: 에이전트별 평가 */}
       {agentEvaluations.length > 0 && (
         <div className="space-y-3 animate-fade-in-up">
           <h3 className="font-bold text-gray-900 dark:text-slate-50 px-1">면접관별 평가</h3>
@@ -168,6 +181,72 @@ export default function DebateLoading({ sessionId, onDone, onError }: Props) {
                       </li>
                     ))}
                   </ul>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {/* Round 1: 토론 내용 */}
+      {debateReplies.length > 0 && (
+        <div className="space-y-3 animate-fade-in-up">
+          <h3 className="font-bold text-gray-900 dark:text-slate-50 px-1">면접관 토론</h3>
+          {debateReplies.map((r) => {
+            const colors = AGENT_COLORS[r.agentId] ?? AGENT_COLORS.organization;
+            const initialScore = agentEvaluations.find((e) => e.agentId === r.agentId)?.score;
+            return (
+              <div key={r.agentId} className={`card p-5 space-y-3 border-l-4 ${colors.border}`}>
+                {/* 헤더: 에이전트명 + 점수 변화 */}
+                <div className="flex items-center justify-between">
+                  <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${colors.badge}`}>
+                    {r.agentLabel}
+                  </span>
+                  <div className="flex items-center gap-1.5 text-sm font-semibold">
+                    {r.scoreChanged && initialScore !== undefined ? (
+                      <>
+                        <span className="text-gray-400 dark:text-slate-500 line-through text-xs font-normal">
+                          {initialScore}
+                        </span>
+                        <span className={r.revisedScore > initialScore ? "text-green-600 dark:text-green-400" : "text-red-500 dark:text-red-400"}>
+                          {r.revisedScore > initialScore ? "▲" : "▼"} {r.revisedScore}
+                        </span>
+                      </>
+                    ) : (
+                      <span className="text-gray-500 dark:text-slate-400">{r.revisedScore} 유지</span>
+                    )}
+                    <span className="text-gray-400 dark:text-slate-500 font-normal text-xs">/100</span>
+                  </div>
+                </div>
+
+                {/* 점수 변경 이유 */}
+                {r.scoreReason && (
+                  <p className="text-xs text-gray-500 dark:text-slate-400 italic">{r.scoreReason}</p>
+                )}
+
+                {/* 다른 에이전트에 대한 반론 */}
+                {r.replies.length > 0 && (
+                  <div className="space-y-2 pt-1">
+                    {r.replies.map((reply, i) => {
+                      const targetColors = AGENT_COLORS[reply.targetAgentId as AgentId] ?? AGENT_COLORS.organization;
+                      const stance = STANCE_LABEL[reply.stance] ?? STANCE_LABEL.partial;
+                      return (
+                        <div key={i} className="bg-gray-50 dark:bg-slate-800/60 rounded-lg p-3 space-y-1.5">
+                          <div className="flex items-center gap-2">
+                            <span className={`text-xs font-medium ${targetColors.text}`}>
+                              → {reply.targetAgentId === "organization" ? "조직 전문가" : reply.targetAgentId === "logic" ? "논리 전문가" : "기술 전문가"}에게
+                            </span>
+                            <span className={`text-xs font-semibold px-1.5 py-0.5 rounded ${stance.color}`}>
+                              {stance.label}
+                            </span>
+                          </div>
+                          <p className="text-xs text-gray-600 dark:text-slate-300 leading-relaxed">
+                            {reply.comment}
+                          </p>
+                        </div>
+                      );
+                    })}
+                  </div>
                 )}
               </div>
             );
