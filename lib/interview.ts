@@ -179,11 +179,7 @@ Preferred Qualifications: ${jobPosting.preferredQuals || "N/A"}
 ${profileSummary}
 
 [Interview Guide]
-${contextualHints}
-
-[Output Rules]
-1. Output exactly one interview question in Korean. No extra text.
-2. Do not prefix with "면접관:", "질문:", "Q:", or anything similar.`;
+${contextualHints}`;
 }
 
 async function callOllama(systemPrompt: string, userContent: string, json = false): Promise<string> {
@@ -213,6 +209,13 @@ async function callOllama(systemPrompt: string, userContent: string, json = fals
   return raw.replace(/^(면접관|질문|interviewer|question)\s*:\s*/i, "").trim();
 }
 
+export interface QuestionResult {
+  question: string;
+  hint: string;
+}
+
+const FIRST_QUESTION_HINT = "지원자의 기본 배경과 이 회사·직무에 지원한 이유를 파악하는 질문입니다. 단순한 경력 나열보다는 지원 동기의 진정성과 이 포지션과의 연관성을 구체적으로 전달하세요.";
+
 // 에이전트의 기본 질문 생성
 export async function generateAgentBaseQuestion(
   agentId: AgentId,
@@ -220,10 +223,10 @@ export async function generateAgentBaseQuestion(
   jobPosting: JobPostingContext,
   messages: Message[],
   difficulty: Difficulty,
-): Promise<string> {
+): Promise<QuestionResult> {
   // 조직 전문가 첫 질문은 고정
   if (agentId === "organization" && messages.length === 0) {
-    return getFirstQuestion(profile.name);
+    return { question: getFirstQuestion(profile.name), hint: FIRST_QUESTION_HINT };
   }
 
   const systemPrompt = buildAgentSystemPrompt(agentId, profile, jobPosting, difficulty);
@@ -238,11 +241,28 @@ export async function generateAgentBaseQuestion(
     .map((m) => `${m.role === "interviewer" ? "면접관" : "지원자"}: ${m.content}`)
     .join("\n\n");
 
-  const userContent = conversationText
+  const guide = conversationText
     ? `[Interview Conversation So Far]\n${conversationText}\n\n${baseQuestionGuide[agentId]}`
     : baseQuestionGuide[agentId];
 
-  return callOllama(systemPrompt, userContent);
+  const userContent = `${guide}
+
+Respond with this exact JSON (no other text):
+{
+  "question": "<exactly one interview question in Korean — no prefix like 면접관: or Q:>",
+  "hint": "<1-2 sentences in Korean explaining what you want to assess with this question — will be shown to the candidate as a hint>"
+}`;
+
+  const raw = await callOllama(systemPrompt, userContent, true);
+  try {
+    const match = raw.match(/\{[\s\S]*\}/);
+    if (!match) throw new Error("no JSON");
+    const parsed = JSON.parse(match[0]) as { question: string; hint: string };
+    const question = parsed.question?.replace(/^(면접관|질문|interviewer|question)\s*:\s*/i, "").trim();
+    return { question: question ?? raw.trim(), hint: parsed.hint ?? "" };
+  } catch {
+    return { question: raw.replace(/^(면접관|질문|interviewer|question)\s*:\s*/i, "").trim(), hint: "" };
+  }
 }
 
 const DIFFICULTY_FOLLOWUP_HINT: Record<Difficulty, string> = {
@@ -258,7 +278,7 @@ export async function generateAgentFollowUpQuestion(
   jobPosting: JobPostingContext,
   messages: Message[],
   difficulty: Difficulty,
-): Promise<string | null> {
+): Promise<QuestionResult | null> {
   const systemPrompt = buildAgentSystemPrompt(agentId, profile, jobPosting, difficulty);
 
   const conversationText = messages
@@ -282,7 +302,8 @@ If you want to follow up, the question MUST reference a specific part of the can
 Respond with this exact JSON:
 {
   "shouldFollowUp": <true if a follow-up is needed, false if the answer is sufficient>,
-  "question": "<follow-up question in Korean, or empty string if shouldFollowUp is false>"
+  "question": "<follow-up question in Korean, or empty string if shouldFollowUp is false>",
+  "hint": "<1-2 sentences in Korean explaining what you want to assess — shown to the candidate as a hint. Empty string if shouldFollowUp is false>"
 }`;
 
   const raw = await callOllama(systemPrompt, userContent, true);
@@ -290,9 +311,9 @@ Respond with this exact JSON:
   try {
     const match = raw.match(/\{[\s\S]*\}/);
     if (!match) return null;
-    const parsed = JSON.parse(match[0]) as { shouldFollowUp: boolean; question: string };
+    const parsed = JSON.parse(match[0]) as { shouldFollowUp: boolean; question: string; hint: string };
     if (!parsed.shouldFollowUp || !parsed.question?.trim()) return null;
-    return parsed.question.trim();
+    return { question: parsed.question.trim(), hint: parsed.hint ?? "" };
   } catch {
     return null;
   }

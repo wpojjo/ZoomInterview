@@ -89,10 +89,10 @@ export async function POST(request: NextRequest) {
       if (followUp === null) {
         return NextResponse.json({ followUp: false });
       }
-      return NextResponse.json({ question: followUp, followUp: true });
+      return NextResponse.json({ question: followUp.question, hint: followUp.hint, followUp: true });
     }
 
-    const question = await generateAgentBaseQuestion(
+    const result = await generateAgentBaseQuestion(
       agentId,
       profileContext,
       jobPostingContext,
@@ -100,7 +100,7 @@ export async function POST(request: NextRequest) {
       difficulty ?? "normal",
     );
 
-    return NextResponse.json({ question });
+    return NextResponse.json({ question: result.question, hint: result.hint });
   } catch (error) {
     console.error("Interview question error:", error);
     return NextResponse.json(
