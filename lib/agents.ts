@@ -7,7 +7,6 @@ export interface AgentEvaluation {
   agentId: AgentId;
   agentLabel: string;
   criterion: string;
-  score: number;        // 0~100
   opinion: string;      // 3~5 문장
   highlights: string[]; // 2~3개 핵심 포인트
 }
@@ -15,9 +14,6 @@ export interface AgentEvaluation {
 export interface AgentReply {
   agentId: AgentId;
   agentLabel: string;
-  revisedScore: number;
-  scoreChanged: boolean;
-  scoreReason: string;
   replies: {
     targetAgentId: string;
     stance: "agree" | "disagree" | "partial";
@@ -91,20 +87,18 @@ Evaluate this interview strictly from your perspective as ${agent.label}. Focus 
 
 Respond with this exact JSON structure:
 {
-  "score": <integer 0-100 based solely on your criteria>,
   "opinion": "<evaluation in Korean, 3-5 sentences, cite specific answers from the transcript>",
   "highlights": ["<key observation 1 in Korean>", "<key observation 2 in Korean>", "<key observation 3 in Korean>"]
 }
 Do not use markdown formatting (no **, *, #) inside any string values.`;
 
   const raw = await callOllama(systemPrompt, userContent);
-  const parsed = extractJSON<{ score: number; opinion: string; highlights: string[] }>(raw);
+  const parsed = extractJSON<{ opinion: string; highlights: string[] }>(raw);
 
   return {
     agentId,
     agentLabel: agent.label,
     criterion: agent.criterion,
-    score: Math.max(0, Math.min(100, Math.round(parsed.score))),
     opinion: parsed.opinion,
     highlights: (parsed.highlights ?? []).slice(0, 3),
   };
@@ -123,15 +117,13 @@ export async function generateAgentReply(
   const othersText = otherEvaluations
     .map(
       (e) =>
-        `[${e.agentLabel}] Score: ${e.score}/100\n${e.opinion}\nHighlights: ${e.highlights.join(" | ")}`,
+        `[${e.agentLabel}] ${e.opinion}\nHighlights: ${e.highlights.join(" | ")}`,
     )
     .join("\n\n");
 
   const replySchema = otherEvaluations
-    .map((e, i) =>
-      i === 0
-        ? `    {\n      "targetAgentId": "${e.agentId}",\n      "stance": "<agree|disagree|partial>",\n      "comment": "<2-3 sentences in Korean referencing a specific part of the transcript>"\n    }`
-        : `    {\n      "targetAgentId": "${e.agentId}",\n      "stance": "<agree|disagree|partial>",\n      "comment": "<2-3 sentences in Korean referencing a specific part of the transcript>"\n    }`,
+    .map((e) =>
+      `    {\n      "targetAgentId": "${e.agentId}",\n      "stance": "<agree|disagree|partial>",\n      "comment": "<2-3 sentences in Korean referencing a specific part of the transcript>"\n    }`
     )
     .join(",\n");
 
@@ -141,7 +133,6 @@ export async function generateAgentReply(
 ${conversationText}
 
 [Your Round 0 Evaluation]
-Score: ${myEvaluation.score}/100
 ${myEvaluation.opinion}
 
 [Other Evaluators' Opinions]
@@ -150,14 +141,9 @@ ${othersText}
 Now respond to the other evaluators. Rules:
 - You MUST engage with at least one specific moment from the interview transcript
 - Disagree or partially agree with at least one evaluator — don't just agree with everything
-- Revise your score ONLY if an evaluator pointed out something you genuinely missed from the transcript
-- Score changes must be meaningful (at least ±5 points) if they occur
 
 Respond with this exact JSON:
 {
-  "revisedScore": <integer 0-100>,
-  "scoreChanged": <true|false>,
-  "scoreReason": "<why you kept or changed your score, in Korean, 1-2 sentences>",
   "replies": [
 ${replySchema}
   ]
@@ -166,18 +152,12 @@ Do not use markdown formatting (no **, *, #) inside any string values.`;
 
   const raw = await callOllama(systemPrompt, userContent);
   const parsed = extractJSON<{
-    revisedScore: number;
-    scoreChanged: boolean;
-    scoreReason: string;
     replies: { targetAgentId: string; stance: string; comment: string }[];
   }>(raw);
 
   return {
     agentId,
     agentLabel: agent.label,
-    revisedScore: Math.max(0, Math.min(100, Math.round(parsed.revisedScore))),
-    scoreChanged: Boolean(parsed.scoreChanged),
-    scoreReason: parsed.scoreReason ?? "",
     replies: (parsed.replies ?? []).map((r) => ({
       targetAgentId: r.targetAgentId,
       stance: (["agree", "disagree", "partial"].includes(r.stance)
@@ -196,12 +176,8 @@ export async function generateModeratorResult(
 ): Promise<ModeratorResult> {
   const conversationText = buildConversationText(messages);
 
-  const avgScore = Math.round(
-    replies.reduce((sum, r) => sum + r.revisedScore, 0) / replies.length,
-  );
-
   const evaluationsText = evaluations
-    .map((e) => `[${e.agentLabel}] Initial Score: ${e.score}/100\n${e.opinion}`)
+    .map((e) => `[${e.agentLabel}] Criteria: ${e.criterion}\n${e.opinion}\nKey points: ${e.highlights.join(" / ")}`)
     .join("\n\n");
 
   const repliesText = replies
@@ -209,7 +185,7 @@ export async function generateModeratorResult(
       const replyLines = r.replies
         .map((reply) => `  → To ${reply.targetAgentId} [${reply.stance}]: ${reply.comment}`)
         .join("\n");
-      return `[${r.agentLabel}] Revised Score: ${r.revisedScore}/100 (${r.scoreChanged ? "changed" : "unchanged"})\nReason: ${r.scoreReason}\n${replyLines}`;
+      return `[${r.agentLabel}]\n${replyLines}`;
     })
     .join("\n\n");
 
@@ -221,32 +197,34 @@ ${conversationText}
 [Round 0 — Independent Evaluations]
 ${evaluationsText}
 
-[Round 1 — Debate & Score Revisions]
+[Round 1 — Panel Debate]
 ${repliesText}
 
-[Final Score: ${avgScore}/100 (average of revised scores)]
+Based on all evaluator opinions and the full debate above, assign a comprehensive final score and synthesize the findings.
 
-Synthesize the panel discussion. Respond with this exact JSON:
+Respond with this exact JSON:
 {
+  "score": <integer 0-100 reflecting the candidate's overall performance across all criteria>,
   "overall": {
     "strengths": "<2-3 sentences in Korean about what the candidate did well, citing specific answers>",
     "weaknesses": "<2-3 sentences in Korean about clear gaps>",
     "advice": "<2-3 sentences in Korean of actionable improvement advice>"
   },
   "improvementTips": ["<specific tip 1 in Korean>", "<specific tip 2 in Korean>", "<specific tip 3 in Korean>"],
-  "debateSummary": "<2-3 sentences in Korean summarizing key disagreements between evaluators and score changes>"
+  "debateSummary": "<2-3 sentences in Korean summarizing the key discussion points and what influenced the final score>"
 }
 Do not use markdown formatting (no **, *, #) inside any string values.`;
 
   const raw = await callOllama(systemPrompt, userContent);
   const parsed = extractJSON<{
+    score: number;
     overall: { strengths: string; weaknesses: string; advice: string };
     improvementTips: string[];
     debateSummary: string;
   }>(raw);
 
   return {
-    score: avgScore,
+    score: Math.max(0, Math.min(100, Math.round(parsed.score ?? 0))),
     overall: parsed.overall,
     improvementTips: (parsed.improvementTips ?? []).slice(0, 3),
     debateSummary: parsed.debateSummary ?? "",

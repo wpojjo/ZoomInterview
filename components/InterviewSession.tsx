@@ -404,6 +404,7 @@ export default function InterviewSession({ name }: { name: string }) {
     return (
       <DebateLoading
         sessionId={sessionId}
+        avatarSeeds={avatarSeeds}
         onDone={(result) => {
           setDebateResult(result);
           setPhase("done");

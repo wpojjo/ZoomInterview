@@ -52,19 +52,16 @@ async function runDebate(
       .eq("id", sessionId);
 
     // 중재자: 최종 결론
-    const repliesForScore: AgentReply[] =
+    const repliesForModerator: AgentReply[] =
       replies.length > 0
         ? replies
         : evaluations.map((e) => ({
             agentId: e.agentId,
             agentLabel: e.agentLabel,
-            revisedScore: e.score,
-            scoreChanged: false,
-            scoreReason: "",
             replies: [],
           }));
 
-    const moderatorResult = await generateModeratorResult(evaluations, repliesForScore, messages);
+    const moderatorResult = await generateModeratorResult(evaluations, repliesForModerator, messages);
 
     await supabase
       .from("interview_sessions")

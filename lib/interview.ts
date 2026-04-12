@@ -258,9 +258,21 @@ Respond with this exact JSON (no other text):
     const match = raw.match(/\{[\s\S]*\}/);
     if (!match) throw new Error("no JSON");
     const parsed = JSON.parse(match[0]) as { question: string; hint: string };
-    const question = parsed.question?.replace(/^(면접관|질문|interviewer|question)\s*:\s*/i, "").trim();
-    return { question: question ?? raw.trim(), hint: parsed.hint ?? "" };
+    const qRaw = typeof parsed.question === "string" ? parsed.question : "";
+    const question = qRaw.replace(/^(면접관|질문|interviewer|question)\s*:\s*/i, "").trim();
+    const hint = typeof parsed.hint === "string" ? parsed.hint : "";
+    if (question) return { question, hint };
+    throw new Error("empty question");
   } catch {
+    // Regex fallback: extract "question" value directly from raw string
+    const qMatch = raw.match(/"question"\s*:\s*"((?:[^"\\]|\\.)*)"/);
+    const hMatch = raw.match(/"hint"\s*:\s*"((?:[^"\\]|\\.)*)"/);
+    if (qMatch?.[1]) {
+      return {
+        question: qMatch[1].replace(/^(면접관|질문|interviewer|question)\s*:\s*/i, "").trim(),
+        hint: hMatch?.[1] ?? "",
+      };
+    }
     return { question: raw.replace(/^(면접관|질문|interviewer|question)\s*:\s*/i, "").trim(), hint: "" };
   }
 }
@@ -312,9 +324,17 @@ Respond with this exact JSON:
     const match = raw.match(/\{[\s\S]*\}/);
     if (!match) return null;
     const parsed = JSON.parse(match[0]) as { shouldFollowUp: boolean; question: string; hint: string };
-    if (!parsed.shouldFollowUp || !parsed.question?.trim()) return null;
-    return { question: parsed.question.trim(), hint: parsed.hint ?? "" };
+    if (!parsed.shouldFollowUp) return null;
+    const q = typeof parsed.question === "string" ? parsed.question.trim() : "";
+    if (!q) return null;
+    return { question: q, hint: typeof parsed.hint === "string" ? parsed.hint : "" };
   } catch {
-    return null;
+    // Regex fallback
+    const followUpMatch = raw.match(/"shouldFollowUp"\s*:\s*(true|false)/);
+    if (followUpMatch?.[1] !== "true") return null;
+    const qMatch = raw.match(/"question"\s*:\s*"((?:[^"\\]|\\.)*)"/);
+    const hMatch = raw.match(/"hint"\s*:\s*"((?:[^"\\]|\\.)*)"/);
+    if (!qMatch?.[1]) return null;
+    return { question: qMatch[1].trim(), hint: hMatch?.[1] ?? "" };
   }
 }
