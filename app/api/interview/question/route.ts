@@ -5,6 +5,7 @@ import {
   generateAgentBaseQuestion,
   generateAgentFollowUpQuestion,
   AgentId,
+  Difficulty,
   Message,
 } from "@/lib/interview";
 
@@ -16,10 +17,11 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { messages, agentId, isFollowUpRequest } = body as {
+    const { messages, agentId, isFollowUpRequest, difficulty } = body as {
       messages: Message[];
       agentId: AgentId;
       isFollowUpRequest: boolean;
+      difficulty: Difficulty;
     };
 
     const { data: profile } = await supabase
@@ -82,6 +84,7 @@ export async function POST(request: NextRequest) {
         profileContext,
         jobPostingContext,
         messages,
+        difficulty ?? "normal",
       );
       if (followUp === null) {
         return NextResponse.json({ followUp: false });
@@ -94,6 +97,7 @@ export async function POST(request: NextRequest) {
       profileContext,
       jobPostingContext,
       messages,
+      difficulty ?? "normal",
     );
 
     return NextResponse.json({ question });

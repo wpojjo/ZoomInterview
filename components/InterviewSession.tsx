@@ -23,11 +23,12 @@ async function fetchQuestion(
   messages: Message[],
   agentId: AgentId,
   isFollowUpRequest: boolean,
+  difficulty: Difficulty,
 ): Promise<{ question?: string; followUp?: boolean }> {
   const res = await fetch("/api/interview/question", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ messages, agentId, isFollowUpRequest }),
+    body: JSON.stringify({ messages, agentId, isFollowUpRequest, difficulty }),
   });
   const data = await res.json();
   if (!res.ok) throw new Error(data.error ?? "질문 생성에 실패했습니다");
@@ -54,26 +55,34 @@ function formatTime(seconds: number) {
   return `${m}:${s.toString().padStart(2, "0")}`;
 }
 
-const AGENT_META: Record<AgentId, { color: string; bg: string; avatarUrl: string; role: string }> = {
+const AGENT_META: Record<AgentId, { color: string; bg: string; bgColor: string; name: string }> = {
   organization: {
     color: "text-purple-600 dark:text-purple-400",
     bg: "bg-purple-100 dark:bg-purple-900/40",
-    avatarUrl: "https://api.dicebear.com/9.x/notionists/svg?seed=organization&backgroundColor=e9d5ff",
-    role: "조직 · 문화 전문가",
+    bgColor: "e9d5ff",
+    name: "면접관 1",
   },
   logic: {
     color: "text-blue-600 dark:text-blue-400",
     bg: "bg-blue-100 dark:bg-blue-900/40",
-    avatarUrl: "https://api.dicebear.com/9.x/notionists/svg?seed=logic&backgroundColor=bfdbfe",
-    role: "논리 · 경험 전문가",
+    bgColor: "bfdbfe",
+    name: "면접관 2",
   },
   technical: {
     color: "text-green-600 dark:text-green-400",
     bg: "bg-green-100 dark:bg-green-900/40",
-    avatarUrl: "https://api.dicebear.com/9.x/notionists/svg?seed=technical&backgroundColor=bbf7d0",
-    role: "직무 역량 전문가",
+    bgColor: "bbf7d0",
+    name: "면접관 3",
   },
 };
+
+function randomSeed() {
+  return Math.random().toString(36).slice(2, 10);
+}
+
+function makeAvatarUrl(seed: string, bgColor: string) {
+  return `https://api.dicebear.com/9.x/notionists/svg?seed=${seed}&backgroundColor=${bgColor}`;
+}
 
 function useTypewriter(text: string, speed = 18) {
   const [displayed, setDisplayed] = useState("");
@@ -116,10 +125,12 @@ function InterviewerPanel({
   agentIndex,
   isLoading,
   isSpeaking,
+  avatarSeeds,
 }: {
   agentIndex: number;
   isLoading: boolean;
   isSpeaking: boolean;
+  avatarSeeds: Record<AgentId, string>;
 }) {
   return (
     <div className="grid grid-cols-3 gap-3">
@@ -128,6 +139,7 @@ function InterviewerPanel({
         const isActive = i === agentIndex;
         const isDone = i < agentIndex;
         const isPending = i > agentIndex;
+        const avatarUrl = makeAvatarUrl(avatarSeeds[aid], meta.bgColor);
 
         return (
           <div
@@ -150,8 +162,8 @@ function InterviewerPanel({
                 }`}
               >
                 <img
-                  src={meta.avatarUrl}
-                  alt={AGENTS[aid].label}
+                  src={avatarUrl}
+                  alt={meta.name}
                   className={`w-full h-full object-cover transition-all duration-300 ${isPending ? "grayscale" : ""}`}
                 />
               </div>
@@ -185,11 +197,8 @@ function InterviewerPanel({
             {/* 이름 */}
             <div className="text-center">
               <p className={`text-xs font-semibold ${isActive ? meta.color : "text-gray-400 dark:text-slate-500"}`}>
-                {AGENTS[aid].label}
+                {meta.name}
               </p>
-              {isActive && (
-                <p className="text-[10px] text-gray-400 dark:text-slate-500 mt-0.5">{meta.role}</p>
-              )}
             </div>
           </div>
         );
@@ -224,6 +233,11 @@ export default function InterviewSession({ name }: { name: string }) {
   const [difficulty, setDifficulty] = useState<Difficulty>("normal");
   const [agentIndex, setAgentIndex] = useState(0);
   const [followUpCount, setFollowUpCount] = useState(0);
+  const [avatarSeeds, setAvatarSeeds] = useState<Record<AgentId, string>>({
+    organization: "organization",
+    logic: "logic",
+    technical: "technical",
+  });
 
   const [messages, setMessages] = useState<Message[]>([]);
   const [answer, setAnswer] = useState("");
@@ -239,6 +253,7 @@ export default function InterviewSession({ name }: { name: string }) {
 
   function handleDifficultySelect(d: Difficulty) {
     setDifficulty(d);
+    setAvatarSeeds({ organization: randomSeed(), logic: randomSeed(), technical: randomSeed() });
     setMessages([{ role: "interviewer", content: getFirstQuestion(name), agentId: "organization" }]);
     setAgentIndex(0);
     setFollowUpCount(0);
@@ -278,7 +293,7 @@ export default function InterviewSession({ name }: { name: string }) {
       const canFollowUp = followUpCount < maxFollowUps;
 
       if (canFollowUp) {
-        const result = await fetchQuestion(updatedMessages, currentAgentId, true);
+        const result = await fetchQuestion(updatedMessages, currentAgentId, true, difficulty);
         if (result.followUp === false) {
           await advanceToNextAgent(updatedMessages);
         } else if (result.question) {
@@ -314,7 +329,7 @@ export default function InterviewSession({ name }: { name: string }) {
     }
 
     const nextAgentId = AGENT_ORDER[nextAgentIndex];
-    const result = await fetchQuestion(currentMessages, nextAgentId, false);
+    const result = await fetchQuestion(currentMessages, nextAgentId, false, difficulty);
     if (result.question) {
       setMessages([
         ...currentMessages,
@@ -429,7 +444,7 @@ export default function InterviewSession({ name }: { name: string }) {
   return (
     <div className="space-y-4">
       {/* 면접관 패널 */}
-      <InterviewerPanel agentIndex={agentIndex} isLoading={isLoading} isSpeaking={isSpeaking} />
+      <InterviewerPanel agentIndex={agentIndex} isLoading={isLoading} isSpeaking={isSpeaking} avatarSeeds={avatarSeeds} />
 
       {/* 현재 질문 말풍선 */}
       {currentQuestion && currentQuestionAgentId && (
@@ -450,7 +465,7 @@ export default function InterviewSession({ name }: { name: string }) {
                 <div key={idx} className="space-y-2">
                   <div className="flex items-start gap-2">
                     <div className="w-6 h-6 rounded-full overflow-hidden shrink-0 mt-0.5">
-                      <img src={pairMeta.avatarUrl} alt="" className="w-full h-full object-cover" />
+                      <img src={makeAvatarUrl(avatarSeeds[pair.agentId], pairMeta.bgColor)} alt="" className="w-full h-full object-cover" />
                     </div>
                     <div className="bg-white dark:bg-slate-800 border border-gray-100 dark:border-slate-700 rounded-2xl rounded-tl-sm px-3 py-2 text-sm text-gray-700 dark:text-slate-300 leading-relaxed shadow-card flex-1">
                       {pair.question}

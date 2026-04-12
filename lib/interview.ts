@@ -144,10 +144,17 @@ export function getFirstQuestion(name: string) {
   return `안녕하세요, ${name}님. 간단한 자기소개와 지원동기를 말씀해주세요.`;
 }
 
+const DIFFICULTY_QUESTION_HINT: Record<Difficulty, string> = {
+  easy: "Ask friendly, open-ended questions. Accept general answers; do not demand specific metrics or data.",
+  normal: "Ask standard interview questions. Expect reasonably specific answers with at least one concrete example.",
+  hard: "Ask rigorous, probing questions. Demand specific metrics, project names, timelines, and measurable results. Push for depth.",
+};
+
 function buildAgentSystemPrompt(
   agentId: AgentId,
   profile: ProfileContext,
   jobPosting: JobPostingContext,
+  difficulty: Difficulty,
 ): string {
   const profileSummary = buildProfileSummary(profile);
   const contextualHints = buildContextualHints(profile, jobPosting);
@@ -159,6 +166,9 @@ function buildAgentSystemPrompt(
   };
 
   return `${agentRole[agentId]} Always respond in Korean only.
+
+[Interview Difficulty: ${difficulty.toUpperCase()}]
+${DIFFICULTY_QUESTION_HINT[difficulty]}
 
 [Job Posting]
 Responsibilities: ${jobPosting.responsibilities || "N/A"}
@@ -176,18 +186,21 @@ ${contextualHints}
 2. Do not prefix with "면접관:", "질문:", "Q:", or anything similar.`;
 }
 
-async function callOllama(systemPrompt: string, userContent: string): Promise<string> {
+async function callOllama(systemPrompt: string, userContent: string, json = false): Promise<string> {
+  const body: Record<string, unknown> = {
+    model: OLLAMA_MODEL,
+    stream: false,
+    messages: [
+      { role: "system", content: systemPrompt },
+      { role: "user", content: userContent },
+    ],
+  };
+  if (json) body.format = "json";
+
   const response = await fetch(`${OLLAMA_BASE_URL}/api/chat`, {
     method: "POST",
     headers: { "Content-Type": "application/json", "ngrok-skip-browser-warning": "true" },
-    body: JSON.stringify({
-      model: OLLAMA_MODEL,
-      stream: false,
-      messages: [
-        { role: "system", content: systemPrompt },
-        { role: "user", content: userContent },
-      ],
-    }),
+    body: JSON.stringify(body),
     signal: AbortSignal.timeout(180_000),
   });
 
@@ -206,13 +219,14 @@ export async function generateAgentBaseQuestion(
   profile: ProfileContext,
   jobPosting: JobPostingContext,
   messages: Message[],
+  difficulty: Difficulty,
 ): Promise<string> {
   // 조직 전문가 첫 질문은 고정
   if (agentId === "organization" && messages.length === 0) {
     return getFirstQuestion(profile.name);
   }
 
-  const systemPrompt = buildAgentSystemPrompt(agentId, profile, jobPosting);
+  const systemPrompt = buildAgentSystemPrompt(agentId, profile, jobPosting, difficulty);
 
   const baseQuestionGuide: Record<AgentId, string> = {
     organization: `Based on the job posting and candidate profile, ask a warm, welcoming question about the candidate's motivation for applying and their background. This is the opening question of the interview.`,
@@ -231,14 +245,21 @@ export async function generateAgentBaseQuestion(
   return callOllama(systemPrompt, userContent);
 }
 
+const DIFFICULTY_FOLLOWUP_HINT: Record<Difficulty, string> = {
+  easy: "Only set shouldFollowUp to true if the answer is critically incomplete — missing the core point entirely.",
+  normal: "Set shouldFollowUp to true if the answer lacks a concrete example or key specifics needed to assess the candidate fairly.",
+  hard: "Set shouldFollowUp to true unless the answer includes specific metrics, project names, and demonstrates clear depth. Be demanding — a vague or generic answer always warrants a follow-up.",
+};
+
 // 에이전트의 꼬리질문 생성. null 반환 시 다음 에이전트로 넘어감
 export async function generateAgentFollowUpQuestion(
   agentId: AgentId,
   profile: ProfileContext,
   jobPosting: JobPostingContext,
   messages: Message[],
+  difficulty: Difficulty,
 ): Promise<string | null> {
-  const systemPrompt = buildAgentSystemPrompt(agentId, profile, jobPosting);
+  const systemPrompt = buildAgentSystemPrompt(agentId, profile, jobPosting, difficulty);
 
   const conversationText = messages
     .map((m) => `${m.role === "interviewer" ? "면접관" : "지원자"}: ${m.content}`)
@@ -254,15 +275,25 @@ export async function generateAgentFollowUpQuestion(
 
 The candidate just answered your last question. Evaluate whether their answer sufficiently addresses your evaluation criteria: ${agentCriteria[agentId]}.
 
-Rules:
-- If the answer lacks important specifics or needs clarification, output EXACTLY ONE follow-up question in Korean. The question must reference a specific part of the candidate's last answer.
-- If the answer is sufficiently detailed and complete from your perspective, output EXACTLY: DONE
-- Do not add any explanation. Output only the follow-up question OR the word DONE.`;
+Difficulty guidance: ${DIFFICULTY_FOLLOWUP_HINT[difficulty]}
 
-  const raw = await callOllama(systemPrompt, userContent);
+If you want to follow up, the question MUST reference a specific part of the candidate's last answer.
 
-  if (raw.trim().toUpperCase() === "DONE" || raw.trim() === "") {
+Respond with this exact JSON:
+{
+  "shouldFollowUp": <true if a follow-up is needed, false if the answer is sufficient>,
+  "question": "<follow-up question in Korean, or empty string if shouldFollowUp is false>"
+}`;
+
+  const raw = await callOllama(systemPrompt, userContent, true);
+
+  try {
+    const match = raw.match(/\{[\s\S]*\}/);
+    if (!match) return null;
+    const parsed = JSON.parse(match[0]) as { shouldFollowUp: boolean; question: string };
+    if (!parsed.shouldFollowUp || !parsed.question?.trim()) return null;
+    return parsed.question.trim();
+  } catch {
     return null;
   }
-  return raw;
 }
