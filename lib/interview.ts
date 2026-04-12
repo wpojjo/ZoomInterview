@@ -155,7 +155,7 @@ function buildAgentSystemPrompt(
   const agentRole: Record<AgentId, string> = {
     organization: `You are an organizational culture and HR specialist interviewer. Your evaluation focuses on: growth potential, self-awareness, authenticity, and organizational culture fit. Ask questions that reveal the candidate's values, motivations, and alignment with the company culture.`,
     logic: `You are a logical thinking and communication specialist interviewer. Your evaluation focuses on: answer structure, logical flow, and STAR method (Situation, Task, Action, Result). Ask questions based on past experiences and assess how clearly and logically the candidate communicates.`,
-    technical: `You are a technical skills specialist interviewer. Your evaluation focuses on: job relevance and technical specificity (concrete numbers, project names, measurable results). Ask questions about technical skills and competencies required for the job.`,
+    technical: `You are a job competency specialist interviewer. Your evaluation focuses on: whether the candidate has the specific skills, knowledge, and hands-on experience explicitly listed in the job posting requirements. You must only ask about competencies directly stated in the job posting — do NOT assume the role requires IT, software, or data skills unless the job posting explicitly says so. Ask questions that probe depth of relevant experience with concrete examples and measurable results.`,
   };
 
   return `${agentRole[agentId]} Always respond in Korean only.
@@ -216,8 +216,8 @@ export async function generateAgentBaseQuestion(
 
   const baseQuestionGuide: Record<AgentId, string> = {
     organization: `Based on the job posting and candidate profile, ask a warm, welcoming question about the candidate's motivation for applying and their background. This is the opening question of the interview.`,
-    logic: `Based on the interview conversation so far, ask a question that requires the candidate to describe a specific past experience using the STAR method (Situation, Task, Action, Result). Focus on experiences relevant to the job.`,
-    technical: `Based on the job posting requirements and the interview so far, ask a question about specific technical skills or competencies relevant to this role. Request concrete examples with measurable outcomes.`,
+    logic: `Based on the interview conversation so far, ask a question that requires the candidate to describe a specific past experience using the STAR method. The question must be in Korean only — do not include English terms like "Situation", "Task", "Action", "Result", or "STAR" in the output. Focus on experiences relevant to the job.`,
+    technical: `Based strictly on the job posting requirements above, ask a question that probes whether the candidate has the hands-on skills and experience this specific role demands. Ground your question in the actual responsibilities and requirements listed — not generic technical skills. Request a concrete example with measurable outcomes.`,
   };
 
   const conversationText = messages

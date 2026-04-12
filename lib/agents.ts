@@ -39,6 +39,7 @@ async function callOllama(systemPrompt: string, userContent: string): Promise<st
     body: JSON.stringify({
       model: OLLAMA_MODEL,
       stream: false,
+      format: "json",
       messages: [
         { role: "system", content: systemPrompt },
         { role: "user", content: userContent },
@@ -93,7 +94,8 @@ Respond with this exact JSON structure:
   "score": <integer 0-100 based solely on your criteria>,
   "opinion": "<evaluation in Korean, 3-5 sentences, cite specific answers from the transcript>",
   "highlights": ["<key observation 1 in Korean>", "<key observation 2 in Korean>", "<key observation 3 in Korean>"]
-}`;
+}
+Do not use markdown formatting (no **, *, #) inside any string values.`;
 
   const raw = await callOllama(systemPrompt, userContent);
   const parsed = extractJSON<{ score: number; opinion: string; highlights: string[] }>(raw);
@@ -159,7 +161,8 @@ Respond with this exact JSON:
   "replies": [
 ${replySchema}
   ]
-}`;
+}
+Do not use markdown formatting (no **, *, #) inside any string values.`;
 
   const raw = await callOllama(systemPrompt, userContent);
   const parsed = extractJSON<{
@@ -232,7 +235,8 @@ Synthesize the panel discussion. Respond with this exact JSON:
   },
   "improvementTips": ["<specific tip 1 in Korean>", "<specific tip 2 in Korean>", "<specific tip 3 in Korean>"],
   "debateSummary": "<2-3 sentences in Korean summarizing key disagreements between evaluators and score changes>"
-}`;
+}
+Do not use markdown formatting (no **, *, #) inside any string values.`;
 
   const raw = await callOllama(systemPrompt, userContent);
   const parsed = extractJSON<{
