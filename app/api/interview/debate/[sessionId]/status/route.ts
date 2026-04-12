@@ -15,7 +15,7 @@ export async function GET(
     const { data: session } = await supabase
       .from("interview_sessions")
       .select(
-        "status, agentEvaluations, finalScore, finalFeedback, debateSummary, improvementTips, errorMessage",
+        "status, agentEvaluations, debateReplies, finalScore, finalFeedback, debateSummary, improvementTips, errorMessage",
       )
       .eq("id", sessionId)
       .eq("userId", userId)
