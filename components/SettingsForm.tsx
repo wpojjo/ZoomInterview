@@ -8,6 +8,7 @@ interface Education {
   id?: string;
   schoolName: string;
   major: string;
+  degree: "학사" | "석사" | "박사";
   startDate: string;
   endDate?: string | null;
   graduationStatus: "재학중" | "졸업" | "졸업예정" | "중퇴" | "휴학중";
@@ -39,14 +40,14 @@ interface Activity {
 
 interface InitialData {
   name?: string;
-  educations?: Array<Omit<Education, "graduationStatus"> & { graduationStatus: string }>;
+  educations?: Array<Omit<Education, "graduationStatus" | "degree"> & { graduationStatus: string; degree?: string | null }>;
   careers?: Career[];
   certifications?: Certification[];
   activities?: Activity[];
 }
 
 function newEducation(): Education {
-  return { schoolName: "", major: "", startDate: "", endDate: "", graduationStatus: "재학중" };
+  return { schoolName: "", major: "", degree: "학사", startDate: "", endDate: "", graduationStatus: "재학중" };
 }
 function newCareer(): Career {
   return { companyName: "", role: "", startDate: "", endDate: "", description: "" };
@@ -62,7 +63,11 @@ export default function SettingsForm({ initialData }: { initialData: InitialData
   const [name, setName] = useState(initialData.name ?? "");
   const [educations, setEducations] = useState<Education[]>(
     initialData.educations?.length
-      ? initialData.educations.map((e) => ({ ...e, graduationStatus: e.graduationStatus as Education["graduationStatus"] }))
+      ? initialData.educations.map((e) => ({
+          ...e,
+          degree: (e.degree as Education["degree"]) ?? "학사",
+          graduationStatus: e.graduationStatus as Education["graduationStatus"],
+        }))
       : []
   );
   const [careers, setCareers] = useState<Career[]>(initialData.careers ?? []);
@@ -164,6 +169,11 @@ export default function SettingsForm({ initialData }: { initialData: InitialData
               </Field>
               <Field label="전공">
                 <input type="text" value={edu.major} onChange={(e) => setEducations((p) => p.map((item, idx) => idx === i ? { ...item, major: e.target.value } : item))} placeholder="컴퓨터공학" className="input" />
+              </Field>
+              <Field label="학위">
+                <select value={edu.degree} onChange={(e) => setEducations((p) => p.map((item, idx) => idx === i ? { ...item, degree: e.target.value as Education["degree"] } : item))} className="input">
+                  {["학사", "석사", "박사"].map((d) => <option key={d} value={d}>{d}</option>)}
+                </select>
               </Field>
               <Field label="입학일">
                 <input type="month" value={edu.startDate} onChange={(e) => setEducations((p) => p.map((item, idx) => idx === i ? { ...item, startDate: e.target.value } : item))} className="input" />

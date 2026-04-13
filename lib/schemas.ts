@@ -4,6 +4,9 @@ export const educationSchema = z.object({
   id: z.string().optional(),
   schoolName: z.string().min(1, "학교명을 입력해주세요"),
   major: z.string().min(1, "전공을 입력해주세요"),
+  degree: z.enum(["학사", "석사", "박사"], {
+    errorMap: () => ({ message: "학위를 선택해주세요" }),
+  }),
   startDate: z.string().min(1, "시작일을 입력해주세요"),
   endDate: z.string().optional(),
   graduationStatus: z.enum(["재학중", "졸업", "졸업예정", "중퇴", "휴학중"], {

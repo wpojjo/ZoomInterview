@@ -121,6 +121,7 @@ export type Database = {
       }
       educations: {
         Row: {
+          degree: string | null
           endDate: string | null
           graduationStatus: string
           id: string
@@ -130,6 +131,7 @@ export type Database = {
           startDate: string
         }
         Insert: {
+          degree?: string | null
           endDate?: string | null
           graduationStatus: string
           id: string
@@ -139,6 +141,7 @@ export type Database = {
           startDate: string
         }
         Update: {
+          degree?: string | null
           endDate?: string | null
           graduationStatus?: string
           id?: string
