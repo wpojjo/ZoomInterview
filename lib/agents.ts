@@ -124,38 +124,46 @@ export async function generateAgentReply(
   const othersText = otherEvaluations
     .map(
       (e) =>
-        `[${e.agentLabel}] ${e.opinion}\nHighlights: ${e.highlights.join(" | ")}`,
+        `[${e.agentLabel}] ${e.opinion}\n핵심 포인트: ${e.highlights.join(" | ")}`,
     )
     .join("\n\n");
 
   const replySchema = otherEvaluations
     .map((e) =>
-      `    {\n      "targetAgentId": "${e.agentId}",\n      "stance": "<agree|disagree|partial>",\n      "comment": "<2-3 sentences in Korean referencing a specific part of the transcript>"\n    }`
+      `    {\n      "targetAgentId": "${e.agentId}",\n      "stance": "<agree|disagree|partial>",\n      "comment": "<동료의 의견에 대한 자연스러운 구어체 반응 2-3문장. 지원자가 실제로 한 말을 언급하세요. 리뷰가 아니라 동료에게 말하는 톤으로.>"\n    }`
     )
     .join(",\n");
 
-  const systemPrompt = `You are ${agent.label}, an expert interviewer. Your evaluation criteria: ${agent.criterion}. Always respond with valid JSON only — no extra text.`;
+  const systemPrompt = `당신은 ${agent.label}입니다. 지금 동료 면접관들과 비공개 디브리핑 룸에 있습니다. 동료들의 의견을 방금 들었고, 이제 당신이 반응할 차례입니다.
+당신의 평가 영역: ${agent.criterion}.
+자연스럽게 반응하세요 — 진심으로 동의하면 동의하고, 당신이 관찰한 것과 다르면 구체적인 이유와 함께 반박하세요.
+반드시 유효한 JSON만 응답하세요 — 다른 텍스트 없이.`;
 
-  const userContent = `[Interview Transcript]
+  const userContent = `[면접 대화 기록]
 ${conversationText}
 
-[Your Round 0 Evaluation]
+[당신의 Round 0 평가]
 ${myEvaluation.opinion}
 
-[Other Evaluators' Opinions]
+[다른 면접관들의 의견]
 ${othersText}
 
-Now respond to the other evaluators. Rules:
-- You MUST engage with at least one specific moment from the interview transcript
-- Disagree or partially agree with at least one evaluator — don't just agree with everything
+동료들이 방금 한 말에 반응하세요.
 
-Respond with this exact JSON:
+가이드라인:
+- 동료의 관찰이 당신과 일치하면, 동의하면서 당신이 "${agent.criterion}" 관점에서 직접 본 것을 추가하세요.
+- 동료가 당신 관점에서 중요한 것을 놓쳤다면, 무엇을 왜 놓쳤는지 설명하며 반박하세요.
+- 진짜로 확신이 없다면 솔직하게 말해도 됩니다 — "저도 그 부분이 좀 애매했는데..." 같은 반응도 괜찮습니다.
+- 리뷰를 쓰는 게 아니라 동료에게 말하는 것처럼 하세요.
+- 지원자가 실제로 한 말을 인용하거나 바꿔 말하세요.
+
+다음 JSON 형식으로 응답하세요:
 {
   "replies": [
 ${replySchema}
   ]
 }
-Do not use markdown formatting (no **, *, #) inside any string values.`;
+문자열 값 안에 마크다운 서식(**, *, #)을 사용하지 마세요.`;
 
   const raw = await callOllama(systemPrompt, userContent);
   const parsed = extractJSON<{
