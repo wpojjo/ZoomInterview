@@ -255,9 +255,21 @@ export async function generateAgentBaseQuestion(
   const systemPrompt = buildAgentSystemPrompt(agentId, profile, jobPosting, difficulty);
 
   const baseQuestionGuide: Record<AgentId, string> = {
-    organization: `Based on the job posting and candidate profile, ask a warm, welcoming question about the candidate's motivation for applying and their background. This is the opening question of the interview.`,
-    logic: `Based on the interview conversation so far, ask a question that requires the candidate to describe a specific past experience using the STAR method. The question must be in Korean only — do not include English terms like "Situation", "Task", "Action", "Result", or "STAR" in the output. Focus on experiences relevant to the job.`,
-    technical: `Based strictly on the job posting requirements above, ask a question that probes whether the candidate has the hands-on skills and experience this specific role demands. Ground your question in the actual responsibilities and requirements listed — not generic technical skills. Request a concrete example with measurable outcomes.`,
+    organization: `이미 첫 질문(자기소개/지원동기)은 완료됐습니다. 이제 가치관, 자기 인식, 조직 적합성을 더 깊이 파악하세요.
+지금까지의 대화 흐름에 맞게 아래 중 하나를 선택하세요:
+- 지원 동기가 추상적이라면: "이 회사에서 특별히 하고 싶은 일이나 이루고 싶은 목표가 있으신가요?"
+- 커리어 전환이나 공백이 있다면: "이전과 다른 방향으로 지원하셨는데, 이 변화를 결심하게 된 계기가 있으신가요?"
+- 신입이라면: "학교 생활이나 활동 중에 본인이 성장했다고 느낀 경험이 있으면 말씀해주세요."
+한국어로 정확히 한 가지 질문만 하세요. 이미 다룬 내용은 반복하지 마세요.`,
+    logic: `채용공고와 관련된 경험 기반 질문을 하세요.
+좋은 패턴:
+- "지금까지 경험 중에서 [직무 관련 도전]과 비슷한 상황이 있었나요? 그때 어떻게 대처하셨는지 구체적으로 말씀해주세요."
+- "가장 기억에 남는 실패 경험과, 그 이후 어떻게 달라졌는지 말씀해주세요."
+STAR, S, T, A, R 같은 영어 약어를 출력에 사용하지 마세요.`,
+    technical: `채용공고의 요건에만 근거해서 질문 하나를 하세요.
+패턴: "공고에서 [요건 X]를 요구하고 있는데, 실제로 관련 경험이 있으신가요? 어떤 상황이었고 어떤 결과를 냈는지 말씀해주세요."
+신입이라면: 해당 요건과 관련된 학교 프로젝트나 자기 학습 경험을 물어보세요.
+공고에 없는 요건을 만들지 마세요.`,
   };
 
   const conversationText = messages
@@ -265,15 +277,15 @@ export async function generateAgentBaseQuestion(
     .join("\n\n");
 
   const guide = conversationText
-    ? `[Interview Conversation So Far]\n${conversationText}\n\n${baseQuestionGuide[agentId]}`
+    ? `[지금까지의 면접 대화]\n${conversationText}\n\n${baseQuestionGuide[agentId]}`
     : baseQuestionGuide[agentId];
 
   const userContent = `${guide}
 
-Respond with this exact JSON (no other text):
+다음 JSON 형식으로 응답하세요 (다른 텍스트 없이):
 {
-  "question": "<exactly one interview question in Korean — no prefix like 면접관: or Q:>",
-  "hint": "<1-2 sentences in Korean explaining what you want to assess with this question — will be shown to the candidate as a hint>"
+  "question": "<한국어로 면접 질문 정확히 하나 — '면접관:' 또는 'Q:' 같은 접두사 없이>",
+  "hint": "<좋은 답변이 어떤 모습인지 1-2문장으로 안내하세요. 형식이나 내용을 구체적으로 알려주세요. 예: '구체적인 상황과 본인이 직접 취한 행동, 그리고 결과까지 포함해서 답변해주세요.' '논리력을 평가합니다' 같은 추상적 표현은 사용하지 마세요.>"
 }`;
 
   const raw = await callOllama(systemPrompt, userContent, true);
@@ -301,9 +313,9 @@ Respond with this exact JSON (no other text):
 }
 
 const DIFFICULTY_FOLLOWUP_HINT: Record<Difficulty, string> = {
-  easy: "Only set shouldFollowUp to true if the answer is critically incomplete — missing the core point entirely.",
-  normal: "Set shouldFollowUp to true if the answer lacks a concrete example or key specifics needed to assess the candidate fairly.",
-  hard: "Set shouldFollowUp to true unless the answer includes specific metrics, project names, and demonstrates clear depth. Be demanding — a vague or generic answer always warrants a follow-up.",
+  easy: "핵심을 완전히 빠뜨린 경우에만 shouldFollowUp을 true로 설정하세요.",
+  normal: "구체적인 사례나 핵심 내용이 부족해서 지원자를 공정하게 평가하기 어렵다면 shouldFollowUp을 true로 설정하세요.",
+  hard: "구체적인 수치, 프로젝트명, 명확한 깊이가 포함된 경우에만 shouldFollowUp을 false로 설정하세요. 모호하거나 추상적인 답변은 항상 꼬리질문이 필요합니다.",
 };
 
 // 에이전트의 꼬리질문 생성. null 반환 시 다음 에이전트로 넘어감
@@ -321,24 +333,24 @@ export async function generateAgentFollowUpQuestion(
     .join("\n\n");
 
   const agentCriteria: Record<AgentId, string> = {
-    organization: "growth potential, self-awareness, and authenticity",
-    logic: "logical structure and STAR method completeness (Situation, Task, Action, Result)",
-    technical: "technical specificity with concrete numbers, project names, and measurable results",
+    organization: "성장 가능성, 자기 인식, 진정성",
+    logic: "논리적 구조와 상황→과제→행동→결과 흐름의 완성도",
+    technical: "수치·프로젝트명을 포함한 기술적 구체성과 측정 가능한 결과",
   };
 
-  const userContent = `[Interview Conversation]\n${conversationText}
+  const userContent = `[면접 대화 기록]\n${conversationText}
 
-The candidate just answered your last question. Evaluate whether their answer sufficiently addresses your evaluation criteria: ${agentCriteria[agentId]}.
+지원자가 방금 마지막 질문에 답변했습니다. 답변이 당신의 평가 기준을 충분히 충족하는지 판단하세요: ${agentCriteria[agentId]}.
 
-Difficulty guidance: ${DIFFICULTY_FOLLOWUP_HINT[difficulty]}
+난이도 가이드: ${DIFFICULTY_FOLLOWUP_HINT[difficulty]}
 
-If you want to follow up, the question MUST reference a specific part of the candidate's last answer.
+꼬리질문을 한다면, 반드시 지원자의 마지막 답변에서 구체적인 부분을 언급해야 합니다.
 
-Respond with this exact JSON:
+다음 JSON 형식으로 응답하세요:
 {
-  "shouldFollowUp": <true if a follow-up is needed, false if the answer is sufficient>,
-  "question": "<follow-up question in Korean, or empty string if shouldFollowUp is false>",
-  "hint": "<1-2 sentences in Korean explaining what you want to assess — shown to the candidate as a hint. Empty string if shouldFollowUp is false>"
+  "shouldFollowUp": <답변이 불충분하면 true, 충분하면 false>,
+  "question": "<한국어로 꼬리질문, shouldFollowUp이 false이면 빈 문자열>",
+  "hint": "<좋은 답변이 어떤 모습인지 1-2문장으로 안내하세요. 예: '이번엔 본인이 직접 취한 행동과 그 결과를 수치로 말씀해주세요.' shouldFollowUp이 false이면 빈 문자열>"
 }`;
 
   const raw = await callOllama(systemPrompt, userContent, true);
