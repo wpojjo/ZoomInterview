@@ -252,7 +252,6 @@ export default function InterviewSession({ name }: { name: string }) {
   const [debateResult, setDebateResult] = useState<DebateResultData | null>(null);
   const [debateError, setDebateError] = useState("");
 
-  const bottomRef = useRef<HTMLDivElement>(null);
 
   function handleDifficultySelect(d: Difficulty) {
     setDifficulty(d);
@@ -265,9 +264,6 @@ export default function InterviewSession({ name }: { name: string }) {
     setPhase("interviewing");
   }
 
-  useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages, isLoading, phase]);
 
   useEffect(() => {
     setTimeLeft(ANSWER_TIME_LIMIT);
@@ -501,8 +497,6 @@ export default function InterviewSession({ name }: { name: string }) {
       {/* 진행 상황 */}
       <div className="flex items-center gap-2 text-xs text-gray-400 dark:text-slate-500 px-1">
         <span className="font-medium">면접 진행 중</span>
-        <span>·</span>
-        <span>면접관 {agentIndex + 1} / {TOTAL_AGENTS}</span>
       </div>
 
       {/* 면접관 패널 */}
@@ -626,7 +620,7 @@ export default function InterviewSession({ name }: { name: string }) {
         </div>
       </div>
 
-      <div ref={bottomRef} />
+
     </div>
   );
 }
