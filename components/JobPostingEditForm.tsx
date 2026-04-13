@@ -79,7 +79,7 @@ export default function JobPostingEditForm({ initialData }: Props) {
       </div>
 
       <div className="flex items-center justify-between gap-3">
-        <Link href="/job-posting" className="btn-secondary">
+        <Link href="/job-posting?force=true" className="btn-secondary">
           ← 다시 입력
         </Link>
         <button

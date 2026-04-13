@@ -1,6 +1,33 @@
+import { redirect } from "next/navigation";
+import { supabase } from "@/lib/supabase";
+import { getAuthUser } from "@/lib/auth";
 import JobPostingForm from "@/components/JobPostingForm";
 
-export default function JobPostingPage() {
+export default async function JobPostingPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ force?: string }>;
+}) {
+  const params = await searchParams;
+
+  // 이미 분석된 채용공고가 있으면 바로 결과 화면으로 (force=true면 새로 입력)
+  if (params.force !== "true") {
+    const userId = await getAuthUser();
+    if (userId) {
+      const { data } = await supabase
+        .from("job_postings")
+        .select("responsibilities")
+        .eq("userId", userId)
+        .order("updatedAt", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (data?.responsibilities) {
+        redirect("/job-posting/edit");
+      }
+    }
+  }
+
   return (
     <main className="min-h-screen py-8 px-4">
       <div className="max-w-3xl mx-auto space-y-6">
