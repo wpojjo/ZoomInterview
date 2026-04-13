@@ -262,8 +262,32 @@ export default function InterviewSession({ name }: { name: string }) {
     setAgentIndex(0);
     setFollowUpCount(0);
     setPhase("interviewing");
+    history.pushState({ interviewPhase: "interviewing" }, "");
   }
 
+  function goToPhase(next: Phase) {
+    setPhase(next);
+    if (next !== "selecting") {
+      history.pushState({ interviewPhase: next }, "");
+    }
+  }
+
+  useEffect(() => {
+    const PREV: Partial<Record<Phase, Phase>> = {
+      interviewing: "selecting",
+      finished: "interviewing",
+      debating: "finished",
+      done: "debating",
+    };
+    function handlePopState() {
+      const prev = PREV[phase];
+      if (prev) {
+        setPhase(prev);
+      }
+    }
+    window.addEventListener("popstate", handlePopState);
+    return () => window.removeEventListener("popstate", handlePopState);
+  }, [phase]);
 
   useEffect(() => {
     setTimeLeft(ANSWER_TIME_LIMIT);
@@ -330,7 +354,7 @@ export default function InterviewSession({ name }: { name: string }) {
       // 면접 종료 → 800ms 대기 후 finished 카드 표시
       setFinishedMessages(currentMessages);
       await new Promise((resolve) => setTimeout(resolve, 800));
-      setPhase("finished");
+      goToPhase("finished");
       return;
     }
 
@@ -390,7 +414,7 @@ export default function InterviewSession({ name }: { name: string }) {
         </div>
         <button
           onClick={async () => {
-            setPhase("debating");
+            goToPhase("debating");
             try {
               const sid = await startDebate(finishedMessages, difficulty);
               setSessionId(sid);
@@ -441,7 +465,7 @@ export default function InterviewSession({ name }: { name: string }) {
             avatarSeeds={avatarSeeds}
             onDone={(result) => {
               setDebateResult(result);
-              setPhase("done");
+              goToPhase("done");
             }}
             onError={(msg) => setDebateError(msg)}
           />
