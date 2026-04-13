@@ -21,11 +21,6 @@
 | 스타일링 | Tailwind CSS |
 | 검증 | Zod |
 
-## 시작하기
+## 문서
 
-로컬 환경 설정 및 배포 방법 → [Wiki: Setup](../../wiki/Setup)
-
-## 상세 문서
-
-- [아키텍처 및 코드 흐름](../../wiki/Architecture)
-- [로컬 환경 설정](../../wiki/Setup)
+[Wiki](../../wiki)
