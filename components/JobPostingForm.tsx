@@ -139,7 +139,7 @@ export default function JobPostingForm({ initialData }: { initialData?: InitialD
             disabled={isLoading}
             className="input disabled:opacity-50"
           />
-          <p className="text-xs text-gray-400 dark:text-slate-500">원티드, 잡코리아, 링크드인 등의 채용공고 링크를 붙여넣으세요</p>
+          <p className="text-xs text-gray-400 dark:text-slate-500">지원하고자 하는 회사의 채용공고 링크를 붙여 넣어주세요</p>
         </div>
 
         {status === "error" && (
