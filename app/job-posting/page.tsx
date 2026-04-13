@@ -10,7 +10,7 @@ export default function JobPostingPage() {
             <span>채용공고 입력</span>
           </div>
           <h1 className="text-2xl font-bold text-gray-900 dark:text-slate-50">채용공고를 입력해주세요</h1>
-          <p className="text-sm text-gray-500 dark:text-slate-400">채용공고 링크를 입력하면 AI가 자동으로 분석합니다</p>
+          <p className="text-sm text-gray-500 dark:text-slate-400">채용공고를 분석하면 면접관들이 해당 직무에 딱 맞는 질문을 출제할 수 있어요</p>
         </div>
         <JobPostingForm />
       </div>

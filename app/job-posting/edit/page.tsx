@@ -17,11 +17,16 @@ async function getJobPosting() {
   return rows?.[0] ?? null;
 }
 
-export default async function JobPostingEditPage() {
+export default async function JobPostingEditPage({
+  searchParams,
+}: {
+  searchParams: { analyzing?: string };
+}) {
   const userId = await getAuthUser();
   if (!userId) redirect("/login");
 
-  const jobPosting = await getJobPosting();
+  const isAnalyzing = searchParams.analyzing === "true";
+  const jobPosting = isAnalyzing ? null : await getJobPosting();
 
   const initialData = {
     responsibilities: jobPosting?.responsibilities ?? "",
@@ -37,10 +42,14 @@ export default async function JobPostingEditPage() {
             <span className="bg-blue-600 text-white font-bold px-2 py-0.5 rounded-md">3 / 3</span>
             <span>채용공고 확인</span>
           </div>
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-slate-50">분석 결과를 확인해주세요</h1>
-          <p className="text-sm text-gray-500 dark:text-slate-400">내용을 직접 수정하거나 보완할 수 있습니다</p>
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-slate-50">
+            {isAnalyzing ? "채용공고를 분석하고 있어요" : "분석 결과를 확인해주세요"}
+          </h1>
+          {!isAnalyzing && (
+            <p className="text-sm text-gray-500 dark:text-slate-400">내용이 맞으면 면접을 시작하세요</p>
+          )}
         </div>
-        <JobPostingEditForm initialData={initialData} />
+        <JobPostingEditForm initialData={initialData} isAnalyzing={isAnalyzing} />
       </div>
     </main>
   );
