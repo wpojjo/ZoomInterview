@@ -31,14 +31,7 @@ export default function JobPostingForm() {
         return;
       }
 
-      const analyzeRes = await fetch("/api/job-posting/analyze", { method: "POST" });
-      if (!analyzeRes.ok) {
-        // 분석 실패해도 편집 페이지로 이동 (빈 폼으로)
-        router.push("/job-posting/edit");
-        return;
-      }
-
-      router.push("/job-posting/edit");
+      router.push("/job-posting/edit?analyzing=true");
     } catch {
       setErrorMessage("네트워크 오류가 발생했습니다");
       setStatus("error");
@@ -69,19 +62,6 @@ export default function JobPostingForm() {
         )}
       </div>
 
-      {isLoading && (
-        <div className="card p-8 text-center space-y-2">
-          <div className="flex justify-center">
-            <svg className="animate-spin h-6 w-6 text-blue-500" viewBox="0 0 24 24" fill="none">
-              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z" />
-            </svg>
-          </div>
-          <p className="text-sm text-gray-400 dark:text-slate-500">채용공고를 분석하고 있습니다</p>
-          <p className="text-xs text-gray-300 dark:text-slate-600">최대 2분 정도 소요될 수 있습니다</p>
-        </div>
-      )}
-
       <div className="flex items-center justify-between gap-3">
         <Link href="/settings" className="btn-secondary">
           ← 프로필 수정
@@ -97,7 +77,7 @@ export default function JobPostingForm() {
                 <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                 <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z" />
               </svg>
-              분석 중...
+              이동 중...
             </span>
           ) : "분석하기"}
         </button>
