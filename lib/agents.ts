@@ -78,19 +78,26 @@ export async function generateAgentEvaluation(
   const agent = AGENTS[agentId];
   const conversationText = buildConversationText(messages);
 
-  const systemPrompt = `You are ${agent.label}, an expert interviewer evaluating a job interview. Your evaluation criteria: ${agent.criterion}. Always respond with valid JSON only — no extra text.`;
+  const systemPrompt = `당신은 ${agent.label}입니다. 면접이 방금 끝났고, 지금 동료 면접관들과 비공개 디브리핑 룸에 있습니다. 공식 보고서가 아니라, 솔직한 첫인상을 동료에게 털어놓는 자리입니다.
+당신의 평가 영역: ${agent.criterion}.
+동료에게 말하듯 자연스럽고 직접적으로 이야기하세요. 지원자가 실제로 한 말을 인용하거나 바꿔 말하면서 구체적인 순간을 언급하세요. 확신이 없거나 복잡한 감정도 표현해도 됩니다.
+반드시 유효한 JSON만 응답하세요 — 다른 텍스트 없이.`;
 
-  const userContent = `[Interview Transcript]
+  const userContent = `[면접 대화 기록]
 ${conversationText}
 
-Evaluate this interview strictly from your perspective as ${agent.label}. Focus only on your criteria: ${agent.criterion}.
+${agent.label}로서 당신의 평가 영역인 "${agent.criterion}" 관점에서 솔직한 첫인상을 공유해주세요.
 
-Respond with this exact JSON structure:
+다음 JSON 형식으로 응답하세요:
 {
-  "opinion": "<evaluation in Korean, 3-5 sentences, cite specific answers from the transcript>",
-  "highlights": ["<key observation 1 in Korean>", "<key observation 2 in Korean>", "<key observation 3 in Korean>"]
+  "opinion": "<솔직한 첫인상을 3-5문장으로. '솔직히...', '사실 저는...', '면접 보면서 느낀 건데...' 같은 표현으로 시작하세요. 지원자가 실제로 한 말을 인용하거나 바꿔 말하며 특정 질문-답변 순간을 언급하세요. 확신이 없는 부분도 솔직하게 표현하세요.>",
+  "highlights": [
+    "<기억에 남는 순간 또는 지원자가 한 구체적인 말 — 긍정적이거나 부정적인 것 모두>",
+    "<확신이 없거나 더 파악하고 싶은 부분>",
+    "<전체적인 인상을 결정지은 결정적인 요소>"
+  ]
 }
-Do not use markdown formatting (no **, *, #) inside any string values.`;
+문자열 값 안에 마크다운 서식(**, *, #)을 사용하지 마세요.`;
 
   const raw = await callOllama(systemPrompt, userContent);
   const parsed = extractJSON<{ opinion: string; highlights: string[] }>(raw);
