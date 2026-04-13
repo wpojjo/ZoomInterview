@@ -39,18 +39,6 @@ export default async function InterviewPage() {
   return (
     <main className="min-h-screen py-8 px-4">
       <div className="max-w-2xl mx-auto space-y-6">
-        <div className="space-y-1">
-          <div className="flex items-center gap-2 text-xs text-gray-500 dark:text-slate-400">
-            <span className="bg-green-600 text-white font-bold px-2 py-0.5 rounded-md">AI 면접</span>
-            <span>맞춤 면접 연습</span>
-          </div>
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-slate-50">
-            {name}님의 면접을 시작합니다
-          </h1>
-          <p className="text-sm text-gray-500 dark:text-slate-400">
-            프로필과 채용공고를 분석한 맞춤형 질문입니다. 실제 면접처럼 답변해보세요.
-          </p>
-        </div>
         <InterviewSession name={name!} />
       </div>
     </main>

@@ -17,7 +17,7 @@ import DebateResult from "@/components/DebateResult";
 
 const ANSWER_TIME_LIMIT = 80;
 
-type Phase = "selecting" | "interviewing" | "debating" | "done";
+type Phase = "selecting" | "interviewing" | "finished" | "debating" | "done";
 
 async function fetchQuestion(
   messages: Message[],
@@ -240,6 +240,7 @@ export default function InterviewSession({ name }: { name: string }) {
   });
 
   const [messages, setMessages] = useState<Message[]>([]);
+  const [finishedMessages, setFinishedMessages] = useState<Message[]>([]);
   const [currentHint, setCurrentHint] = useState("");
   const [hintVisible, setHintVisible] = useState(false);
   const [answer, setAnswer] = useState("");
@@ -330,14 +331,10 @@ export default function InterviewSession({ name }: { name: string }) {
     const nextAgentIndex = agentIndex + 1;
 
     if (nextAgentIndex >= TOTAL_AGENTS) {
-      // 면접 종료 → 토론 시작
-      setPhase("debating");
-      try {
-        const sid = await startDebate(currentMessages, difficulty);
-        setSessionId(sid);
-      } catch (e: unknown) {
-        setDebateError(e instanceof Error ? e.message : "토론을 시작할 수 없습니다");
-      }
+      // 면접 종료 → 800ms 대기 후 finished 카드 표시
+      setFinishedMessages(currentMessages);
+      await new Promise((resolve) => setTimeout(resolve, 800));
+      setPhase("finished");
       return;
     }
 
@@ -368,11 +365,49 @@ export default function InterviewSession({ name }: { name: string }) {
     setSessionId(null);
     setDebateResult(null);
     setDebateError("");
+    setFinishedMessages([]);
   }
 
   // 난이도 선택
   if (phase === "selecting") {
-    return <DifficultySelect onSelect={handleDifficultySelect} />;
+    return (
+      <div className="space-y-6">
+        <div className="space-y-1">
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-slate-50">{name}님의 맞춤 면접</h1>
+          <p className="text-sm text-gray-500 dark:text-slate-400">
+            프로필과 채용공고를 분석한 맞춤형 질문입니다. 실제 면접처럼 답변해보세요.
+          </p>
+        </div>
+        <DifficultySelect onSelect={handleDifficultySelect} />
+      </div>
+    );
+  }
+
+  // 면접 완료 카드
+  if (phase === "finished") {
+    return (
+      <div className="card flex flex-col items-center py-16 px-6 space-y-5 text-center animate-fade-in-up">
+        <div className="text-4xl">🎉</div>
+        <div className="space-y-2">
+          <h2 className="text-xl font-bold text-gray-900 dark:text-slate-50">면접이 완료되었습니다!</h2>
+          <p className="text-sm text-gray-500 dark:text-slate-400">3명의 면접관이 답변을 종합 평가합니다</p>
+        </div>
+        <button
+          onClick={async () => {
+            setPhase("debating");
+            try {
+              const sid = await startDebate(finishedMessages, difficulty);
+              setSessionId(sid);
+            } catch (e: unknown) {
+              setDebateError(e instanceof Error ? e.message : "토론을 시작할 수 없습니다");
+            }
+          }}
+          className="btn-primary mt-2"
+        >
+          면접관 평가 시작하기 →
+        </button>
+      </div>
+    );
   }
 
   // 토론 중 or 결과 화면 (DebateLoading은 항상 마운트 유지 — 뒤로가기 시 상태 보존)
@@ -463,6 +498,13 @@ export default function InterviewSession({ name }: { name: string }) {
 
   return (
     <div className="space-y-4">
+      {/* 진행 상황 */}
+      <div className="flex items-center gap-2 text-xs text-gray-400 dark:text-slate-500 px-1">
+        <span className="font-medium">면접 진행 중</span>
+        <span>·</span>
+        <span>면접관 {agentIndex + 1} / {TOTAL_AGENTS}</span>
+      </div>
+
       {/* 면접관 패널 */}
       <InterviewerPanel agentIndex={agentIndex} isLoading={isLoading} isSpeaking={isSpeaking} avatarSeeds={avatarSeeds} />
 
