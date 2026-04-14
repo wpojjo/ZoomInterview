@@ -10,6 +10,13 @@ const DIFFICULTY_CONFIG: {
   color: string;
 }[] = [
   {
+    value: "tutorial",
+    label: "튜토리얼",
+    description: "기본 3문답만. 꼬리질문·속마음 없음",
+    detail: "처음 면접을 연습하는 분께 추천합니다",
+    color: "border-gray-200 dark:border-gray-700 hover:border-gray-400 dark:hover:border-gray-500",
+  },
+  {
     value: "easy",
     label: "이지",
     description: "핵심이 빠졌을 때만 꼬리질문",

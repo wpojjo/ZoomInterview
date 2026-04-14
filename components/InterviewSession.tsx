@@ -392,7 +392,7 @@ export default function InterviewSession({ name }: { name: string }) {
     setQuestionReady(true);
 
     try {
-      const canFollowUp = followUpRound < MAX_FOLLOWUP_ROUNDS;
+      const canFollowUp = difficulty !== "tutorial" && followUpRound < MAX_FOLLOWUP_ROUNDS;
 
       if (canFollowUp) {
         const result = await fetchQuestion(updatedMessages, currentAgentId, true, difficulty);

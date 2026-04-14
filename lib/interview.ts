@@ -2,7 +2,7 @@ const OLLAMA_BASE_URL = process.env.OLLAMA_BASE_URL ?? "http://localhost:11434";
 const OLLAMA_MODEL = process.env.OLLAMA_MODEL ?? "qwen2.5:7b";
 
 export type AgentId = "organization" | "logic" | "technical";
-export type Difficulty = "easy" | "normal" | "hard";
+export type Difficulty = "tutorial" | "easy" | "normal" | "hard";
 
 export const MAX_FOLLOWUP_ROUNDS = 4; // 무한루프 방지용 안전 캡
 
@@ -141,6 +141,9 @@ export function getFirstQuestion(name: string) {
 }
 
 const DIFFICULTY_QUESTION_HINT: Record<Difficulty, string> = {
+  tutorial: `난이도: 튜토리얼. 처음 면접을 연습하는 사용자를 위한 모드입니다. 편안하고 열린 질문을 하세요.
+예시 톤: "어떤 계기로 이 분야에 관심을 갖게 됐나요?" 또는 "팀 프로젝트를 해본 적 있나요? 어떤 역할을 맡으셨나요?"
+수치나 측정 가능한 결과를 요구하지 마세요.`,
   easy: `난이도: 쉬움. 편안하고 열린 질문을 하세요. 일반적이거나 이야기 형식의 답변도 수용합니다.
 예시 톤: "어떤 계기로 이 분야에 관심을 갖게 됐나요?" 또는 "팀 프로젝트를 해본 적 있나요? 어떤 역할을 맡으셨나요?"
 수치나 측정 가능한 결과를 요구하지 마세요.`,
@@ -317,6 +320,7 @@ STAR, S, T, A, R 같은 영어 약어를 출력에 사용하지 마세요.`,
 }
 
 const DIFFICULTY_FOLLOWUP_HINT: Record<Difficulty, string> = {
+  tutorial: "", // 사용 안 함 — tutorial 모드는 꼬리질문 없음
   easy: "핵심을 완전히 빠뜨린 경우에만 shouldFollowUp을 true로 설정하세요.",
   normal: "구체적인 사례나 핵심 내용이 부족해서 공정한 평가가 어렵다면 shouldFollowUp을 true로 설정하세요.",
   hard: "수치, 프로젝트명, 구체적 깊이가 포함된 경우에만 shouldFollowUp을 false로 설정하세요. 모호하거나 추상적인 답변은 항상 shouldFollowUp을 true로 설정하세요.",
