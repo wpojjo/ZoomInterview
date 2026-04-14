@@ -1,5 +1,5 @@
 const OLLAMA_BASE_URL = process.env.OLLAMA_BASE_URL ?? "http://localhost:11434";
-const OLLAMA_MODEL = process.env.OLLAMA_MODEL ?? "qwen2.5:7b";
+const OLLAMA_MODEL = process.env.OLLAMA_MODEL ?? "exaone3.5:2.4b";
 
 export type AgentId = "organization" | "logic" | "technical";
 export type Difficulty = "tutorial" | "easy" | "normal" | "hard";
@@ -112,11 +112,14 @@ function buildContextualHints(
   if (profile.careers.length > 0) {
     const careerNames = profile.careers.map((c) => `${c.companyName}(${c.role})`).join(", ");
     hints.push(
-      `- The candidate is an experienced hire (${careerNames}). Focus on their motivation for switching jobs and how their past experience contributes to this role. Do NOT ask technical questions specific to their previous job.`,
+      `- 지원자는 경력직입니다 (${careerNames}).\n` +
+      `  이직 동기와 과거 경험이 이 직무에 어떻게 기여하는지에 집중하세요.\n` +
+      `  이전 직장에 특화된 기술 질문은 하지 마세요.`,
     );
   } else {
     hints.push(
-      "- The candidate is a new graduate with no full-time work experience. Focus on internships, personal projects, and extracurricular activities related to the job.",
+      "- 지원자는 정규직 경력이 없는 신입입니다.\n" +
+      "  직무와 관련된 인턴십, 개인 프로젝트, 대외활동에 집중하세요.",
     );
   }
 
@@ -128,7 +131,8 @@ function buildContextualHints(
     const jobIsIT = itKeywords.some((k) => jobText.includes(k));
     if (!majorIsIT && jobIsIT) {
       hints.push(
-        `- The candidate's major (${major}) does not match the job field. You may ask why they are applying to a field outside their major.`,
+        `- 지원자의 전공(${major})이 직무 분야와 다릅니다.\n` +
+        `  전공과 다른 분야에 지원한 이유를 물어봐도 됩니다.`,
       );
     }
   }
@@ -285,20 +289,27 @@ export async function generateAgentBaseQuestion(
   const systemPrompt = buildAgentSystemPrompt(agentId, profile, jobPosting, difficulty);
 
   const baseQuestionGuide: Record<AgentId, string> = {
-    organization: `이미 첫 질문(자기소개/지원동기)은 완료됐습니다. 이제 가치관, 자기 인식, 조직 적합성을 더 깊이 파악하세요.
+    organization: `이미 첫 질문(자기소개/지원동기)은 완료됐습니다.
+이제 가치관, 자기 인식, 조직 적합성을 더 깊이 파악하세요.
+
 지금까지의 대화 흐름에 맞게 아래 중 하나를 선택하세요:
 - 지원 동기가 추상적이라면: "이 회사에서 특별히 하고 싶은 일이나 이루고 싶은 목표가 있으신가요?"
 - 커리어 전환이나 공백이 있다면: "이전과 다른 방향으로 지원하셨는데, 이 변화를 결심하게 된 계기가 있으신가요?"
 - 신입이라면: "학교 생활이나 활동 중에 본인이 성장했다고 느낀 경험이 있으면 말씀해주세요."
+
 한국어로 정확히 한 가지 질문만 하세요. 이미 다룬 내용은 반복하지 마세요.`,
     logic: `채용공고와 관련된 경험 기반 질문을 하세요.
+
 좋은 패턴:
 - "지금까지 경험 중에서 [직무 관련 도전]과 비슷한 상황이 있었나요? 그때 어떻게 대처하셨는지 구체적으로 말씀해주세요."
 - "가장 기억에 남는 실패 경험과, 그 이후 어떻게 달라졌는지 말씀해주세요."
+
 STAR, S, T, A, R 같은 영어 약어를 출력에 사용하지 마세요.`,
     technical: `채용공고의 요건에만 근거해서 질문 하나를 하세요.
+
 패턴: "공고에서 [요건 X]를 요구하고 있는데, 실제로 관련 경험이 있으신가요? 어떤 상황이었고 어떤 결과를 냈는지 말씀해주세요."
-신입이라면: 해당 요건과 관련된 학교 프로젝트나 자기 학습 경험을 물어보세요.
+
+신입이라면 해당 요건과 관련된 학교 프로젝트나 자기 학습 경험을 물어보세요.
 공고에 없는 요건을 만들지 마세요.`,
   };
 
@@ -310,16 +321,28 @@ STAR, S, T, A, R 같은 영어 약어를 출력에 사용하지 마세요.`,
     ? `[지금까지의 면접 대화]\n${conversationText}\n\n${baseQuestionGuide[agentId]}`
     : baseQuestionGuide[agentId];
 
-  const thoughtField = difficulty !== "hard"
-    ? `,\n  "thought": "<이 지원자에게 이 질문을 선택한 이유를 면접관의 내부 독백으로 1문장. 지원자의 프로필이나 이전 답변에서 구체적인 근거를 언급하세요. 예: '경력 전환 이유가 아직 불분명해. 더 파봐야겠어.' '직무 요건에 있는 기술 경험을 아직 확인 못 했네.' 지원자에게는 들리지 않는 생각입니다.>"`
-    : "";
+  // hard 모드에서는 속마음 필드 제외 (질문 자체에 집중)
+  const THOUGHT_FIELD = [
+    `,`,
+    `  "thought": "<면접관의 내부 독백으로 1문장.`,
+    `    이 질문을 선택한 이유를 지원자의 프로필 또는 이전 답변에서 구체적인 근거와 함께 서술하세요.`,
+    `    예: '경력 전환 이유가 아직 불분명해. 더 파봐야겠어.'`,
+    `        '직무 요건에 있는 기술 경험을 아직 확인 못 했네.'`,
+    `    지원자에게는 들리지 않는 생각입니다.>"`,
+  ].join("\n");
+
+  const thoughtField = difficulty !== "hard" ? THOUGHT_FIELD : "";
 
   const userContent = `${guide}
 
 다음 JSON 형식으로 응답하세요 (다른 텍스트 없이):
 {
-  "question": "<한국어로 면접 질문 정확히 하나 — '면접관:' 또는 'Q:' 같은 접두사 없이>",
-  "hint": "<좋은 답변이 어떤 모습인지 1-2문장으로 안내하세요. 형식이나 내용을 구체적으로 알려주세요. 예: '구체적인 상황과 본인이 직접 취한 행동, 그리고 결과까지 포함해서 답변해주세요.' '논리력을 평가합니다' 같은 추상적 표현은 사용하지 마세요.>"${thoughtField}
+  "question": "<한국어로 면접 질문 정확히 하나.
+    '면접관:' 또는 'Q:' 같은 접두사 없이.>",
+  "hint": "<좋은 답변이 어떤 모습인지 1-2문장으로 안내하세요.
+    형식이나 내용을 구체적으로 알려주세요.
+    예: '구체적인 상황과 본인이 직접 취한 행동, 그리고 결과까지 포함해서 답변해주세요.'
+    '논리력을 평가합니다' 같은 추상적 표현은 사용하지 마세요.>"${thoughtField}
 }`;
 
   const raw = await callOllama(systemPrompt, userContent, true);

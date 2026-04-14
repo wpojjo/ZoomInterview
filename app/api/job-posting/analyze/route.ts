@@ -3,7 +3,7 @@ import { supabase } from "@/lib/supabase";
 import { getAuthUser } from "@/lib/auth";
 
 const OLLAMA_BASE_URL = process.env.OLLAMA_BASE_URL ?? "http://localhost:11434";
-const OLLAMA_MODEL = process.env.OLLAMA_MODEL ?? "qwen2.5:7b";
+const OLLAMA_MODEL = process.env.OLLAMA_MODEL ?? "exaone3.5:2.4b";
 
 async function fetchPageText(url: string): Promise<string> {
   const res = await fetch(`https://r.jina.ai/${url}`, {

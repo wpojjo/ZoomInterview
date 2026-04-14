@@ -1,7 +1,7 @@
 import { AgentId, AGENTS, Message } from "@/lib/interview";
 
 const OLLAMA_BASE_URL = process.env.OLLAMA_BASE_URL ?? "http://localhost:11434";
-const OLLAMA_MODEL = process.env.OLLAMA_MODEL ?? "qwen2.5:7b";
+const OLLAMA_MODEL = process.env.OLLAMA_MODEL ?? "exaone3.5:2.4b";
 
 export interface AgentEvaluation {
   agentId: AgentId;
