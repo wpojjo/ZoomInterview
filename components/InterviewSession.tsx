@@ -5,6 +5,7 @@ import {
   Message,
   Difficulty,
   AgentId,
+  AgentThoughtResult,
   AGENTS,
   AGENT_ORDER,
   TOTAL_AGENTS,
@@ -22,16 +23,29 @@ type Phase = "selecting" | "interviewing" | "finished" | "debating" | "done";
 async function fetchQuestion(
   messages: Message[],
   agentId: AgentId,
-  isFollowUpRequest: boolean,
   difficulty: Difficulty,
-): Promise<{ question?: string; hint?: string; thought?: string; followUp?: boolean }> {
+): Promise<{ question?: string; hint?: string; thought?: string }> {
   const res = await fetch("/api/interview/question", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ messages, agentId, isFollowUpRequest, difficulty }),
+    body: JSON.stringify({ messages, agentId, difficulty }),
   });
   const data = await res.json();
   if (!res.ok) throw new Error(data.error ?? "질문 생성에 실패했습니다");
+  return data;
+}
+
+async function fetchFollowUp(
+  messages: Message[],
+  difficulty: Difficulty,
+): Promise<{ thoughts: AgentThoughtResult[]; selectedAgentId: AgentId | null }> {
+  const res = await fetch("/api/interview/follow-up", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ messages, difficulty }),
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error ?? "속마음 생성에 실패했습니다");
   return data;
 }
 
@@ -55,24 +69,27 @@ function formatTime(seconds: number) {
   return `${m}:${s.toString().padStart(2, "0")}`;
 }
 
-const AGENT_META: Record<AgentId, { color: string; bg: string; bgColor: string; name: string }> = {
+const AGENT_META: Record<AgentId, { color: string; bg: string; bgColor: string; name: string; border: string }> = {
   organization: {
     color: "text-purple-600 dark:text-purple-400",
     bg: "bg-purple-100 dark:bg-purple-900/40",
     bgColor: "e9d5ff",
     name: "면접관 1",
+    border: "border-purple-300 dark:border-purple-600",
   },
   logic: {
     color: "text-blue-600 dark:text-blue-400",
     bg: "bg-blue-100 dark:bg-blue-900/40",
     bgColor: "bfdbfe",
     name: "면접관 2",
+    border: "border-blue-300 dark:border-blue-600",
   },
   technical: {
     color: "text-green-600 dark:text-green-400",
     bg: "bg-green-100 dark:bg-green-900/40",
     bgColor: "bbf7d0",
     name: "면접관 3",
+    border: "border-green-300 dark:border-green-600",
   },
 };
 
@@ -124,11 +141,13 @@ const AGENT_GLOW: Record<AgentId, string> = {
 function InterviewerPanel({
   agentIndex,
   isLoading,
+  isThinkingPhase,
   isSpeaking,
   avatarSeeds,
 }: {
   agentIndex: number;
   isLoading: boolean;
+  isThinkingPhase: boolean;
   isSpeaking: boolean;
   avatarSeeds: Record<AgentId, string>;
 }) {
@@ -140,6 +159,8 @@ function InterviewerPanel({
         const isDone = i < agentIndex;
         const isPending = i > agentIndex;
         const avatarUrl = makeAvatarUrl(avatarSeeds[aid], meta.bgColor);
+        // isThinkingPhase: 3명 모두 로딩 dots
+        const showLoading = isThinkingPhase ? true : (isActive && isLoading);
 
         return (
           <div
@@ -179,13 +200,13 @@ function InterviewerPanel({
                 </span>
               )}
               {/* 완료 표시 */}
-              {isDone && (
+              {isDone && !isThinkingPhase && (
                 <span className="absolute -bottom-1 -right-1 w-5 h-5 rounded-full bg-green-500 flex items-center justify-center text-white text-xs">
                   ✓
                 </span>
               )}
-              {/* 로딩 표시 */}
-              {isActive && isLoading && (
+              {/* 로딩 dots */}
+              {showLoading && (
                 <span className="absolute -bottom-1 -right-1 flex gap-0.5 bg-white dark:bg-slate-800 rounded-full px-1.5 py-0.5 shadow-sm border border-gray-100 dark:border-slate-700">
                   <span className="w-1 h-1 bg-gray-400 rounded-full animate-bounce [animation-delay:0ms]" />
                   <span className="w-1 h-1 bg-gray-400 rounded-full animate-bounce [animation-delay:150ms]" />
@@ -228,50 +249,100 @@ function QuestionBubble({ agentId, question }: { agentId: AgentId; question: str
   );
 }
 
-function ThoughtBubble({
+// 단일 에이전트 속마음 버블 (타이핑 애니메이션 포함)
+function AgentThoughtCard({
+  agentId,
   thought,
-  visible,
-  onToggle,
+  isSelected,
+  avatarSeed,
   onDone,
 }: {
-  thought: string;
-  visible: boolean;
-  onToggle: () => void;
+  agentId: AgentId;
+  thought: { reaction: string; judgment: string; curiosity: string };
+  isSelected: boolean;
+  avatarSeed: string;
   onDone: () => void;
 }) {
-  const { displayed, done } = useTypewriter(thought, 15);
+  const meta = AGENT_META[agentId];
+  const fullText = [thought.reaction, thought.judgment, thought.curiosity].filter(Boolean).join(" ");
+  const { displayed, done } = useTypewriter(fullText, 14);
+
   const onDoneRef = useRef(onDone);
   onDoneRef.current = onDone;
   const calledRef = useRef(false);
 
   useEffect(() => {
-    if (!calledRef.current && (done || !visible)) {
+    if (!calledRef.current && done) {
       calledRef.current = true;
       onDoneRef.current();
     }
-  }, [done, visible]);
+  }, [done]);
 
   return (
-    <div className="space-y-2">
-      {visible && (
-        <div className="relative bg-white dark:bg-slate-800 rounded-2xl px-4 py-3 shadow-sm border border-gray-100 dark:border-slate-700/50">
-          {/* 말풍선 아래 꼬리 (패널 방향) */}
-          <div className="absolute -bottom-2 left-1/2 -translate-x-1/2 w-4 h-4 rotate-45 bg-white dark:bg-slate-800 border-b border-r border-gray-100 dark:border-slate-700/50" />
-          <p className="text-gray-400 dark:text-slate-500 text-[13px] leading-relaxed italic">
-            💭 {displayed}
-            {!done && (
-              <span className="inline-block w-0.5 h-3 bg-gray-300 dark:bg-slate-600 ml-0.5 animate-pulse align-middle" />
-            )}
-          </p>
+    <div
+      className={`rounded-2xl p-3 border-2 transition-all duration-300 ${
+        isSelected
+          ? `bg-white dark:bg-slate-800 ${meta.border} shadow-md`
+          : "bg-gray-50 dark:bg-slate-800/40 border-transparent opacity-50"
+      }`}
+    >
+      <div className="flex items-center gap-1.5 mb-1.5">
+        <div className="w-5 h-5 rounded-full overflow-hidden shrink-0">
+          <img src={makeAvatarUrl(avatarSeed, meta.bgColor)} alt={meta.name} className="w-full h-full object-cover" />
         </div>
-      )}
-      <button
-        onClick={onToggle}
-        className="flex items-center gap-1 text-[11px] text-gray-300 dark:text-slate-600 hover:text-gray-400 dark:hover:text-slate-400 transition-colors px-1"
-      >
-        <span>{visible ? "▲" : "▼"}</span>
-        <span>면접관의 생각 {visible ? "접기" : "펼치기"}</span>
-      </button>
+        <span className={`text-[11px] font-semibold ${meta.color}`}>{meta.name}</span>
+      </div>
+      <p className="text-gray-400 dark:text-slate-500 text-[12px] leading-relaxed italic">
+        💭 {displayed}
+        {!done && (
+          <span className="inline-block w-0.5 h-3 bg-gray-300 dark:bg-slate-600 ml-0.5 animate-pulse align-middle" />
+        )}
+      </p>
+    </div>
+  );
+}
+
+// 3개 에이전트 병렬 속마음 버블 컨테이너
+function ParallelThoughtBubbles({
+  thoughts,
+  selectedAgentId,
+  avatarSeeds,
+  onAllDone,
+}: {
+  thoughts: AgentThoughtResult[];
+  selectedAgentId: AgentId | null;
+  avatarSeeds: Record<AgentId, string>;
+  onAllDone: () => void;
+}) {
+  const [doneCount, setDoneCount] = useState(0);
+  const onAllDoneRef = useRef(onAllDone);
+  onAllDoneRef.current = onAllDone;
+  const calledRef = useRef(false);
+
+  useEffect(() => {
+    if (!calledRef.current && doneCount >= thoughts.length) {
+      calledRef.current = true;
+      const timer = setTimeout(() => onAllDoneRef.current(), 600);
+      return () => clearTimeout(timer);
+    }
+  }, [doneCount, thoughts.length]);
+
+  return (
+    <div className="grid grid-cols-3 gap-2">
+      {AGENT_ORDER.map((agentId) => {
+        const t = thoughts.find((th) => th.agentId === agentId);
+        if (!t) return null;
+        return (
+          <AgentThoughtCard
+            key={agentId}
+            agentId={agentId}
+            thought={t.thought}
+            isSelected={selectedAgentId === null || selectedAgentId === agentId}
+            avatarSeed={avatarSeeds[agentId]}
+            onDone={() => setDoneCount((c) => c + 1)}
+          />
+        );
+      })}
     </div>
   );
 }
@@ -293,18 +364,18 @@ export default function InterviewSession({ name }: { name: string }) {
   const [hintVisible, setHintVisible] = useState(false);
   const [answer, setAnswer] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [isThinkingPhase, setIsThinkingPhase] = useState(false);
   const [error, setError] = useState("");
   const [timeLeft, setTimeLeft] = useState(ANSWER_TIME_LIMIT);
 
-  const [currentThought, setCurrentThought] = useState("");
-  const [thoughtVisible, setThoughtVisible] = useState(true);
+  const [parallelThoughts, setParallelThoughts] = useState<AgentThoughtResult[] | null>(null);
+  const [selectedFollowUpAgentId, setSelectedFollowUpAgentId] = useState<AgentId | null>(null);
   const [questionReady, setQuestionReady] = useState(true);
-  const thoughtTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const pendingAdvanceMsgsRef = useRef<Message[] | null>(null);
 
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [debateResult, setDebateResult] = useState<DebateResultData | null>(null);
   const [debateError, setDebateError] = useState("");
-
 
   function handleDifficultySelect(d: Difficulty) {
     setDifficulty(d);
@@ -314,10 +385,12 @@ export default function InterviewSession({ name }: { name: string }) {
     setHintVisible(false);
     setAgentIndex(0);
     setFollowUpRound(0);
+    setParallelThoughts(null);
+    setSelectedFollowUpAgentId(null);
+    setQuestionReady(true);
     setPhase("interviewing");
     history.pushState({ interviewPhase: "interviewing" }, "");
   }
-
 
   function goToPhase(next: Phase) {
     setPhase(next);
@@ -335,9 +408,7 @@ export default function InterviewSession({ name }: { name: string }) {
     };
     function handlePopState() {
       const prev = PREV[phase];
-      if (prev) {
-        setPhase(prev);
-      }
+      if (prev) setPhase(prev);
     }
     window.addEventListener("popstate", handlePopState);
     return () => window.removeEventListener("popstate", handlePopState);
@@ -348,10 +419,10 @@ export default function InterviewSession({ name }: { name: string }) {
   }, [messages.length]);
 
   useEffect(() => {
-    if (phase !== "interviewing" || isLoading || timeLeft <= 0) return;
+    if (phase !== "interviewing" || isLoading || isThinkingPhase || timeLeft <= 0) return;
     const timer = setTimeout(() => setTimeLeft((t) => t - 1), 1000);
     return () => clearTimeout(timer);
-  }, [timeLeft, isLoading, phase]);
+  }, [timeLeft, isLoading, isThinkingPhase, phase]);
 
   // 30초 이하 남으면 힌트 자동 표시
   useEffect(() => {
@@ -360,24 +431,9 @@ export default function InterviewSession({ name }: { name: string }) {
     }
   }, [timeLeft, currentHint, hintVisible]);
 
-  function applyThought(thought: string | undefined) {
-    if (thoughtTimerRef.current) {
-      clearTimeout(thoughtTimerRef.current);
-      thoughtTimerRef.current = null;
-    }
-    if (thought && difficulty !== "hard") {
-      setCurrentThought(thought);
-      setThoughtVisible(true);
-      setQuestionReady(false);
-    } else {
-      setCurrentThought("");
-      setQuestionReady(true);
-    }
-  }
-
   async function handleSubmit() {
     const trimmed = answer.trim();
-    if (!trimmed || isLoading) return;
+    if (!trimmed || isLoading || isThinkingPhase) return;
 
     const currentAgentId = AGENT_ORDER[agentIndex];
     const updatedMessages: Message[] = [
@@ -388,33 +444,79 @@ export default function InterviewSession({ name }: { name: string }) {
     setAnswer("");
     setIsLoading(true);
     setError("");
-    setCurrentThought("");
+    setParallelThoughts(null);
+    setSelectedFollowUpAgentId(null);
     setQuestionReady(true);
 
     try {
       const canFollowUp = difficulty !== "tutorial" && followUpRound < MAX_FOLLOWUP_ROUNDS;
 
       if (canFollowUp) {
-        const result = await fetchQuestion(updatedMessages, currentAgentId, true, difficulty);
-        if (result.followUp === false) {
-          await advanceToNextAgent(updatedMessages);
-        } else if (result.question) {
+        setIsLoading(false);
+        setIsThinkingPhase(true);
+
+        const result = await fetchFollowUp(updatedMessages, difficulty);
+        setIsThinkingPhase(false);
+
+        if (result.selectedAgentId && result.thoughts.find(t => t.agentId === result.selectedAgentId && t.question)) {
+          const selected = result.thoughts.find(t => t.agentId === result.selectedAgentId)!;
+
+          // easy/normal: 속마음 버블 표시 후 질문 등장
+          if (difficulty !== "hard") {
+            setParallelThoughts(result.thoughts);
+            setSelectedFollowUpAgentId(result.selectedAgentId);
+            setQuestionReady(false); // 버블 타이핑 완료 후 questionReady=true
+          }
+
           setMessages([
             ...updatedMessages,
-            { role: "interviewer", content: result.question, agentId: currentAgentId },
+            { role: "interviewer", content: selected.question, agentId: result.selectedAgentId },
           ]);
-          setCurrentHint(result.hint ?? "");
+          setCurrentHint(selected.hint ?? "");
           setHintVisible(false);
           setFollowUpRound((c) => c + 1);
-          applyThought(result.thought);
+
+          if (difficulty === "hard") {
+            setQuestionReady(true);
+          }
+        } else {
+          // 아무도 shouldAsk=false → 다음 에이전트
+          if (difficulty !== "hard" && result.thoughts.length > 0) {
+            // easy/normal: 속마음 버블 보여준 뒤 advanceToNextAgent
+            pendingAdvanceMsgsRef.current = updatedMessages;
+            setParallelThoughts(result.thoughts);
+            setSelectedFollowUpAgentId(null);
+            setQuestionReady(false);
+          } else {
+            await advanceToNextAgent(updatedMessages);
+          }
         }
       } else {
         await advanceToNextAgent(updatedMessages);
       }
     } catch (e: unknown) {
+      setIsThinkingPhase(false);
       setError(e instanceof Error ? e.message : "질문 생성에 실패했습니다");
     } finally {
       setIsLoading(false);
+    }
+  }
+
+  // 속마음 버블 타이핑 완료 콜백
+  async function handleThoughtsAllDone() {
+    setQuestionReady(true);
+    // 아무도 shouldAsk=false였던 경우 → 다음 에이전트로
+    if (pendingAdvanceMsgsRef.current) {
+      const msgs = pendingAdvanceMsgsRef.current;
+      pendingAdvanceMsgsRef.current = null;
+      setParallelThoughts(null);
+      setSelectedFollowUpAgentId(null);
+      setIsLoading(true);
+      try {
+        await advanceToNextAgent(msgs);
+      } finally {
+        setIsLoading(false);
+      }
     }
   }
 
@@ -422,7 +524,6 @@ export default function InterviewSession({ name }: { name: string }) {
     const nextAgentIndex = agentIndex + 1;
 
     if (nextAgentIndex >= TOTAL_AGENTS) {
-      // 면접 종료 → 800ms 대기 후 finished 카드 표시
       setFinishedMessages(currentMessages);
       await new Promise((resolve) => setTimeout(resolve, 800));
       goToPhase("finished");
@@ -430,7 +531,7 @@ export default function InterviewSession({ name }: { name: string }) {
     }
 
     const nextAgentId = AGENT_ORDER[nextAgentIndex];
-    const result = await fetchQuestion(currentMessages, nextAgentId, false, difficulty);
+    const result = await fetchQuestion(currentMessages, nextAgentId, difficulty);
     if (result.question) {
       setMessages([
         ...currentMessages,
@@ -440,7 +541,9 @@ export default function InterviewSession({ name }: { name: string }) {
       setHintVisible(false);
       setAgentIndex(nextAgentIndex);
       setFollowUpRound(0);
-      applyThought(result.thought);
+      setParallelThoughts(null);
+      setSelectedFollowUpAgentId(null);
+      setQuestionReady(true);
     }
   }
 
@@ -454,12 +557,11 @@ export default function InterviewSession({ name }: { name: string }) {
     setError("");
     setCurrentHint("");
     setHintVisible(false);
-    setCurrentThought("");
+    setParallelThoughts(null);
+    setSelectedFollowUpAgentId(null);
     setQuestionReady(true);
-    if (thoughtTimerRef.current) {
-      clearTimeout(thoughtTimerRef.current);
-      thoughtTimerRef.current = null;
-    }
+    setIsThinkingPhase(false);
+    pendingAdvanceMsgsRef.current = null;
     setSessionId(null);
     setDebateResult(null);
     setDebateError("");
@@ -508,7 +610,7 @@ export default function InterviewSession({ name }: { name: string }) {
     );
   }
 
-  // 토론 중 or 결과 화면 (DebateLoading은 항상 마운트 유지 — 뒤로가기 시 상태 보존)
+  // 토론 중 or 결과 화면
   if (phase === "debating" || phase === "done") {
     if (debateError) {
       return (
@@ -536,7 +638,6 @@ export default function InterviewSession({ name }: { name: string }) {
 
     return (
       <>
-        {/* 결과 화면일 때 DebateLoading을 숨김 (마운트는 유지 — 뒤로가기 상태 보존) */}
         <div className={phase === "done" ? "hidden" : ""}>
           <DebateLoading
             sessionId={sessionId}
@@ -549,7 +650,6 @@ export default function InterviewSession({ name }: { name: string }) {
           />
         </div>
 
-        {/* 결과 화면 */}
         {phase === "done" && debateResult && (
           <DebateResult
             finalScore={debateResult.finalScore}
@@ -582,7 +682,6 @@ export default function InterviewSession({ name }: { name: string }) {
         historyPairs.push({ question: m.content, agentId: m.agentId!, answer: next.content });
         i += 2;
       } else {
-        // 현재 질문(답변 전) — 패널에서 표시하므로 히스토리에 포함 안 함
         i++;
       }
     } else {
@@ -592,7 +691,7 @@ export default function InterviewSession({ name }: { name: string }) {
 
   const isTimeWarning = timeLeft <= 30 && timeLeft > 0;
   const isTimeUp = timeLeft === 0;
-  const isSpeaking = !!currentQuestion && !isLoading;
+  const isSpeaking = !!currentQuestion && !isLoading && !isThinkingPhase;
 
   return (
     <div className="space-y-4">
@@ -601,25 +700,25 @@ export default function InterviewSession({ name }: { name: string }) {
         <span className="font-medium">면접 진행 중</span>
       </div>
 
-      {/* 면접관 생각 말풍선 (easy/normal, 첫 질문 제외) */}
-      {currentThought && currentQuestionAgentId && (
-        <ThoughtBubble
-          key={currentThought}
-          thought={currentThought}
-          visible={thoughtVisible}
-          onToggle={() => setThoughtVisible((v) => !v)}
-          onDone={() => {
-            if (thoughtTimerRef.current) clearTimeout(thoughtTimerRef.current);
-            thoughtTimerRef.current = setTimeout(() => {
-              setQuestionReady(true);
-              thoughtTimerRef.current = null;
-            }, 600);
-          }}
+      {/* 병렬 속마음 버블 (easy/normal 전용) */}
+      {parallelThoughts && difficulty !== "hard" && difficulty !== "tutorial" && (
+        <ParallelThoughtBubbles
+          key={parallelThoughts[0]?.thought.reaction}
+          thoughts={parallelThoughts}
+          selectedAgentId={selectedFollowUpAgentId}
+          avatarSeeds={avatarSeeds}
+          onAllDone={handleThoughtsAllDone}
         />
       )}
 
       {/* 면접관 패널 */}
-      <InterviewerPanel agentIndex={agentIndex} isLoading={isLoading} isSpeaking={isSpeaking} avatarSeeds={avatarSeeds} />
+      <InterviewerPanel
+        agentIndex={agentIndex}
+        isLoading={isLoading}
+        isThinkingPhase={isThinkingPhase}
+        isSpeaking={isSpeaking}
+        avatarSeeds={avatarSeeds}
+      />
 
       {/* 현재 질문 말풍선 */}
       {currentQuestion && currentQuestionAgentId && questionReady && (
@@ -713,7 +812,7 @@ export default function InterviewSession({ name }: { name: string }) {
             if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) handleSubmit();
           }}
           placeholder="답변을 입력하세요 (Ctrl+Enter로 제출)"
-          disabled={isLoading}
+          disabled={isLoading || isThinkingPhase}
           rows={4}
           className="w-full resize-none border-0 outline-none text-sm text-gray-800 dark:text-slate-200 placeholder-gray-400 dark:placeholder-slate-500 bg-transparent disabled:opacity-50"
         />
@@ -731,15 +830,14 @@ export default function InterviewSession({ name }: { name: string }) {
           </span>
           <button
             onClick={handleSubmit}
-            disabled={isLoading || !answer.trim()}
+            disabled={isLoading || isThinkingPhase || !answer.trim()}
             className="btn-primary py-2 px-5"
           >
-            제출 →
+            {isThinkingPhase ? "생각 중..." : "제출 →"}
           </button>
         </div>
       </div>
-
-
     </div>
   );
 }
+
