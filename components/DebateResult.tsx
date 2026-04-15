@@ -6,12 +6,19 @@ import type { AgentId } from "@/lib/interview";
 interface Props {
   finalScore: number;
   agentEvaluations: AgentEvaluation[];
-  finalFeedback: { strengths: string; weaknesses: string; advice: string };
+  finalFeedback: { strengths: string; weaknesses: string; advice: string; recommendLevel?: string };
   debateSummary: string;
   improvementTips: string[];
   onRestart: () => void;
   onBack: () => void;
 }
+
+const RECOMMEND_STYLE: Record<string, { bg: string; text: string }> = {
+  "강력 추천": { bg: "bg-green-100 dark:bg-green-900/40", text: "text-green-700 dark:text-green-300" },
+  "추천":     { bg: "bg-blue-100 dark:bg-blue-900/40",  text: "text-blue-700 dark:text-blue-300" },
+  "보류":     { bg: "bg-orange-100 dark:bg-orange-900/40", text: "text-orange-700 dark:text-orange-300" },
+  "비추천":   { bg: "bg-red-100 dark:bg-red-900/40",    text: "text-red-700 dark:text-red-300" },
+};
 
 function ScoreRing({ score }: { score: number }) {
   const radius = 52;
@@ -92,9 +99,19 @@ export default function DebateResult({
         ← 면접관 토론 돌아보기
       </button>
 
-      {/* 점수 링 */}
-      <div className="card p-8 flex justify-center">
+      {/* 점수 링 + 채용 권고 */}
+      <div className="card p-8 flex flex-col items-center gap-4">
         <ScoreRing score={finalScore} />
+        {finalFeedback.recommendLevel && (() => {
+          const style = RECOMMEND_STYLE[finalFeedback.recommendLevel!] ?? RECOMMEND_STYLE["보류"];
+          return (
+            <div className={`px-5 py-2 rounded-full ${style.bg}`}>
+              <span className={`text-sm font-bold ${style.text}`}>
+                채용 권고: {finalFeedback.recommendLevel}
+              </span>
+            </div>
+          );
+        })()}
       </div>
 
       {/* 면접관별 평가 — 아코디언 */}
@@ -106,11 +123,16 @@ export default function DebateResult({
             return (
               <details key={e.agentId} className={`card border-l-4 ${colors.border} group`}>
                 <summary className="p-5 cursor-pointer list-none flex items-center justify-between gap-3">
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 flex-wrap">
                     <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${colors.badge}`}>
                       {e.agentLabel}
                     </span>
                     <span className="text-xs text-gray-400 dark:text-slate-500">{e.criterion}</span>
+                    {e.verdict && (
+                      <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${colors.badge} opacity-80`}>
+                        {e.verdictLabel}: {e.verdict}
+                      </span>
+                    )}
                   </div>
                   <span className="text-gray-400 dark:text-slate-500 text-xs shrink-0">▼</span>
                 </summary>
@@ -186,12 +208,12 @@ export default function DebateResult({
         </div>
       )}
 
-      {/* 토론 요약 — 기본 접힘 */}
+      {/* 토론 요약 — 기본 펼침 */}
       {debateSummary && (
-        <details className="card overflow-hidden">
+        <details className="card overflow-hidden" open>
           <summary className="p-5 cursor-pointer list-none flex items-center justify-between gap-3 text-sm font-semibold text-gray-600 dark:text-slate-400">
-            <span>면접관 토론 요약</span>
-            <span className="text-gray-400 dark:text-slate-500 text-xs">▼</span>
+            <span>💬 면접관 토론 요약</span>
+            <span className="text-gray-400 dark:text-slate-500 text-xs">▲</span>
           </summary>
           <div className="px-5 pb-5 border-t border-gray-50 dark:border-slate-700/50 pt-4">
             <p className="text-sm text-gray-600 dark:text-slate-400 leading-relaxed">{debateSummary}</p>

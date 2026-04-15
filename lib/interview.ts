@@ -76,7 +76,7 @@ export interface JobPostingContext {
   preferredQuals: string;
 }
 
-function buildProfileSummary(profile: ProfileContext): string {
+export function buildProfileSummary(profile: ProfileContext): string {
   const lines: string[] = [`이름: ${profile.name}`];
 
   if (profile.educations.length > 0) {

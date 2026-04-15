@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { supabase } from "@/lib/supabase";
 import { getAuthUser } from "@/lib/auth";
 import type { Json } from "@/types/supabase";
-import { Message, Difficulty, AGENT_ORDER } from "@/lib/interview";
+import { Message, Difficulty, AGENT_ORDER, ProfileContext, JobPostingContext } from "@/lib/interview";
 import {
   generateAgentEvaluation,
   generateAgentReply,
@@ -14,6 +14,8 @@ import {
 async function runDebate(
   sessionId: string,
   messages: Message[],
+  profile: ProfileContext,
+  jobPosting: JobPostingContext,
 ) {
   try {
     // Round 0: 에이전트 순차 평가 — 각자 완료 즉시 저장 (클라이언트에 실시간 표시)
@@ -21,9 +23,9 @@ async function runDebate(
     for (const agentId of AGENT_ORDER) {
       let evaluation: AgentEvaluation;
       try {
-        evaluation = await generateAgentEvaluation(agentId, messages);
+        evaluation = await generateAgentEvaluation(agentId, messages, profile, jobPosting);
       } catch {
-        continue; // 한 에이전트 실패 시 다음으로
+        continue;
       }
       evaluations.push(evaluation);
       await supabase
@@ -40,12 +42,12 @@ async function runDebate(
       throw new Error("에이전트 평가 실패 (2개 미만 성공)");
     }
 
-    // Round 1: 순차 상호 반론 — 완료 즉시 저장 (클라이언트에 1명씩 표시)
+    // Round 1: 순차 상호 피드백 — 완료 즉시 저장 (클라이언트에 1명씩 표시)
     const replies: AgentReply[] = [];
     for (const myEval of evaluations) {
       const others = evaluations.filter((e) => e.agentId !== myEval.agentId);
       try {
-        const reply = await generateAgentReply(myEval.agentId, myEval, others, messages);
+        const reply = await generateAgentReply(myEval.agentId, myEval, others, messages, profile, jobPosting);
         replies.push(reply);
         await supabase
           .from("interview_sessions")
@@ -61,7 +63,6 @@ async function runDebate(
       .update({ status: "finalizing", updatedAt: new Date().toISOString() })
       .eq("id", sessionId);
 
-    // 중재자: 최종 결론
     const repliesForModerator: AgentReply[] =
       replies.length > 0
         ? replies
@@ -71,13 +72,22 @@ async function runDebate(
             replies: [],
           }));
 
-    const moderatorResult = await generateModeratorResult(evaluations, repliesForModerator, messages);
+    const moderatorResult = await generateModeratorResult(
+      evaluations,
+      repliesForModerator,
+      messages,
+      profile,
+      jobPosting,
+    );
 
     await supabase
       .from("interview_sessions")
       .update({
         finalScore: moderatorResult.score,
-        finalFeedback: moderatorResult.overall as unknown as Json,
+        finalFeedback: {
+          ...moderatorResult.overall,
+          recommendLevel: moderatorResult.recommendLevel,
+        } as unknown as Json,
         debateSummary: moderatorResult.debateSummary,
         improvementTips: moderatorResult.improvementTips as unknown as Json,
         status: "done",
@@ -110,6 +120,18 @@ export async function POST(request: NextRequest) {
       .maybeSingle();
     if (!profile) return NextResponse.json({ error: "프로필이 없습니다" }, { status: 404 });
 
+    const [
+      { data: educations },
+      { data: careers },
+      { data: certifications },
+      { data: activities },
+    ] = await Promise.all([
+      supabase.from("educations").select("*").eq("profileId", profile.id),
+      supabase.from("careers").select("*").eq("profileId", profile.id),
+      supabase.from("certifications").select("*").eq("profileId", profile.id),
+      supabase.from("activities").select("*").eq("profileId", profile.id),
+    ]);
+
     const { data: jobPosting } = await supabase
       .from("job_postings")
       .select("id, responsibilities, requirements, preferredQuals")
@@ -118,6 +140,20 @@ export async function POST(request: NextRequest) {
       .limit(1)
       .maybeSingle();
     if (!jobPosting) return NextResponse.json({ error: "채용공고가 없습니다" }, { status: 404 });
+
+    const profileContext: ProfileContext = {
+      name: profile.name,
+      educations: educations ?? [],
+      careers: careers ?? [],
+      certifications: certifications ?? [],
+      activities: activities ?? [],
+    };
+
+    const jobPostingContext: JobPostingContext = {
+      responsibilities: jobPosting.responsibilities ?? "",
+      requirements: jobPosting.requirements ?? "",
+      preferredQuals: jobPosting.preferredQuals ?? "",
+    };
 
     const sessionId = crypto.randomUUID();
 
@@ -133,7 +169,7 @@ export async function POST(request: NextRequest) {
     });
 
     // fire-and-forget
-    runDebate(sessionId, messages).catch(() => {});
+    runDebate(sessionId, messages, profileContext, jobPostingContext).catch(() => {});
 
     return NextResponse.json({ sessionId });
   } catch (error) {

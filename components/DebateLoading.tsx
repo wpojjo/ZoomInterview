@@ -7,7 +7,7 @@ import type { AgentId } from "@/lib/interview";
 export interface DebateResultData {
   agentEvaluations: AgentEvaluation[];
   finalScore: number;
-  finalFeedback: ModeratorResult["overall"];
+  finalFeedback: ModeratorResult["overall"] & { recommendLevel?: string };
   debateSummary: string;
   improvementTips: string[];
 }
@@ -117,18 +117,26 @@ function EvalCard({
 
   return (
     <div className={`card p-5 border-l-4 ${colors.border} space-y-3 animate-fade-in-up`}>
-      <div className="flex items-center gap-3">
-        <img
-          src={avatarUrl(avatarSeeds[agentId], meta.bgColor)}
-          alt={meta.name}
-          className="w-10 h-10 rounded-full shrink-0"
-        />
-        <div className="space-y-0.5">
-          <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${colors.badge}`}>
-            {evalData.agentLabel}
-          </span>
-          <p className="text-xs text-gray-400 dark:text-slate-500 pt-0.5">{evalData.criterion}</p>
+      <div className="flex items-center justify-between gap-3">
+        <div className="flex items-center gap-3">
+          <img
+            src={avatarUrl(avatarSeeds[agentId], meta.bgColor)}
+            alt={meta.name}
+            className="w-10 h-10 rounded-full shrink-0"
+          />
+          <div className="space-y-0.5">
+            <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${colors.badge}`}>
+              {evalData.agentLabel}
+            </span>
+            <p className="text-xs text-gray-400 dark:text-slate-500 pt-0.5">{evalData.criterion}</p>
+          </div>
         </div>
+        {evalData.verdict && (
+          <div className="text-right shrink-0">
+            <p className="text-xs text-gray-400 dark:text-slate-500">{evalData.verdictLabel}</p>
+            <p className={`text-xs font-bold mt-0.5 ${meta.color}`}>{evalData.verdict}</p>
+          </div>
+        )}
       </div>
       <p className="text-sm text-gray-700 dark:text-slate-300 leading-relaxed">{evalData.opinion}</p>
       {evalData.highlights.length > 0 && (
