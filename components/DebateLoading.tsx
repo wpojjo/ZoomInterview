@@ -17,6 +17,7 @@ interface Props {
   sessionId: string;
   avatarSeeds: Record<AgentId, string>;
   onDone: (result: DebateResultData) => void;
+  onProceed: () => void;
   onError: (message: string) => void;
 }
 
@@ -216,7 +217,7 @@ function ChatBubble({ msg, avatarSeeds }: { msg: ChatMsg; avatarSeeds: Record<Ag
 }
 
 // ── 메인 컴포넌트 ──────────────────────────────────────────────────────
-export default function DebateLoading({ sessionId, avatarSeeds, onDone, onError }: Props) {
+export default function DebateLoading({ sessionId, avatarSeeds, onDone, onProceed, onError }: Props) {
   const [currentStatus, setCurrentStatus] = useState("evaluating");
   const [agentEvaluations, setAgentEvaluations] = useState<AgentEvaluation[]>([]);
   const [debateReplies, setDebateReplies] = useState<AgentReply[]>([]);
@@ -226,6 +227,7 @@ export default function DebateLoading({ sessionId, avatarSeeds, onDone, onError 
   const [visibleMsgs, setVisibleMsgs] = useState<ChatMsg[]>([]);
   const [typingAgentId, setTypingAgentId] = useState<AgentId | null>(null);
   const [showProceedButton, setShowProceedButton] = useState(false);
+  const [allDebateMsgsShown, setAllDebateMsgsShown] = useState(false);
 
   const pendingQueue = useRef<ChatMsg[]>([]);
   const queuedReplyCount = useRef(0);
@@ -335,6 +337,7 @@ export default function DebateLoading({ sessionId, avatarSeeds, onDone, onError 
     const next = pendingQueue.current.shift();
     if (!next) {
       setTypingAgentId(null);
+      setAllDebateMsgsShown(true);
       if (debateFinishedRef.current) setShowProceedButton(true);
       return;
     }
@@ -348,8 +351,9 @@ export default function DebateLoading({ sessionId, avatarSeeds, onDone, onError 
 
       if (pendingQueue.current.length > 0) {
         popTimerRef.current = setTimeout(popNext, 600);
-      } else if (debateFinishedRef.current) {
-        setShowProceedButton(true);
+      } else {
+        setAllDebateMsgsShown(true);
+        if (debateFinishedRef.current) setShowProceedButton(true);
       }
     }, 1800);
   }
@@ -445,9 +449,15 @@ export default function DebateLoading({ sessionId, avatarSeeds, onDone, onError 
       </div>
 
 
-      {showProceedButton && pendingResult.current && (
+      {(showProceedButton || (allDebateMsgsShown && visibleMsgs.length > 0)) && (
         <button
-          onClick={() => onDone(pendingResult.current!)}
+          onClick={() => {
+            if (pendingResult.current) {
+              onDone(pendingResult.current);
+            } else {
+              onProceed();
+            }
+          }}
           className="btn-primary w-full"
         >
           최종 평가 보기 →

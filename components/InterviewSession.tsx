@@ -357,6 +357,7 @@ export default function InterviewSession({ name }: { name: string }) {
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [debateResult, setDebateResult] = useState<DebateResultData | null>(null);
   const [debateError, setDebateError] = useState("");
+  const proceededRef = useRef(false);
 
   function handleDifficultySelect(d: Difficulty) {
     setDifficulty(d);
@@ -582,13 +583,28 @@ export default function InterviewSession({ name }: { name: string }) {
           <DebateLoading
             sessionId={sessionId}
             avatarSeeds={avatarSeeds}
+            onProceed={() => {
+              proceededRef.current = true;
+              goToPhase("done");
+            }}
             onDone={(result) => {
               setDebateResult(result);
-              goToPhase("done");
+              if (!proceededRef.current) goToPhase("done");
             }}
             onError={(msg) => setDebateError(msg)}
           />
         </div>
+
+        {phase === "done" && !debateResult && (
+          <div className="card flex flex-col items-center justify-center py-20 px-6 space-y-4 text-center">
+            <div className="flex gap-1.5">
+              <span className="w-2 h-2 bg-blue-500 rounded-full animate-bounce [animation-delay:0ms]" />
+              <span className="w-2 h-2 bg-blue-500 rounded-full animate-bounce [animation-delay:150ms]" />
+              <span className="w-2 h-2 bg-blue-500 rounded-full animate-bounce [animation-delay:300ms]" />
+            </div>
+            <p className="text-gray-600 dark:text-slate-400 font-medium">최종 평가 중...</p>
+          </div>
+        )}
 
         {phase === "done" && debateResult && (
           <DebateResult
