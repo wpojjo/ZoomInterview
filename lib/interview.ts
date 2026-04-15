@@ -400,11 +400,11 @@ const AGENT_FOLLOWUP_CRITERIA: Record<AgentId, string> = {
 4. 이력사항과 답변 내용 사이에 불일치가 있는 경우
 5. "많이", "잘", "좋았다" 같은 추상 표현만 있고 구체적 근거가 전혀 없는 경우`,
   technical: `직무 역량의 구체성과 재현 가능성. 아래를 번호 순서대로 확인하고 첫 번째 해당 항목만 선택하세요:
-1. [최우선] 기술·역량을 언급했지만 구체적 툴·방법론 이름이 없어 수준 판단 불가
-2. 행동(어떻게 했는지) 항목이 빠지거나 "분석했다"처럼 과정이 불명확한 경우
-3. 이력사항의 스킬과 답변 역량이 연결되지 않는 경우
-4. 본인이 주도했는지 팀이 한 건지 역할이 불명확한 경우
-5. 성과 수치는 있지만 "이 성과를 만들어낼 역량이 있는가" 판단이 안 되는 경우 (수치 기간·기준 검증은 논리전문가 영역 — 중복 금지)`,
+1. [최우선] 기술·역량을 언급했지만 구체적 툴·방법론 이름이 없어 수준 판단 불가 (논리전문가의 수치 검증과 다름 — 어떤 도구로 했는가를 확인하는 것이 목적)
+2. 행동(어떻게 했는지) 항목이 빠지거나 "분석했다"처럼 과정이 불명확한 경우 (트리거 1이 해당하지 않을 때만 확인)
+3. 이력사항의 스킬과 답변 역량이 연결되지 않는 경우 (트리거 1·2가 해당하지 않을 때만 확인)
+4. 본인이 주도했는지 팀이 한 건지 역할이 불명확한 경우 (트리거 1·2·3이 해당하지 않을 때만 확인)
+5. 성과 수치는 있지만 "이 성과를 만들어낼 역량이 있는가" 판단이 안 되는 경우 (트리거 1·2·3·4가 모두 해당하지 않을 때만 확인. 수치 기간·기준 검증은 논리전문가 영역 — 중복 금지)`,
 };
 
 // 속마음 프롬프트 (easy/normal 전용)
@@ -493,13 +493,19 @@ ${conversationText}
 난이도 가이드: ${DIFFICULTY_FOLLOWUP_HINT[difficulty]}${roundPressure}
 
 꼬리질문을 한다면, 반드시 지원자의 마지막 답변에서 구체적인 부분을 언급하고 질문은 1개만 하세요.
+${{
+  organization: "질문 하나에 하나의 핵심만 담을 것. 이미 답변에서 언급한 내용을 다시 묻지 말 것 — 확인되지 않은 부분만 물어보세요.",
+  logic: "질문 하나에 하나의 핵심만 담을 것. 기간·기준·모집단을 한 번에 묻지 말고 가장 핵심적인 검증 포인트 하나만 골라서 질문하세요.",
+  technical: "툴·방법론·과정·역할 중 하나에만 집중하세요. 수치 기간·기준을 묻는 질문은 하지 마세요 (논리전문가 영역).",
+}[agentId]}
 
 다음 JSON 형식으로 응답하세요:
 {
   "reaction": "<듣는 순간 첫 반응. 구어체 혼잣말 한 문장>",
   "judgment": "<머릿속 판단. 구어체 혼잣말 한 문장>",
   "curiosity": "<더 보고 싶은 것. 구어체 혼잣말 한 문장>",
-  "shouldAsk": <꼬리질문이 필요하면 true, 아니면 false>,
+  "trigger": "<위 트리거 기준에서 해당하는 번호와 이유 1문장. 해당 없으면 빈 문자열>",
+  "shouldAsk": <trigger가 있으면 true, 없으면 false>,
   "question": "<한국어로 꼬리질문 1개, shouldAsk가 false이면 빈 문자열>"
 }
 ~습니다/~합니다 사용 금지. 마크다운 서식(**, *, #) 사용 금지.`;
@@ -513,9 +519,11 @@ ${conversationText}
       reaction: string;
       judgment: string;
       curiosity: string;
+      trigger: string;
       shouldAsk: boolean;
       question: string;
     };
+    const trigger = typeof parsed.trigger === "string" ? parsed.trigger.trim() : "";
     return {
       agentId,
       thought: {
@@ -523,7 +531,7 @@ ${conversationText}
         judgment: parsed.judgment ?? "",
         curiosity: parsed.curiosity ?? "",
       },
-      shouldAsk: !!parsed.shouldAsk,
+      shouldAsk: trigger ? !!parsed.shouldAsk : false,
       question: typeof parsed.question === "string" ? stripMarkdown(parsed.question) : "",
     };
   } catch {
@@ -531,8 +539,10 @@ ${conversationText}
     const rMatch = raw.match(/"reaction"\s*:\s*"((?:[^"\\]|\\.)*)"/);
     const jMatch = raw.match(/"judgment"\s*:\s*"((?:[^"\\]|\\.)*)"/);
     const cMatch = raw.match(/"curiosity"\s*:\s*"((?:[^"\\]|\\.)*)"/);
+    const tMatch = raw.match(/"trigger"\s*:\s*"((?:[^"\\]|\\.)*)"/);
     const sMatch = raw.match(/"shouldAsk"\s*:\s*(true|false)/);
     const qMatch = raw.match(/"question"\s*:\s*"((?:[^"\\]|\\.)*)"/);
+    const trigger = tMatch?.[1]?.trim() ?? "";
     return {
       agentId,
       thought: {
@@ -540,7 +550,7 @@ ${conversationText}
         judgment: jMatch?.[1] ?? "",
         curiosity: cMatch?.[1] ?? "",
       },
-      shouldAsk: sMatch?.[1] === "true",
+      shouldAsk: trigger ? sMatch?.[1] === "true" : false,
       question: qMatch?.[1] ? stripMarkdown(qMatch[1]) : "",
     };
   }
