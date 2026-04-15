@@ -84,7 +84,7 @@ export async function POST(request: NextRequest) {
       difficulty ?? "normal",
     );
 
-    return NextResponse.json({ question: result.question, hint: result.hint, thought: result.thought });
+    return NextResponse.json({ question: result.question, thought: result.thought });
   } catch (error) {
     console.error("Interview question error:", error);
     return NextResponse.json(

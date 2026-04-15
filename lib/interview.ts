@@ -268,7 +268,6 @@ async function callOllama(systemPrompt: string, userContent: string, json = fals
 
 export interface QuestionResult {
   question: string;
-  hint: string;
   thought?: string;
 }
 
@@ -283,10 +282,8 @@ export interface AgentThoughtResult {
   thought: AgentThought;
   shouldAsk: boolean;
   question: string;
-  hint: string;
 }
 
-const FIRST_QUESTION_HINT = "지원자의 기본 배경과 이 회사·직무에 지원한 이유를 파악하는 질문입니다. 단순한 경력 나열보다는 지원 동기의 진정성과 이 포지션과의 연관성을 구체적으로 전달하세요.";
 
 // 에이전트의 기본 질문 생성
 export async function generateAgentBaseQuestion(
@@ -298,7 +295,7 @@ export async function generateAgentBaseQuestion(
 ): Promise<QuestionResult> {
   // 조직 전문가 첫 질문은 고정
   if (agentId === "organization" && messages.length === 0) {
-    return { question: getFirstQuestion(profile.name), hint: FIRST_QUESTION_HINT };
+    return { question: getFirstQuestion(profile.name) };
   }
 
   const systemPrompt = buildAgentSystemPrompt(agentId, profile, jobPosting, difficulty);
@@ -354,36 +351,30 @@ STAR, S, T, A, R 같은 영어 약어를 출력에 사용하지 마세요.`,
 {
   "question": "<한국어로 면접 질문 정확히 하나.
     '면접관:' 또는 'Q:' 같은 접두사 없이.>",
-  "hint": "<좋은 답변이 어떤 모습인지 1-2문장으로 안내하세요.
-    형식이나 내용을 구체적으로 알려주세요.
-    예: '구체적인 상황과 본인이 직접 취한 행동, 그리고 결과까지 포함해서 답변해주세요.'
-    '논리력을 평가합니다' 같은 추상적 표현은 사용하지 마세요.>"${thoughtField}
+  "hint": ""${thoughtField}
 }`;
 
   const raw = await callOllama(systemPrompt, userContent, true);
   try {
     const match = raw.match(/\{[\s\S]*\}/);
     if (!match) throw new Error("no JSON");
-    const parsed = JSON.parse(match[0]) as { question: string; hint: string; thought?: string };
+    const parsed = JSON.parse(match[0]) as { question: string; thought?: string };
     const qRaw = typeof parsed.question === "string" ? parsed.question : "";
     const question = stripMarkdown(qRaw.replace(/^(면접관|질문|interviewer|question)\s*:\s*/i, ""));
-    const hint = typeof parsed.hint === "string" ? stripMarkdown(parsed.hint) : "";
     const thought = typeof parsed.thought === "string" ? stripMarkdown(parsed.thought) : undefined;
-    if (question) return { question, hint, thought };
+    if (question) return { question, thought };
     throw new Error("empty question");
   } catch {
     // Regex fallback: extract "question" value directly from raw string
     const qMatch = raw.match(/"question"\s*:\s*"((?:[^"\\]|\\.)*)"/);
-    const hMatch = raw.match(/"hint"\s*:\s*"((?:[^"\\]|\\.)*)"/);
     const tMatch = raw.match(/"thought"\s*:\s*"((?:[^"\\]|\\.)*)"/);
     if (qMatch?.[1]) {
       return {
         question: stripMarkdown(qMatch[1].replace(/^(면접관|질문|interviewer|question)\s*:\s*/i, "")),
-        hint: hMatch?.[1] ? stripMarkdown(hMatch[1]) : "",
         thought: tMatch?.[1] ? stripMarkdown(tMatch[1]) : undefined,
       };
     }
-    return { question: stripMarkdown(raw.replace(/^(면접관|질문|interviewer|question)\s*:\s*/i, "")), hint: "" };
+    return { question: stripMarkdown(raw.replace(/^(면접관|질문|interviewer|question)\s*:\s*/i, "")) };
   }
 }
 
@@ -509,8 +500,7 @@ ${conversationText}
   "judgment": "<머릿속 판단. 구어체 혼잣말 한 문장>",
   "curiosity": "<더 보고 싶은 것. 구어체 혼잣말 한 문장>",
   "shouldAsk": <꼬리질문이 필요하면 true, 아니면 false>,
-  "question": "<한국어로 꼬리질문 1개, shouldAsk가 false이면 빈 문자열>",
-  "hint": "<좋은 답변이 어떤 모습인지 1-2문장, shouldAsk가 false이면 빈 문자열>"
+  "question": "<한국어로 꼬리질문 1개, shouldAsk가 false이면 빈 문자열>"
 }
 ~습니다/~합니다 사용 금지. 마크다운 서식(**, *, #) 사용 금지.`;
 
@@ -525,7 +515,6 @@ ${conversationText}
       curiosity: string;
       shouldAsk: boolean;
       question: string;
-      hint: string;
     };
     return {
       agentId,
@@ -536,7 +525,6 @@ ${conversationText}
       },
       shouldAsk: !!parsed.shouldAsk,
       question: typeof parsed.question === "string" ? stripMarkdown(parsed.question) : "",
-      hint: typeof parsed.hint === "string" ? stripMarkdown(parsed.hint) : "",
     };
   } catch {
     // Regex fallback
@@ -545,7 +533,6 @@ ${conversationText}
     const cMatch = raw.match(/"curiosity"\s*:\s*"((?:[^"\\]|\\.)*)"/);
     const sMatch = raw.match(/"shouldAsk"\s*:\s*(true|false)/);
     const qMatch = raw.match(/"question"\s*:\s*"((?:[^"\\]|\\.)*)"/);
-    const hMatch = raw.match(/"hint"\s*:\s*"((?:[^"\\]|\\.)*)"/);
     return {
       agentId,
       thought: {
@@ -555,7 +542,6 @@ ${conversationText}
       },
       shouldAsk: sMatch?.[1] === "true",
       question: qMatch?.[1] ? stripMarkdown(qMatch[1]) : "",
-      hint: hMatch?.[1] ? stripMarkdown(hMatch[1]) : "",
     };
   }
 }

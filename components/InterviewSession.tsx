@@ -24,7 +24,7 @@ async function fetchQuestion(
   messages: Message[],
   agentId: AgentId,
   difficulty: Difficulty,
-): Promise<{ question?: string; hint?: string; thought?: string }> {
+): Promise<{ question?: string; thought?: string }> {
   const res = await fetch("/api/interview/question", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -345,8 +345,6 @@ export default function InterviewSession({ name }: { name: string }) {
 
   const [messages, setMessages] = useState<Message[]>([]);
   const [finishedMessages, setFinishedMessages] = useState<Message[]>([]);
-  const [currentHint, setCurrentHint] = useState("");
-  const [hintVisible, setHintVisible] = useState(false);
   const [answer, setAnswer] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [isThinkingPhase, setIsThinkingPhase] = useState(false);
@@ -364,8 +362,6 @@ export default function InterviewSession({ name }: { name: string }) {
     setDifficulty(d);
     setAvatarSeeds({ organization: randomSeed(), logic: randomSeed(), technical: randomSeed() });
     setMessages([{ role: "interviewer", content: getFirstQuestion(name), agentId: "organization" }]);
-    setCurrentHint("지원자의 기본 배경과 이 회사·직무에 지원한 이유를 파악하는 질문입니다. 단순한 경력 나열보다는 지원 동기의 진정성과 이 포지션과의 연관성을 구체적으로 전달하세요.");
-    setHintVisible(false);
     setAgentIndex(0);
     setFollowUpRound(0);
     setCurrentThought(null);
@@ -405,13 +401,6 @@ export default function InterviewSession({ name }: { name: string }) {
     const timer = setTimeout(() => setTimeLeft((t) => t - 1), 1000);
     return () => clearTimeout(timer);
   }, [timeLeft, isLoading, isThinkingPhase, phase]);
-
-  // 30초 이하 남으면 힌트 자동 표시
-  useEffect(() => {
-    if (timeLeft === 30 && currentHint && !hintVisible) {
-      setHintVisible(true);
-    }
-  }, [timeLeft, currentHint, hintVisible]);
 
   async function handleSubmit() {
     const trimmed = answer.trim();
@@ -453,8 +442,6 @@ export default function InterviewSession({ name }: { name: string }) {
             ...updatedMessages,
             { role: "interviewer", content: selected.question, agentId: selectedAgentId },
           ]);
-          setCurrentHint(selected.hint ?? "");
-          setHintVisible(false);
           setFollowUpRound((c) => c + 1);
 
           if (difficulty === "hard") {
@@ -497,8 +484,6 @@ export default function InterviewSession({ name }: { name: string }) {
         ...currentMessages,
         { role: "interviewer", content: result.question, agentId: nextAgentId },
       ]);
-      setCurrentHint(result.hint ?? "");
-      setHintVisible(false);
       setAgentIndex(nextAgentIndex);
       setFollowUpRound(0);
       setCurrentThought(null);
@@ -514,8 +499,6 @@ export default function InterviewSession({ name }: { name: string }) {
     setAnswer("");
     setTimeLeft(ANSWER_TIME_LIMIT);
     setError("");
-    setCurrentHint("");
-    setHintVisible(false);
     setCurrentThought(null);
     setQuestionReady(true);
     setIsThinkingPhase(false);
@@ -646,8 +629,6 @@ export default function InterviewSession({ name }: { name: string }) {
     }
   }
 
-  const isTimeWarning = timeLeft <= 30 && timeLeft > 0;
-  const isTimeUp = timeLeft === 0;
   const isSpeaking = !!currentQuestion && !isLoading && !isThinkingPhase;
 
   return (
@@ -670,29 +651,7 @@ export default function InterviewSession({ name }: { name: string }) {
 
       {/* 현재 질문 말풍선 */}
       {currentQuestion && currentQuestionAgentId && questionReady && (
-        <div className="space-y-2">
-          <QuestionBubble agentId={currentQuestionAgentId} question={currentQuestion} />
-          {/* 힌트 버튼 + 카드 */}
-          {currentHint && (
-            <div>
-              {!hintVisible && (
-                <button
-                  onClick={() => setHintVisible(true)}
-                  className="flex items-center gap-1.5 text-xs text-amber-500 dark:text-amber-400 hover:text-amber-600 dark:hover:text-amber-300 transition-colors px-1"
-                >
-                  <span>💡</span>
-                  <span>힌트 보기</span>
-                </button>
-              )}
-              {hintVisible && (
-                <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800/50 rounded-xl px-4 py-3 flex items-start gap-2">
-                  <span className="text-amber-500 text-sm shrink-0 mt-0.5">💡</span>
-                  <p className="text-amber-800 dark:text-amber-300 text-xs leading-relaxed">{currentHint}</p>
-                </div>
-              )}
-            </div>
-          )}
-        </div>
+        <QuestionBubble agentId={currentQuestionAgentId} question={currentQuestion} />
       )}
 
       {/* 이전 대화 기록 */}
@@ -742,15 +701,6 @@ export default function InterviewSession({ name }: { name: string }) {
         </div>
       )}
 
-      {/* 시간 초과 */}
-      {isTimeUp && (
-        <div className="bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-800 rounded-xl px-4 py-3 text-center">
-          <p className="text-red-600 dark:text-red-400 text-sm font-semibold">
-            ⏰ 시간이 초과됐습니다. 빠르게 답변을 마무리해주세요!
-          </p>
-        </div>
-      )}
-
       {/* 답변 입력 */}
       <div className="card p-4 space-y-3">
         <textarea
@@ -765,16 +715,14 @@ export default function InterviewSession({ name }: { name: string }) {
           className="w-full resize-none border-0 outline-none text-sm text-gray-800 dark:text-slate-200 placeholder-gray-400 dark:placeholder-slate-500 bg-transparent disabled:opacity-50"
         />
         <div className="flex justify-between items-center pt-1 border-t border-gray-100 dark:border-slate-700">
-          <span
-            className={`text-xs font-medium tabular-nums ${
-              isTimeUp
-                ? "text-red-500"
-                : isTimeWarning
-                  ? "text-orange-500"
-                  : "text-gray-400 dark:text-slate-500"
-            }`}
-          >
-            {isTimeUp ? "시간 초과" : formatTime(timeLeft)}
+          <span className={`text-xs font-medium tabular-nums ${
+            timeLeft <= 10
+              ? "text-red-500"
+              : timeLeft <= 30
+                ? "text-orange-500"
+                : "text-gray-400 dark:text-slate-500"
+          }`}>
+            {formatTime(timeLeft)}
           </span>
           <button
             onClick={handleSubmit}
