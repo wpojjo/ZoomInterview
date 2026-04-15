@@ -45,3 +45,6 @@ test-*.png
 # python cache
 server/__pycache__/
 **/*.pyc
+
+# planning docs
+*.txt
