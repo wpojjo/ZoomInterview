@@ -38,11 +38,13 @@ async function fetchQuestion(
 async function fetchFollowUp(
   messages: Message[],
   difficulty: Difficulty,
-): Promise<{ thoughts: AgentThoughtResult[]; selectedAgentId: AgentId | null }> {
+  currentAgentId: AgentId,
+  followUpRound: number,
+): Promise<{ thought: AgentThoughtResult | null; selectedAgentId: AgentId | null }> {
   const res = await fetch("/api/interview/follow-up", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ messages, difficulty }),
+    body: JSON.stringify({ messages, difficulty, currentAgentId, followUpRound }),
   });
   const data = await res.json();
   if (!res.ok) throw new Error(data.error ?? "속마음 생성에 실패했습니다");
@@ -144,12 +146,16 @@ function InterviewerPanel({
   isThinkingPhase,
   isSpeaking,
   avatarSeeds,
+  currentThought,
+  onThoughtDone,
 }: {
   agentIndex: number;
   isLoading: boolean;
   isThinkingPhase: boolean;
   isSpeaking: boolean;
   avatarSeeds: Record<AgentId, string>;
+  currentThought: AgentThoughtResult | null;
+  onThoughtDone: () => void;
 }) {
   return (
     <div className="grid grid-cols-3 gap-3">
@@ -161,10 +167,21 @@ function InterviewerPanel({
         const avatarUrl = makeAvatarUrl(avatarSeeds[aid], meta.bgColor);
         // isThinkingPhase: 3명 모두 로딩 dots
         const showLoading = isThinkingPhase ? true : (isActive && isLoading);
+        const showThought = currentThought?.agentId === aid;
 
         return (
+          <div key={aid} className="flex flex-col">
+            {/* 속마음 말풍선 (해당 에이전트 위에만) */}
+            {showThought ? (
+              <ThoughtSpeechBubble
+                agentId={aid}
+                thought={currentThought!.thought}
+                onDone={onThoughtDone}
+              />
+            ) : (
+              <div className="mb-1 min-h-[38px]" /> // 높이 유지용 spacer
+            )}
           <div
-            key={aid}
             className={`flex flex-col items-center gap-2 p-3 rounded-2xl transition-all duration-300 ${
               isActive
                 ? "bg-white dark:bg-slate-800 border border-gray-100 dark:border-slate-700 shadow-md"
@@ -222,6 +239,7 @@ function InterviewerPanel({
               </p>
             </div>
           </div>
+          </div>
         );
       })}
     </div>
@@ -250,23 +268,18 @@ function QuestionBubble({ agentId, question }: { agentId: AgentId; question: str
   );
 }
 
-// 단일 에이전트 속마음 버블 (타이핑 애니메이션 포함)
-function AgentThoughtCard({
+// 속마음 말풍선 (에이전트 위에 표시, 아래 방향 꼬리)
+function ThoughtSpeechBubble({
   agentId,
   thought,
-  isSelected,
-  avatarSeed,
   onDone,
 }: {
   agentId: AgentId;
-  thought: { reaction: string; judgment: string; curiosity: string };
-  isSelected: boolean;
-  avatarSeed: string;
+  thought: { reaction: string };
   onDone: () => void;
 }) {
   const meta = AGENT_META[agentId];
-  const fullText = thought.reaction || "";
-  const { displayed, done } = useTypewriter(fullText, 14);
+  const { displayed, done } = useTypewriter(thought.reaction || "", 14);
 
   const onDoneRef = useRef(onDone);
   onDoneRef.current = onDone;
@@ -279,79 +292,42 @@ function AgentThoughtCard({
     }
   }, [done]);
 
+  // 에이전트별 말풍선 색상
+  const bubbleColors: Record<AgentId, string> = {
+    organization: "bg-purple-50 dark:bg-purple-900/30 border-purple-200 dark:border-purple-700",
+    logic:        "bg-blue-50   dark:bg-blue-900/30   border-blue-200   dark:border-blue-700",
+    technical:    "bg-green-50  dark:bg-green-900/30  border-green-200  dark:border-green-700",
+  };
+  const tailColors: Record<AgentId, string> = {
+    organization: "border-t-purple-200 dark:border-t-purple-700",
+    logic:        "border-t-blue-200   dark:border-t-blue-700",
+    technical:    "border-t-green-200  dark:border-t-green-700",
+  };
+  const tailFills: Record<AgentId, string> = {
+    organization: "border-t-purple-50 dark:border-t-purple-900/30",
+    logic:        "border-t-blue-50   dark:border-t-blue-900/30",
+    technical:    "border-t-green-50  dark:border-t-green-900/30",
+  };
+
   return (
-    <div className="relative pb-3">
-      <div
-        className={`rounded-2xl p-3 border-2 transition-all duration-300 ${
-          isSelected
-            ? `bg-white dark:bg-slate-800 ${meta.border} shadow-md`
-            : "bg-gray-50 dark:bg-slate-800/40 border-transparent opacity-40"
-        }`}
-      >
-        <div className="flex items-center gap-1.5 mb-1.5">
-          <div className="w-5 h-5 rounded-full overflow-hidden shrink-0">
-            <img src={makeAvatarUrl(avatarSeed, meta.bgColor)} alt={meta.name} className="w-full h-full object-cover" />
-          </div>
-          <span className={`text-[11px] font-semibold ${meta.color}`}>{meta.name}</span>
-        </div>
-        <p className="text-gray-500 dark:text-slate-400 text-[12px] leading-relaxed italic">
+    <div className="relative mb-1">
+      {/* 말풍선 본체 */}
+      <div className={`rounded-2xl border px-3 py-2 shadow-sm ${bubbleColors[agentId]}`}>
+        <p className={`text-[11px] leading-relaxed italic ${meta.color}`}>
           {displayed}
           {!done && (
-            <span className="inline-block w-0.5 h-3 bg-gray-300 dark:bg-slate-600 ml-0.5 animate-pulse align-middle" />
+            <span className="inline-block w-0.5 h-3 bg-current ml-0.5 animate-pulse align-middle opacity-60" />
           )}
         </p>
       </div>
-      {/* 아래를 향하는 말풍선 꼭지 */}
-      <div className={`absolute bottom-0 left-1/2 -translate-x-1/2 w-4 h-4 rotate-45 transition-all duration-300 ${
-        isSelected
-          ? `bg-white dark:bg-slate-800 border-b border-r ${meta.border}`
-          : "bg-gray-50 dark:bg-slate-800/40"
-      }`} />
-    </div>
-  );
-}
-
-// 3개 에이전트 병렬 속마음 버블 컨테이너
-function ParallelThoughtBubbles({
-  thoughts,
-  selectedAgentId,
-  avatarSeeds,
-  onAllDone,
-}: {
-  thoughts: AgentThoughtResult[];
-  selectedAgentId: AgentId | null;
-  avatarSeeds: Record<AgentId, string>;
-  onAllDone: () => void;
-}) {
-  const [doneCount, setDoneCount] = useState(0);
-  const onAllDoneRef = useRef(onAllDone);
-  onAllDoneRef.current = onAllDone;
-  const calledRef = useRef(false);
-
-  useEffect(() => {
-    if (!calledRef.current && doneCount >= thoughts.length) {
-      calledRef.current = true;
-      const timer = setTimeout(() => onAllDoneRef.current(), 600);
-      return () => clearTimeout(timer);
-    }
-  }, [doneCount, thoughts.length]);
-
-  return (
-    <div className="grid grid-cols-3 gap-2">
-      {AGENT_ORDER.map((agentId) => {
-        const t = thoughts.find((th) => th.agentId === agentId);
-        if (!t) return null;
-        return (
-          <AgentThoughtCard
-            key={agentId}
-            agentId={agentId}
-            thought={t.thought}
-            isSelected={selectedAgentId === null || selectedAgentId === agentId}
-            avatarSeed={avatarSeeds[agentId]}
-            onDone={() => setDoneCount((c) => c + 1)}
-          />
-        );
-      })}
+      {/* 아래 방향 삼각형 꼬리 (테두리) */}
+      <div className={`absolute -bottom-[9px] left-1/2 -translate-x-1/2 w-0 h-0
+        border-l-[8px] border-r-[8px] border-t-[9px]
+        border-l-transparent border-r-transparent ${tailColors[agentId]}`} />
+      {/* 아래 방향 삼각형 꼬리 (채우기) */}
+      <div className={`absolute -bottom-[7px] left-1/2 -translate-x-1/2 w-0 h-0
+        border-l-[7px] border-r-[7px] border-t-[8px]
+        border-l-transparent border-r-transparent ${tailFills[agentId]}`} />
     </div>
   );
 }
@@ -377,10 +353,8 @@ export default function InterviewSession({ name }: { name: string }) {
   const [error, setError] = useState("");
   const [timeLeft, setTimeLeft] = useState(ANSWER_TIME_LIMIT);
 
-  const [parallelThoughts, setParallelThoughts] = useState<AgentThoughtResult[] | null>(null);
-  const [selectedFollowUpAgentId, setSelectedFollowUpAgentId] = useState<AgentId | null>(null);
+  const [currentThought, setCurrentThought] = useState<AgentThoughtResult | null>(null);
   const [questionReady, setQuestionReady] = useState(true);
-  const pendingAdvanceMsgsRef = useRef<Message[] | null>(null);
 
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [debateResult, setDebateResult] = useState<DebateResultData | null>(null);
@@ -394,8 +368,7 @@ export default function InterviewSession({ name }: { name: string }) {
     setHintVisible(false);
     setAgentIndex(0);
     setFollowUpRound(0);
-    setParallelThoughts(null);
-    setSelectedFollowUpAgentId(null);
+    setCurrentThought(null);
     setQuestionReady(true);
     setPhase("interviewing");
     history.pushState({ interviewPhase: "interviewing" }, "");
@@ -453,33 +426,32 @@ export default function InterviewSession({ name }: { name: string }) {
     setAnswer("");
     setIsLoading(true);
     setError("");
-    setParallelThoughts(null);
-    setSelectedFollowUpAgentId(null);
+    setCurrentThought(null);
     setQuestionReady(true);
 
     try {
-      const canFollowUp = difficulty !== "tutorial" && followUpRound < MAX_FOLLOWUP_ROUNDS;
+      const canFollowUp = difficulty !== "tutorial" && followUpRound < MAX_FOLLOWUP_ROUNDS[difficulty];
 
       if (canFollowUp) {
         setIsLoading(false);
         setIsThinkingPhase(true);
 
-        const result = await fetchFollowUp(updatedMessages, difficulty);
+        const { thought: selected, selectedAgentId } = await fetchFollowUp(
+          updatedMessages, difficulty, currentAgentId, followUpRound,
+        );
         setIsThinkingPhase(false);
 
-        if (result.selectedAgentId && result.thoughts.find(t => t.agentId === result.selectedAgentId && t.question)) {
-          const selected = result.thoughts.find(t => t.agentId === result.selectedAgentId)!;
+        if (selectedAgentId && selected) {
 
-          // easy/normal: 속마음 버블 표시 후 질문 등장
+          // easy/normal: 선택 에이전트 버블만 표시, 타이핑 완료 후 질문 등장
           if (difficulty !== "hard") {
-            setParallelThoughts(result.thoughts);
-            setSelectedFollowUpAgentId(result.selectedAgentId);
-            setQuestionReady(false); // 버블 타이핑 완료 후 questionReady=true
+            setCurrentThought(selected);
+            setQuestionReady(false);
           }
 
           setMessages([
             ...updatedMessages,
-            { role: "interviewer", content: selected.question, agentId: result.selectedAgentId },
+            { role: "interviewer", content: selected.question, agentId: selectedAgentId },
           ]);
           setCurrentHint(selected.hint ?? "");
           setHintVisible(false);
@@ -489,16 +461,8 @@ export default function InterviewSession({ name }: { name: string }) {
             setQuestionReady(true);
           }
         } else {
-          // 아무도 shouldAsk=false → 다음 에이전트
-          if (difficulty !== "hard" && result.thoughts.length > 0) {
-            // easy/normal: 속마음 버블 보여준 뒤 advanceToNextAgent
-            pendingAdvanceMsgsRef.current = updatedMessages;
-            setParallelThoughts(result.thoughts);
-            setSelectedFollowUpAgentId(null);
-            setQuestionReady(false);
-          } else {
-            await advanceToNextAgent(updatedMessages);
-          }
+          // 아무도 shouldAsk=false → 버블 없이 다음 에이전트로 바로 이동
+          await advanceToNextAgent(updatedMessages);
         }
       } else {
         await advanceToNextAgent(updatedMessages);
@@ -511,22 +475,9 @@ export default function InterviewSession({ name }: { name: string }) {
     }
   }
 
-  // 속마음 버블 타이핑 완료 콜백
+  // 속마음 버블 타이핑 완료 콜백 (꼬리질문 있을 때만 호출됨)
   async function handleThoughtsAllDone() {
     setQuestionReady(true);
-    // 아무도 shouldAsk=false였던 경우 → 다음 에이전트로
-    if (pendingAdvanceMsgsRef.current) {
-      const msgs = pendingAdvanceMsgsRef.current;
-      pendingAdvanceMsgsRef.current = null;
-      setParallelThoughts(null);
-      setSelectedFollowUpAgentId(null);
-      setIsLoading(true);
-      try {
-        await advanceToNextAgent(msgs);
-      } finally {
-        setIsLoading(false);
-      }
-    }
   }
 
   async function advanceToNextAgent(currentMessages: Message[]) {
@@ -550,8 +501,7 @@ export default function InterviewSession({ name }: { name: string }) {
       setHintVisible(false);
       setAgentIndex(nextAgentIndex);
       setFollowUpRound(0);
-      setParallelThoughts(null);
-      setSelectedFollowUpAgentId(null);
+      setCurrentThought(null);
       setQuestionReady(true);
     }
   }
@@ -566,11 +516,9 @@ export default function InterviewSession({ name }: { name: string }) {
     setError("");
     setCurrentHint("");
     setHintVisible(false);
-    setParallelThoughts(null);
-    setSelectedFollowUpAgentId(null);
+    setCurrentThought(null);
     setQuestionReady(true);
     setIsThinkingPhase(false);
-    pendingAdvanceMsgsRef.current = null;
     setSessionId(null);
     setDebateResult(null);
     setDebateError("");
@@ -709,24 +657,15 @@ export default function InterviewSession({ name }: { name: string }) {
         <span className="font-medium">면접 진행 중</span>
       </div>
 
-      {/* 병렬 속마음 버블 (easy/normal 전용) */}
-      {parallelThoughts && difficulty !== "hard" && difficulty !== "tutorial" && (
-        <ParallelThoughtBubbles
-          key={parallelThoughts[0]?.thought.reaction}
-          thoughts={parallelThoughts}
-          selectedAgentId={selectedFollowUpAgentId}
-          avatarSeeds={avatarSeeds}
-          onAllDone={handleThoughtsAllDone}
-        />
-      )}
-
-      {/* 면접관 패널 */}
+      {/* 면접관 패널 (속마음 말풍선 포함) */}
       <InterviewerPanel
         agentIndex={agentIndex}
         isLoading={isLoading}
         isThinkingPhase={isThinkingPhase}
         isSpeaking={isSpeaking}
         avatarSeeds={avatarSeeds}
+        currentThought={difficulty !== "hard" && difficulty !== "tutorial" ? currentThought : null}
+        onThoughtDone={handleThoughtsAllDone}
       />
 
       {/* 현재 질문 말풍선 */}

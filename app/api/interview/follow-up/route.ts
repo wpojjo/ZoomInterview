@@ -2,12 +2,10 @@ import { NextRequest, NextResponse } from "next/server";
 import { supabase } from "@/lib/supabase";
 import { getAuthUser } from "@/lib/auth";
 import {
-  generateParallelFollowUpThoughts,
-  AgentThoughtResult,
+  findFollowUpAgent,
   AgentId,
   Difficulty,
   Message,
-  AGENT_ORDER,
 } from "@/lib/interview";
 
 export async function POST(request: NextRequest) {
@@ -18,9 +16,11 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { messages, difficulty } = body as {
+    const { messages, difficulty, currentAgentId, followUpRound = 0 } = body as {
       messages: Message[];
       difficulty: Difficulty;
+      currentAgentId: AgentId;
+      followUpRound?: number;
     };
 
     const { data: profile } = await supabase
@@ -77,20 +77,16 @@ export async function POST(request: NextRequest) {
       preferredQuals: jobPosting.preferredQuals ?? "",
     };
 
-    const thoughts: AgentThoughtResult[] = await generateParallelFollowUpThoughts(
+    const { thought, selectedAgentId } = await findFollowUpAgent(
       profileContext,
       jobPostingContext,
       messages,
       difficulty,
+      currentAgentId,
+      followUpRound,
     );
 
-    // 우선순위(조직→논리→기술) 순서로 첫 번째 shouldAsk=true 에이전트 선택
-    const selectedAgentId: AgentId | null =
-      AGENT_ORDER.find((agentId) =>
-        thoughts.find((t) => t.agentId === agentId && t.shouldAsk && t.question),
-      ) ?? null;
-
-    return NextResponse.json({ thoughts, selectedAgentId });
+    return NextResponse.json({ thought, selectedAgentId });
   } catch (error) {
     console.error("Follow-up thought error:", error);
     return NextResponse.json(

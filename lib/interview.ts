@@ -4,7 +4,13 @@ const OLLAMA_MODEL = process.env.OLLAMA_MODEL ?? "exaone3.5:2.4b";
 export type AgentId = "organization" | "logic" | "technical";
 export type Difficulty = "tutorial" | "easy" | "normal" | "hard";
 
-export const MAX_FOLLOWUP_ROUNDS = 4; // 무한루프 방지용 안전 캡
+// 난이도별 에이전트당 최대 꼬리질문 횟수
+export const MAX_FOLLOWUP_ROUNDS: Record<Difficulty, number> = {
+  tutorial: 0,
+  easy: 1,
+  normal: 2,
+  hard: 3,
+};
 
 export const AGENT_ORDER: AgentId[] = ["organization", "logic", "technical"];
 export const TOTAL_AGENTS = AGENT_ORDER.length;
@@ -384,7 +390,7 @@ STAR, S, T, A, R 같은 영어 약어를 출력에 사용하지 마세요.`,
 const DIFFICULTY_FOLLOWUP_HINT: Record<Difficulty, string> = {
   tutorial: "", // 사용 안 함 — tutorial 모드는 꼬리질문 없음
   easy: "핵심을 완전히 빠뜨린 경우에만 shouldAsk를 true로 설정하세요.",
-  normal: "구체적인 사례나 핵심 내용이 부족해서 공정한 평가가 어렵다면 shouldAsk를 true로 설정하세요.",
+  normal: "답변에 구체적인 경험 사례가 하나 이상 포함됐다면 shouldAsk를 false로 설정하세요. 경험이 전혀 언급되지 않거나 답변 전체가 추상적인 경우에만 true로 설정하세요.",
   hard: "수치, 프로젝트명, 구체적 깊이가 포함된 경우에만 shouldAsk를 false로 설정하세요. 모호하거나 추상적인 답변은 항상 shouldAsk를 true로 설정하세요.",
 };
 
@@ -461,6 +467,7 @@ async function generateSingleAgentThought(
   jobPosting: JobPostingContext,
   messages: Message[],
   difficulty: Difficulty,
+  followUpRound: number = 0,
 ): Promise<AgentThoughtResult> {
   const profileSummary = buildProfileSummary(profile);
   const conversationText = messages
@@ -479,6 +486,12 @@ ${profileSummary}
 
 반드시 유효한 JSON만 응답하세요 — 다른 텍스트 없이.`;
 
+  const roundPressure = followUpRound >= 2
+    ? `\n⚠️ 이미 꼬리질문을 ${followUpRound}번 했습니다. 치명적인 논리 오류나 완전한 답변 회피가 아닌 이상 shouldAsk를 false로 설정하세요.`
+    : followUpRound === 1
+    ? `\n이미 꼬리질문을 1번 했습니다. 답변에 구체적인 내용이 조금이라도 있다면 shouldAsk를 false로 설정하세요.`
+    : "";
+
   const userContent = `[면접 대화 기록]
 ${conversationText}
 
@@ -486,7 +499,7 @@ ${conversationText}
 
 꼬리질문 트리거 기준: ${AGENT_FOLLOWUP_CRITERIA[agentId]}
 
-난이도 가이드: ${DIFFICULTY_FOLLOWUP_HINT[difficulty]}
+난이도 가이드: ${DIFFICULTY_FOLLOWUP_HINT[difficulty]}${roundPressure}
 
 꼬리질문을 한다면, 반드시 지원자의 마지막 답변에서 구체적인 부분을 언급하고 질문은 1개만 하세요.
 
@@ -547,16 +560,24 @@ ${conversationText}
   }
 }
 
-// 3개 에이전트 병렬 속마음 생성 (easy/normal/hard 모드용, tutorial은 호출하지 않음)
-export async function generateParallelFollowUpThoughts(
+// 현재 에이전트 우선으로 순차 호출, shouldAsk=true 발견 즉시 반환 (불필요한 호출 최소화)
+export async function findFollowUpAgent(
   profile: ProfileContext,
   jobPosting: JobPostingContext,
   messages: Message[],
   difficulty: Difficulty,
-): Promise<AgentThoughtResult[]> {
-  return Promise.all(
-    AGENT_ORDER.map((agentId) =>
-      generateSingleAgentThought(agentId, profile, jobPosting, messages, difficulty),
-    ),
-  );
+  currentAgentId: AgentId,
+  followUpRound: number = 0,
+): Promise<{ thought: AgentThoughtResult | null; selectedAgentId: AgentId | null }> {
+  // 현재 에이전트 + 아직 차례가 안 온 에이전트만 (이미 끝난 에이전트는 제외)
+  const priority: AgentId[] = AGENT_ORDER.slice(AGENT_ORDER.indexOf(currentAgentId));
+
+  for (const agentId of priority) {
+    const thought = await generateSingleAgentThought(agentId, profile, jobPosting, messages, difficulty, followUpRound);
+    if (thought.shouldAsk && thought.question) {
+      return { thought, selectedAgentId: agentId };
+    }
+  }
+
+  return { thought: null, selectedAgentId: null };
 }
