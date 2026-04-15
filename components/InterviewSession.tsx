@@ -637,6 +637,8 @@ export default function InterviewSession({ name }: { name: string }) {
       {/* 진행 상황 */}
       <div className="flex items-center gap-2 text-xs text-gray-400 dark:text-slate-500 px-1">
         <span className="font-medium">면접 진행 중</span>
+        <span className="text-gray-300 dark:text-slate-600">·</span>
+        <span>{{ tutorial: "연습", easy: "입문", normal: "기본", hard: "심화" }[difficulty]}</span>
       </div>
 
       {/* 면접관 패널 (속마음 말풍선 포함) */}
@@ -712,7 +714,7 @@ export default function InterviewSession({ name }: { name: string }) {
           }}
           placeholder="답변을 입력하세요 (Ctrl+Enter로 제출)"
           disabled={isLoading || isThinkingPhase}
-          rows={4}
+          rows={8}
           className="w-full resize-none border-0 outline-none text-sm text-gray-800 dark:text-slate-200 placeholder-gray-400 dark:placeholder-slate-500 bg-transparent disabled:opacity-50"
         />
         <div className="flex justify-between items-center pt-1 border-t border-gray-100 dark:border-slate-700">
