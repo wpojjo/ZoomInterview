@@ -23,11 +23,12 @@ interface Props {
 
 type ChatMsg = {
   id: string;
+  type?: "pause";
   agentId?: AgentId;
   text: string;
   stance?: "agree" | "disagree" | "partial";
   targetName?: string;
-  label?: string; // "재반박" 등 라운드 구분 레이블
+  label?: string;
 };
 
 function stripMd(text: string): string {
@@ -235,6 +236,7 @@ export default function DebateLoading({ sessionId, avatarSeeds, onDone, onProcee
 
   const [visibleMsgs, setVisibleMsgs] = useState<ChatMsg[]>([]);
   const [typingAgentId, setTypingAgentId] = useState<AgentId | null>(null);
+  const [showAllThinking, setShowAllThinking] = useState(false);
   const [showProceedButton, setShowProceedButton] = useState(false);
   const [allDebateMsgsShown, setAllDebateMsgsShown] = useState(false);
 
@@ -318,6 +320,11 @@ export default function DebateLoading({ sessionId, avatarSeeds, onDone, onProcee
   useEffect(() => {
     if (agentRebuttals.length <= queuedRebuttalCount.current) return;
 
+    // Round 2 첫 진입 시 모두 생각 중 pause 삽입
+    if (queuedRebuttalCount.current === 0) {
+      pendingQueue.current.push({ id: "pause-rebuttal", type: "pause", text: "" });
+    }
+
     const newRebuttals = agentRebuttals.slice(queuedRebuttalCount.current);
     newRebuttals.forEach((r) => {
       r.rebuttals.forEach((rb, i) => {
@@ -326,7 +333,6 @@ export default function DebateLoading({ sessionId, avatarSeeds, onDone, onProcee
           id: `rebuttal-${r.agentId}-${rb.fromAgentId}-${i}`,
           agentId: r.agentId,
           text: rb.comment,
-          label: "재반박",
           targetName: fromMeta?.name ?? rb.fromAgentId,
         });
       });
@@ -351,20 +357,40 @@ export default function DebateLoading({ sessionId, avatarSeeds, onDone, onProcee
       return;
     }
 
-    setTypingAgentId(next.agentId ?? null);
+    // 모두 생각 중 pause
+    if (next.type === "pause") {
+      setTypingAgentId(null);
+      setShowAllThinking(true);
+      popTimerRef.current = setTimeout(() => {
+        setShowAllThinking(false);
+        popNext();
+      }, 3000);
+      return;
+    }
+
+    // 이전 메시지를 읽는 시간 (600~1200ms)
+    const readDelay = 600 + Math.random() * 600;
 
     popTimerRef.current = setTimeout(() => {
-      popTimerRef.current = undefined;
-      setTypingAgentId(null);
-      setVisibleMsgs((prev) => [...prev, next]);
+      setTypingAgentId(next.agentId ?? null);
 
-      if (pendingQueue.current.length > 0) {
-        popTimerRef.current = setTimeout(popNext, 600);
-      } else {
-        setAllDebateMsgsShown(true);
-        if (debateFinishedRef.current) setShowProceedButton(true);
-      }
-    }, 1800);
+      // 텍스트 길이에 비례한 타이핑 시간 (1000~2800ms)
+      const typingDuration = Math.max(1000, Math.min(next.text.length * 30, 2800));
+
+      popTimerRef.current = setTimeout(() => {
+        popTimerRef.current = undefined;
+        setTypingAgentId(null);
+        setVisibleMsgs((prev) => [...prev, next]);
+
+        if (pendingQueue.current.length > 0) {
+          // 다음 메시지 전 짧은 숨 고르기 (300~700ms)
+          popTimerRef.current = setTimeout(popNext, 300 + Math.random() * 400);
+        } else {
+          setAllDebateMsgsShown(true);
+          if (debateFinishedRef.current) setShowProceedButton(true);
+        }
+      }, typingDuration);
+    }, readDelay);
   }
 
   // 자동 스크롤
@@ -450,7 +476,15 @@ export default function DebateLoading({ sessionId, avatarSeeds, onDone, onProcee
           <ChatBubble key={msg.id} msg={msg} avatarSeeds={avatarSeeds} />
         ))}
 
-        {isActive && displayTypingId && (
+        {showAllThinking && (
+          <div className="flex gap-3 animate-fade-in">
+            {AGENT_ORDER.map((aid) => (
+              <TypingIndicator key={aid} agentId={aid} avatarSeeds={avatarSeeds} />
+            ))}
+          </div>
+        )}
+
+        {!showAllThinking && isActive && displayTypingId && (
           <TypingIndicator agentId={displayTypingId} avatarSeeds={avatarSeeds} />
         )}
 

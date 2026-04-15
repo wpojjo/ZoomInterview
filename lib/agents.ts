@@ -149,12 +149,16 @@ const AGENT_SYSTEM_PROMPTS: Record<AgentId, string> = {
 };
 
 // 피드백 공통 규칙 (Round 1 상호 피드백에 적용)
-const FEEDBACK_RULES = `피드백 시 반드시 지킬 규칙:
-1. 상대 에이전트 출력의 특정 문장을 직접 인용한 뒤, 그 판단이 당신 기준으로 왜 부족하거나 다른지 설명하세요. 인용 없는 피드백은 무효입니다.
-2. "지원자가 ~할 의무는 없다", "지원자는 ~했을 수 있다", "지원자를 변호하면" 같은 표현은 금지입니다. 오직 상대 에이전트의 판단 논리만 비판하세요.
-3. "동의합니다" 또는 "잘 분석하셨습니다"로 시작하지 마세요. 동의하더라도 상대가 놓친 부분을 반드시 1개 이상 지적하세요.
-4. 피드백은 반드시 당신 에이전트의 평가 기준으로만 작성하세요.
-5. 각 지적 사항은 3문장 이내로 간결하게 작성하세요. 서론, 요약, 맺음말을 쓰지 마세요.`;
+const FEEDBACK_RULES = `말투 규칙 — 반드시 준수:
+- 동료 면접관끼리 쉬는 시간에 편하게 얘기하는 톤. 반말 구어체 필수.
+- ~습니다/~합니다/~됩니다 절대 금지. ~네, ~겠어, ~인 것 같은데, ~아닌가, ~더라 사용.
+- "동의해", "나는 좀 다르게 봤는데", "그 부분은 나도 걸렸어" 같은 자연스러운 시작.
+- 서론·요약·맺음말 없이 바로 본론. 2~3문장이면 충분.
+
+내용 규칙:
+1. 상대 의견의 특정 표현을 인용한 뒤 당신 기준으로 왜 다른지 설명. 인용 없는 피드백은 무효.
+2. "지원자가 ~할 의무는 없다" 같은 지원자 변호 표현 금지. 상대 판단 논리만 비판.
+3. 동의해도 상대가 놓친 부분 1개 이상 지적.`;
 
 // ── Round 0: 에이전트별 독립 평가 ────────────────────────────────────────
 
@@ -328,12 +332,12 @@ export async function generateAgentReply(
 
   const replySchema = otherEvaluations
     .map((e) =>
-      `    {\n      "targetAgentId": "${e.agentId}",\n      "stance": "<agree|disagree|partial>",\n      "comment": "<상대 에이전트의 특정 문장을 직접 인용한 뒤, 당신 기준에서 왜 부족하거나 다른지 3문장 이내로 설명. 동의하더라도 반드시 놓친 부분 1개 이상 지적>"\n    }`
+      `    {\n      "targetAgentId": "${e.agentId}",\n      "stance": "<agree|disagree|partial>",\n      "comment": "<반말 구어체로. 상대 의견 특정 표현 인용 후 동의/반박. 2~3문장. ~습니다 금지>"\n    }`
     )
     .join(",\n");
 
-  const systemPrompt = `당신은 ${agent.label}입니다. 동료 면접관들의 평가를 방금 들었고, 이제 당신이 반응할 차례입니다.
-당신의 평가 기준: ${agent.criterion}.
+  const systemPrompt = `당신은 ${agent.label}입니다. 면접 직후 동료 면접관들과 평가를 공유하는 중입니다.
+평가 기준: ${agent.criterion}.
 
 ${FEEDBACK_RULES}
 
@@ -398,15 +402,17 @@ export async function generateAgentRebuttal(
 
   const rebuttalSchema = repliesAboutMe
     .map((r) =>
-      `    {\n      "fromAgentId": "${r.fromAgentId}",\n      "comment": "<${r.fromAgentLabel}의 피드백 특정 문장을 인용한 뒤, 수용할 부분은 왜 수용하는지, 반박할 부분은 당신 기준으로 왜 틀렸는지 3문장 이내로>"\n    }`
+      `    {\n      "fromAgentId": "${r.fromAgentId}",\n      "comment": "<반말 구어체로. ${r.fromAgentLabel} 피드백 인용 후 수용 또는 반박. 2~3문장. ~습니다 금지>"\n    }`
     )
     .join(",\n");
 
-  const systemPrompt = `당신은 ${agent.label}입니다. 동료들이 당신의 평가에 피드백을 줬습니다. 이제 직접 응답할 차례입니다.
-당신의 평가 기준: ${agent.criterion}.
-- 수용할 부분이 있으면 왜 수용하는지 밝히세요.
-- 반박할 부분은 당신 기준을 근거로 반박하고, 반드시 피드백의 특정 문장을 인용하세요.
-- 각 응답은 3문장 이내로 간결하게 작성하세요. 서론, 요약, 맺음말 없이 바로 시작하세요.
+  const systemPrompt = `당신은 ${agent.label}입니다. 동료들이 당신 의견에 반응했고, 이제 당신이 받아칠 차례입니다.
+평가 기준: ${agent.criterion}.
+
+말투 규칙 — 반드시 준수:
+- 반말 구어체 필수. ~습니다/~합니다/~됩니다 절대 금지.
+- "그건 좀 다른데", "맞아, 근데", "그 부분은 인정하는데" 같은 자연스러운 시작.
+- 피드백 특정 문장 인용 후 수용 또는 반박. 2~3문장이면 충분.
 반드시 유효한 JSON만 응답하세요 — 다른 텍스트 없이.`;
 
   const userContent = `${contextBlock}
