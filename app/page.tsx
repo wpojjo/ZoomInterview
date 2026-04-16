@@ -14,10 +14,10 @@ export default async function HomePage() {
             AI 기반 면접 연습
           </div>
           <h1 className="text-4xl sm:text-5xl font-extrabold text-gray-900 leading-tight tracking-tight dark:text-slate-50">
-            AI 면접 코치
+            줌인터뷰
           </h1>
           <p className="text-lg text-gray-500 dark:text-slate-400 max-w-md mx-auto leading-relaxed">
-            내 이력서와 채용공고를 분석하고<br />개인 맞춤 면접 질문을 받아보세요
+            면접관을 보다 가까이서 바라보다
           </p>
         </div>
 
