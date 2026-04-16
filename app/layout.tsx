@@ -4,8 +4,8 @@ import Header from "@/components/Header";
 import ProgressBarProvider from "@/components/ProgressBarProvider";
 
 export const metadata: Metadata = {
-  title: "AI 면접 코치",
-  description: "AI 기반 면접 연습 서비스",
+  title: "줌인터뷰",
+  description: "면접관을 보다 가까이서 바라보다",
 };
 
 export default function RootLayout({
