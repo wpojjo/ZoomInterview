@@ -1,5 +1,5 @@
 const OLLAMA_BASE_URL = process.env.OLLAMA_BASE_URL ?? "http://localhost:11434";
-const OLLAMA_MODEL = process.env.OLLAMA_MODEL ?? "exaone3.5:2.4b";
+const OLLAMA_MODEL = process.env.OLLAMA_MODEL ?? "exaone3.5:7.8b";
 
 export type AgentId = "organization" | "logic" | "technical";
 export type Difficulty = "tutorial" | "easy" | "normal" | "hard";
