@@ -48,3 +48,5 @@ server/__pycache__/
 
 # planning docs
 *.txt
+ARCHITECTURE.md
+TECHNICAL.md
