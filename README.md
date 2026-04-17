@@ -1,7 +1,7 @@
-# AI 면접 코치
+# 줌인터뷰
 
 📌 **프로젝트 개요**
-- **서비스명:** AI 면접 코치 — 이력서 + 채용공고 기반 AI 맞춤 모의면접 서비스
+- **서비스명:** 줌인터뷰 - 면접관을 보다 가까이서 바라보다.
 - **역할:** 이력서와 채용공고를 분석해 개인화된 면접 질문을 생성하고, 3가지 관점의 AI 면접관과 실전 모의면접을 진행합니다. 면접 종료 후 에이전트 간 멀티라운드 토론을 통해 항목별 점수와 구체적 개선 포인트를 제공합니다.
 
 ---
@@ -108,33 +108,4 @@ POST /api/interview/debate → sessionId 반환
 
 각 에이전트는 Round 0에서 독립적으로 평가한 뒤, Round 1–3에 걸쳐 상호 반론과 재반론을 교환합니다. 중재자는 3개 에이전트의 최종 의견을 종합해 합산 점수와 채용 권고 레벨을 산출합니다.
 
----
 
-⚙️ **로컬 실행**
-
-```bash
-# 1. 환경변수 설정
-cp .env.example .env
-# .env에 Supabase·Ollama 설정 입력
-
-# 2. Ollama 실행 확인
-ollama serve
-
-# 3. 의존성 설치 및 개발 서버 시작
-npm install
-npm run dev
-```
-
-브라우저: http://localhost:3000
-
-**필수 환경변수**
-
-```
-SUPABASE_URL
-SUPABASE_ANON_KEY
-SUPABASE_SERVICE_ROLE_KEY
-NEXT_PUBLIC_SUPABASE_URL
-NEXT_PUBLIC_SUPABASE_ANON_KEY
-OLLAMA_BASE_URL=http://localhost:11434
-OLLAMA_MODEL=<사용할 모델명>
-```
