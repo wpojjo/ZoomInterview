@@ -326,7 +326,7 @@ export async function generateAgentReply(
   const othersText = otherEvaluations
     .map(
       (e) =>
-        `[${e.agentLabel}] ${e.opinion}\n핵심 포인트: ${e.highlights.join(" | ")}`,
+        `[${e.agentLabel}]${e.verdictLabel && e.verdict ? ` 판정: ${e.verdictLabel} — ${e.verdict}` : ""}\n${e.opinion}\n핵심 포인트: ${e.highlights.join(" | ")}`,
     )
     .join("\n\n");
 
@@ -458,6 +458,7 @@ export async function generateAgentFinalOpinion(
   myEvaluation: AgentEvaluation,
   repliesAboutMe: { fromAgentLabel: string; stance: string; comment: string }[],
   myRebuttal: AgentRebuttal | undefined,
+  othersRebuttalsToMyFeedback: { fromAgentLabel: string; comment: string }[],
   messages: Message[],
   profile: ProfileContext,
   jobPosting: JobPostingContext,
@@ -472,6 +473,10 @@ export async function generateAgentFinalOpinion(
 
   const rebuttalText = myRebuttal
     ? myRebuttal.rebuttals.map((r) => `→ ${r.fromAgentId}에게: ${r.comment}`).join("\n")
+    : "없음";
+
+  const othersRebuttalText = othersRebuttalsToMyFeedback.length > 0
+    ? othersRebuttalsToMyFeedback.map((r) => `[${r.fromAgentLabel}]: ${r.comment}`).join("\n\n")
     : "없음";
 
   // 에이전트별 JSON 스키마 (Round 0와 동일)
@@ -520,11 +525,14 @@ ${conversationText}
 [나의 Round 0 평가]
 ${myEvaluation.opinion}
 
-[내가 받은 피드백]
+[내가 받은 피드백 — Round 1]
 ${feedbackText}
 
-[내 재반박]
+[내 재반박 — Round 2]
 ${rebuttalText}
+
+[상대방이 내 피드백에 반박한 내용 — Round 2]
+${othersRebuttalText}
 
 위 토론 전체를 반영하여 최종 의견을 작성하세요.
 수정된 판단이 있으면 왜 바꿨는지, 유지한 판단이 있으면 왜 유지하는지 opinion에 1문장으로 밝히세요.

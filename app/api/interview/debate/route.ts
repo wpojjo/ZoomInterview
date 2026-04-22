@@ -101,9 +101,17 @@ async function runDebate(
           }))
       );
       const myRebuttal = rebuttals.find((r) => r.agentId === myEval.agentId);
+      // 다른 에이전트들이 내 Round 1 피드백에 반박한 내용 (Round 2)
+      const othersRebuttalsToMyFeedback = rebuttals
+        .filter((r) => r.agentId !== myEval.agentId)
+        .flatMap((r) =>
+          r.rebuttals
+            .filter((rb) => rb.fromAgentId === myEval.agentId)
+            .map((rb) => ({ fromAgentLabel: r.agentLabel, comment: rb.comment }))
+        );
       try {
         const finalOpinion = await generateAgentFinalOpinion(
-          myEval.agentId, myEval, repliesAboutMe, myRebuttal, messages, profile, jobPosting
+          myEval.agentId, myEval, repliesAboutMe, myRebuttal, othersRebuttalsToMyFeedback, messages, profile, jobPosting
         );
         finalOpinions.push(finalOpinion);
         await supabase
