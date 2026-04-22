@@ -25,21 +25,20 @@ async function runDebate(
     // Round 0: 에이전트 순차 평가 — 각자 완료 즉시 저장 (클라이언트에 실시간 표시)
     const evaluations: AgentEvaluation[] = [];
     for (const agentId of AGENT_ORDER) {
-      let evaluation: AgentEvaluation;
       try {
-        evaluation = await generateAgentEvaluation(agentId, messages, profile, jobPosting);
-      } catch {
-        continue;
+        const evaluation = await generateAgentEvaluation(agentId, messages, profile, jobPosting);
+        evaluations.push(evaluation);
+        await supabase
+          .from("interview_sessions")
+          .update({
+            agentEvaluations: evaluations as unknown as Json,
+            status: evaluations.length === 1 ? "evaluating" : "debating",
+            updatedAt: new Date().toISOString(),
+          })
+          .eq("id", sessionId);
+      } catch (e) {
+        console.error(`[Round 0] ${agentId} 평가 실패:`, e);
       }
-      evaluations.push(evaluation);
-      await supabase
-        .from("interview_sessions")
-        .update({
-          agentEvaluations: evaluations as unknown as Json,
-          status: evaluations.length === 1 ? "evaluating" : "debating",
-          updatedAt: new Date().toISOString(),
-        })
-        .eq("id", sessionId);
     }
 
     if (evaluations.length < 2) {
@@ -57,8 +56,8 @@ async function runDebate(
           .from("interview_sessions")
           .update({ debateReplies: replies as unknown as Json, updatedAt: new Date().toISOString() })
           .eq("id", sessionId);
-      } catch {
-        continue;
+      } catch (e) {
+        console.error(`[Round 1] ${myEval.agentId} 피드백 실패:`, e);
       }
     }
 
@@ -84,8 +83,8 @@ async function runDebate(
           .from("interview_sessions")
           .update({ agentRebuttals: rebuttals as unknown as Json, updatedAt: new Date().toISOString() })
           .eq("id", sessionId);
-      } catch {
-        continue;
+      } catch (e) {
+        console.error(`[Round 2] ${myEval.agentId} 재반박 실패:`, e);
       }
     }
 
@@ -111,8 +110,8 @@ async function runDebate(
           .from("interview_sessions")
           .update({ agentFinalOpinions: finalOpinions as unknown as Json, updatedAt: new Date().toISOString() })
           .eq("id", sessionId);
-      } catch {
-        continue;
+      } catch (e) {
+        console.error(`[Round 3] ${myEval.agentId} 최종 의견 실패:`, e);
       }
     }
 
