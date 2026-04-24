@@ -102,7 +102,7 @@ export default function DebateResult({
 }: Props) {
   // 최종 의견이 있으면 최종 의견 기준으로 표시, 없으면 Round 0 평가 사용
   const displayEvaluations: (AgentEvaluation | AgentFinalOpinion)[] =
-    agentFinalOpinions && agentFinalOpinions.length > 0 ? agentFinalOpinions : agentEvaluations;
+    (agentFinalOpinions && agentFinalOpinions.length > 0 ? agentFinalOpinions : agentEvaluations) ?? [];
   const isFinalOpinion = agentFinalOpinions && agentFinalOpinions.length > 0;
   return (
     <div className="space-y-6">
@@ -182,7 +182,7 @@ export default function DebateResult({
               <span className="text-sm font-semibold text-gray-700 dark:text-slate-200">강점</span>
             </div>
             <p className="text-sm text-gray-600 dark:text-slate-300 leading-relaxed pl-6">
-              {stripMd(finalFeedback.strengths)}
+              {stripMd(finalFeedback.strengths ?? "")}
             </p>
           </div>
           <div className="h-px bg-gray-100 dark:bg-slate-700" />
@@ -192,7 +192,7 @@ export default function DebateResult({
               <span className="text-sm font-semibold text-gray-700 dark:text-slate-200">약점</span>
             </div>
             <p className="text-sm text-gray-600 dark:text-slate-300 leading-relaxed pl-6">
-              {stripMd(finalFeedback.weaknesses)}
+              {stripMd(finalFeedback.weaknesses ?? "")}
             </p>
           </div>
           <div className="h-px bg-gray-100 dark:bg-slate-700" />
@@ -202,7 +202,7 @@ export default function DebateResult({
               <span className="text-sm font-semibold text-gray-700 dark:text-slate-200">핵심 조언</span>
             </div>
             <p className="text-sm text-gray-600 dark:text-slate-300 leading-relaxed pl-6">
-              {stripMd(finalFeedback.advice)}
+              {stripMd(finalFeedback.advice ?? "")}
             </p>
           </div>
         </div>
