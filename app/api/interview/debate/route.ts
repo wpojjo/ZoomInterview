@@ -155,6 +155,9 @@ async function runDebate(
         finalFeedback: {
           ...moderatorResult.overall,
           recommendLevel: moderatorResult.recommendLevel,
+          baseScore: moderatorResult.baseScore,
+          adjustment: moderatorResult.adjustment,
+          agentScores: moderatorResult.agentScores,
         } as unknown as Json,
         debateSummary: moderatorResult.debateSummary,
         improvementTips: moderatorResult.improvementTips as unknown as Json,

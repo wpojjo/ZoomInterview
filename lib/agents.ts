@@ -9,8 +9,9 @@ export interface AgentEvaluation {
   criterion: string;
   opinion: string;
   highlights: string[];
-  verdict?: string;      // 에이전트별 핵심 판정 값 (예: "즉시 가능", "신뢰도: 보통", "2단계")
-  verdictLabel?: string; // 판정 항목명 (예: "즉시투입 판정", "종합 신뢰도", "자기변화")
+  score?: number;        // 답변 품질 점수 (0-100)
+  verdict?: string;      // 핵심 피드백 한 줄
+  verdictLabel?: string; // "핵심 피드백"
 }
 
 export interface AgentReply {
@@ -40,12 +41,16 @@ export interface AgentFinalOpinion {
   criterion: string;
   opinion: string;
   highlights: string[];
+  score?: number;
   verdict?: string;
   verdictLabel?: string;
 }
 
 export interface ModeratorResult {
   score: number;
+  baseScore: number;
+  adjustment: number;
+  agentScores: Record<string, number>;
   recommendLevel: "강력 추천" | "추천" | "보류" | "비추천";
   overall: { strengths: string; weaknesses: string; advice: string };
   improvementTips: string[];
@@ -108,42 +113,35 @@ function buildContextBlock(profile: ProfileContext, jobPosting: JobPostingContex
 
 const AGENT_SYSTEM_PROMPTS: Record<AgentId, string> = {
   logic: `당신은 [논리전문가] 에이전트입니다.
-판단 철학: "이건 사실인가? 아니면 그럴듯하게 포장된 말인가?"
-칭찬은 최소화하고, 의심을 기본값으로 합니다.
+평가 철학: "이건 사실인가? 아니면 그럴듯하게 포장된 말인가?"
+칭찬은 최소화하고, 답변 품질을 3가지 기준으로 정밀 분석합니다.
 
-평가 기준:
-1. 주장·근거 구조: 근거 없이 주장만 있는 문장은 직접 인용해서 지적하세요.
-2. 검증 가능성: "좋아졌다", "성과가 있었다" 같은 표현은 직접 인용 후 확인 불가로 표시하세요. 수치가 있어도 기간·기준·모집단이 없으면 신뢰도 낮음으로 판정하세요.
-3. 인과 관계: "열심히 했고 결과가 좋았다"는 인과 불명확으로 판정하세요. 본인 기여인지 팀 기여인지 불분명하면 지적하세요.
-4. 압박 내성: 가장 취약한 지점 1개를 선정하고 예상 후속 질문 형태로 반드시 제시하세요.
-5. 모순·과장 탐지: "많이", "잘", "좋았다" 같은 추상어는 직접 인용 후 지적하세요. 모순 없으면 반드시 "없음"으로 명시하세요.
+평가 기준 (0-100점):
+1. 주장-근거 일치도 (0-40): 주장마다 구체적 근거가 있는가. 근거 없이 주장만 있는 문장은 직접 인용해서 지적하세요.
+2. 검증 가능성 (0-30): "좋아졌다", "성과가 있었다" 같은 표현은 직접 인용 후 검증 불가로 분류하세요. 수치가 있어도 기간·기준·모집단이 없으면 낮게 평가하세요.
+3. 논리 구조 (0-30): "열심히 했고 결과가 좋았다"는 인과 불명확으로 판정하세요. 모순·과장 탐지 시 직접 인용하세요. 모순 없으면 "없음"으로 명시하세요.
 
 반드시 유효한 JSON만 응답하세요 — 다른 텍스트 없이.`,
 
   technical: `당신은 [기술전문가] 에이전트입니다.
-판단 철학: "그래서 이 사람, 내일 당장 써먹을 수 있냐?"
-잠재력·인성은 다른 에이전트가 봅니다. 오직 지금 당장 업무 수행 가능한가만 판단합니다.
+평가 철학: "그래서 이 사람, 내일 당장 써먹을 수 있냐?"
+직무 수행 능력을 3가지 기준으로 정밀 분석합니다.
 
-평가 기준:
-1. 직무 기술 매칭: 툴 이름이 명시되어야 확인 가능. "데이터 분석"만 있고 툴이 없으면 기술 수준 불명확으로 판정하세요.
-2. 경험 주도성: "저는 분석했다" vs "팀이 결정했다"를 구분. 단독 주도/팀 참여/제안 수준/불명확 중 하나로 판정하고 근거 표현을 직접 인용하세요.
-3. STAR 구조: 상황(S)·과제(T)·행동(A)·결과(R) 각각 있는지 확인. 빠진 항목과 이유를 명시하세요.
-4. 성과 실질성: 수치 + 기간 + 기준이 모두 있어야 실질적 성과. "좋은 결과를 냈다"는 직접 인용 후 실질성 없음으로 표시하세요.
-5. 즉시 투입 판정: 즉시 가능/온보딩 후 가능/추가 경험 필요 중 하나로 판정하고 예상 실무 리스크를 서술하세요.
+평가 기준 (0-100점):
+1. STAR 충족도 (0-40): 상황(S)·과제(T)·행동(A)·결과(R) 각각 있는지 확인. 빠진 항목과 이유를 명시하세요.
+2. 직무 연관성 (0-40): 툴 이름이 명시되어야 확인 가능. "데이터 분석"만 있고 툴이 없으면 낮게 평가하세요. 직무 요건과 직접 대조하세요.
+3. 경험 구체성 (0-20): "저는 분석했다" vs "팀이 결정했다"를 구분. 경험 주도성이 명확한지, 성과에 수치+기간+기준이 있는지 분석하세요.
 
 반드시 유효한 JSON만 응답하세요 — 다른 텍스트 없이.`,
 
   organization: `당신은 [조직전문가] 에이전트입니다.
-판단 철학: "이 사람, 같이 일하면 좋은가? 오래 갈 사람인가?"
-현재 실력보다 변화 궤적과 팀 안에서의 존재 방식을 더 중요하게 봅니다.
+평가 철학: "이 사람, 같이 일하면 좋은가? 오래 갈 사람인가?"
+답변의 성장 서술 품질을 3가지 기준으로 정밀 분석합니다.
 
-평가 기준:
-1. 자기변화 속도: 인식(1단계)/행동변화(2단계)/결과변화(3단계) 중 하나로 판정. 근거 인용 필수.
-2. 피드백 수용: 피드백을 먼저 구한 흔적이 있으면 능동적. "받아들이는 연습을 하고 있다"면 수동적.
-3. 성장 설계: "열심히 하겠다" 선언만 있으면 설계 없음. 구체적인 루틴이 있으면 설계 있음.
-4. 협업 역할: 주도형/지원형/불명확 중 하나로 판정. 공을 나누는 표현 vs 독점 표현을 분석하세요.
-5. 갈등 대응: 구체적 갈등 사례와 해결 행동이 있는지 확인. "잘 해결했다"는 빈 표현으로 직접 인용 후 지적하세요. 갈등 사례 없으면 "사례 없음"으로 명시하세요.
-6. 기여 지향성: "배우고 싶다" = 수혜, "기여하고 싶다" = 기여. 두 표현의 비율을 서술하세요.
+평가 기준 (0-100점):
+1. 성장 서술 구체성 (0-40): 성장 경험이 구체적 사례·행동·결과 중심으로 서술됐는가. "열심히 하겠다" 선언만 있으면 낮게 평가하세요. 모호한 표현은 직접 인용하세요.
+2. 협업 경험 묘사 충실도 (0-40): 협업·갈등 사례가 행동 중심으로 서술됐는가. "잘 해결했다"는 빈 표현으로 직접 인용 후 지적하세요. 사례 없으면 "사례 없음"으로 명시하세요.
+3. 기여 지향성 (0-20): "배우고 싶다" = 수혜, "기여하고 싶다" = 기여. 두 표현의 비율을 분석하세요.
 
 반드시 유효한 JSON만 응답하세요 — 다른 텍스트 없이.`,
 };
@@ -176,30 +174,29 @@ export async function generateAgentEvaluation(
 
   if (agentId === "logic") {
     jsonSchema = `{
-  "unverifiable": "<확인 불가 표현 직접 인용 + 이유. 없으면 '없음'>",
-  "logicErrors": "<모순/인과오류 문장 인용 + 설명. 없으면 '없음'>",
-  "weakestPoint": "<가장 취약한 지점 + 예상 후속 질문 형태>",
-  "reliabilityVerdict": "<높음 | 보통 | 낮음>",
+  "argumentEval": "<주장마다 근거가 있는지 분석. 근거 없는 주장 직접 인용. 없으면 '없음'>",
+  "verifiabilityEval": "<검증 불가 표현 직접 인용 + 이유. 없으면 '없음'>",
+  "logicEval": "<논리적 모순이나 인과오류 분석. 없으면 '없음'>",
+  "score": <0-100 정수. 주장-근거 일치도(0-40) + 검증가능성(0-30) + 논리구조(0-30)>,
+  "verdict": "<이 답변의 가장 중요한 개선 포인트 1문장. 구체적 인용 포함>",
   "opinion": "<전체 평가 요약 3~4문장. 답변 직접 인용 포함>"
 }`;
   } else if (agentId === "technical") {
     jsonSchema = `{
-  "leadershipVerdict": "<단독 주도 | 팀 참여 | 제안 수준 | 불명확>",
-  "leadershipEvidence": "<위 판정의 근거가 된 답변 직접 인용>",
-  "starMissing": "<빠진 STAR 항목과 이유. 없으면 '없음'>",
-  "practicalRisks": "<채용 시 예상 실무 리스크 1~2개>",
-  "deployVerdict": "<즉시 가능 | 온보딩 후 가능 | 추가 경험 필요>",
+  "starEval": "<STAR 구조 충족도 분석. 빠진 항목 명시. 없으면 '없음'>",
+  "jobRelevanceEval": "<직무 요건과의 연관성 분석>",
+  "experienceEval": "<경험 구체성 및 주도성 분석. 모호한 표현 직접 인용>",
+  "score": <0-100 정수. STAR 충족도(0-40) + 직무 연관성(0-40) + 경험 구체성(0-20)>,
+  "verdict": "<이 답변의 가장 중요한 개선 포인트 1문장. 구체적 인용 포함>",
   "opinion": "<전체 평가 요약 3~4문장. 답변 직접 인용 및 직무 요건과 대조 포함>"
 }`;
   } else {
     jsonSchema = `{
-  "changeStage": "<1 | 2 | 3>",
-  "changeEvidence": "<위 판정 근거가 된 답변 직접 인용>",
-  "feedbackDirection": "<능동적 | 수동적 | 판단 불가>",
-  "growthDesign": "<설계 있음 | 설계 없음>",
-  "collaborationRole": "<주도형 | 지원형 | 불명확>",
-  "collaborationEvidence": "<위 판정의 근거가 된 답변 직접 인용>",
-  "contributionBalance": "<수혜/기여 비율 서술>",
+  "growthEval": "<성장 경험의 구체성 분석. 모호한 성장 서술 직접 인용>",
+  "collaborationEval": "<협업/갈등 사례의 행동 중심 서술 여부 분석>",
+  "contributionEval": "<기여 지향성 분석. 수혜 vs 기여 표현 비율>",
+  "score": <0-100 정수. 성장 구체성(0-40) + 협업 묘사(0-40) + 기여 지향성(0-20)>,
+  "verdict": "<이 답변의 가장 중요한 개선 포인트 1문장. 구체적 인용 포함>",
   "opinion": "<전체 평가 요약 3~4문장. 답변 직접 인용 포함>"
 }`;
   }
@@ -219,21 +216,18 @@ ${jsonSchema}
 
   if (agentId === "logic") {
     const parsed = extractJSON<{
-      unverifiable: string;
-      logicErrors: string;
-      weakestPoint: string;
-      reliabilityVerdict: string;
+      argumentEval: string;
+      verifiabilityEval: string;
+      logicEval: string;
+      score: number;
+      verdict: string;
       opinion: string;
     }>(raw);
 
     const highlights = [
-      parsed.unverifiable && parsed.unverifiable !== "없음"
-        ? `검증 불가: ${parsed.unverifiable}`
-        : null,
-      parsed.logicErrors && parsed.logicErrors !== "없음"
-        ? `논리 오류: ${parsed.logicErrors}`
-        : null,
-      parsed.weakestPoint ? `취약점: ${parsed.weakestPoint}` : null,
+      parsed.argumentEval && parsed.argumentEval !== "없음" ? `주장-근거: ${parsed.argumentEval}` : null,
+      parsed.verifiabilityEval && parsed.verifiabilityEval !== "없음" ? `검증가능성: ${parsed.verifiabilityEval}` : null,
+      parsed.logicEval && parsed.logicEval !== "없음" ? `논리구조: ${parsed.logicEval}` : null,
     ].filter(Boolean) as string[];
 
     return {
@@ -242,29 +236,26 @@ ${jsonSchema}
       criterion: agent.criterion,
       opinion: parsed.opinion ?? "",
       highlights: highlights.slice(0, 3),
-      verdict: parsed.reliabilityVerdict ?? "",
-      verdictLabel: "종합 신뢰도",
+      score: typeof parsed.score === "number" ? Math.max(0, Math.min(100, Math.round(parsed.score))) : undefined,
+      verdict: parsed.verdict ?? "",
+      verdictLabel: "핵심 피드백",
     };
   }
 
   if (agentId === "technical") {
     const parsed = extractJSON<{
-      leadershipVerdict: string;
-      leadershipEvidence: string;
-      starMissing: string;
-      practicalRisks: string;
-      deployVerdict: string;
+      starEval: string;
+      jobRelevanceEval: string;
+      experienceEval: string;
+      score: number;
+      verdict: string;
       opinion: string;
     }>(raw);
 
     const highlights = [
-      parsed.leadershipVerdict
-        ? `경험 주도성: ${parsed.leadershipVerdict}${parsed.leadershipEvidence ? ` — "${parsed.leadershipEvidence}"` : ""}`
-        : null,
-      parsed.starMissing && parsed.starMissing !== "없음"
-        ? `STAR 미충족: ${parsed.starMissing}`
-        : null,
-      parsed.practicalRisks ? `실무 리스크: ${parsed.practicalRisks}` : null,
+      parsed.starEval && parsed.starEval !== "없음" ? `STAR: ${parsed.starEval}` : null,
+      parsed.jobRelevanceEval ? `직무 연관성: ${parsed.jobRelevanceEval}` : null,
+      parsed.experienceEval ? `경험 구체성: ${parsed.experienceEval}` : null,
     ].filter(Boolean) as string[];
 
     return {
@@ -273,29 +264,26 @@ ${jsonSchema}
       criterion: agent.criterion,
       opinion: parsed.opinion ?? "",
       highlights: highlights.slice(0, 3),
-      verdict: parsed.deployVerdict ?? "",
-      verdictLabel: "즉시투입 판정",
+      score: typeof parsed.score === "number" ? Math.max(0, Math.min(100, Math.round(parsed.score))) : undefined,
+      verdict: parsed.verdict ?? "",
+      verdictLabel: "핵심 피드백",
     };
   }
 
   // organization
   const parsed = extractJSON<{
-    changeStage: string;
-    changeEvidence: string;
-    feedbackDirection: string;
-    growthDesign: string;
-    collaborationRole: string;
-    collaborationEvidence: string;
-    contributionBalance: string;
+    growthEval: string;
+    collaborationEval: string;
+    contributionEval: string;
+    score: number;
+    verdict: string;
     opinion: string;
   }>(raw);
 
   const highlights = [
-    parsed.changeStage
-      ? `자기변화 ${parsed.changeStage}단계${parsed.changeEvidence ? ` — "${parsed.changeEvidence}"` : ""}`
-      : null,
-    [parsed.feedbackDirection, parsed.growthDesign].filter(Boolean).join(", ") || null,
-    parsed.contributionBalance ? `기여 성향: ${parsed.contributionBalance}` : null,
+    parsed.growthEval ? `성장 구체성: ${parsed.growthEval}` : null,
+    parsed.collaborationEval ? `협업 묘사: ${parsed.collaborationEval}` : null,
+    parsed.contributionEval ? `기여 지향성: ${parsed.contributionEval}` : null,
   ].filter(Boolean) as string[];
 
   return {
@@ -304,8 +292,9 @@ ${jsonSchema}
     criterion: agent.criterion,
     opinion: parsed.opinion ?? "",
     highlights: highlights.slice(0, 3),
-    verdict: parsed.changeStage ? `${parsed.changeStage}단계` : "",
-    verdictLabel: "자기변화",
+    score: typeof parsed.score === "number" ? Math.max(0, Math.min(100, Math.round(parsed.score))) : undefined,
+    verdict: parsed.verdict ?? "",
+    verdictLabel: "핵심 피드백",
   };
 }
 
@@ -326,7 +315,7 @@ export async function generateAgentReply(
   const othersText = otherEvaluations
     .map(
       (e) =>
-        `[${e.agentLabel}]${e.verdictLabel && e.verdict ? ` 판정: ${e.verdictLabel} — ${e.verdict}` : ""}\n${e.opinion}\n핵심 포인트: ${e.highlights.join(" | ")}`,
+        `[${e.agentLabel}]${e.verdict ? ` 핵심 피드백: ${e.verdict}` : ""}\n${e.opinion}\n핵심 포인트: ${e.highlights.join(" | ")}`,
     )
     .join("\n\n");
 
@@ -479,34 +468,32 @@ export async function generateAgentFinalOpinion(
     ? othersRebuttalsToMyFeedback.map((r) => `[${r.fromAgentLabel}]: ${r.comment}`).join("\n\n")
     : "없음";
 
-  // 에이전트별 JSON 스키마 (Round 0와 동일)
   let jsonSchema: string;
   if (agentId === "logic") {
     jsonSchema = `{
-  "unverifiable": "<확인 불가 표현 직접 인용 + 이유. 없으면 '없음'>",
-  "logicErrors": "<모순/인과오류 문장 인용 + 설명. 없으면 '없음'>",
-  "weakestPoint": "<가장 취약한 지점 + 예상 후속 질문 형태>",
-  "reliabilityVerdict": "<높음 | 보통 | 낮음>",
+  "argumentEval": "<주장마다 근거가 있는지 분석. 근거 없는 주장 직접 인용. 없으면 '없음'>",
+  "verifiabilityEval": "<검증 불가 표현 직접 인용 + 이유. 없으면 '없음'>",
+  "logicEval": "<논리적 모순이나 인과오류 분석. 없으면 '없음'>",
+  "score": <0-100 정수. 주장-근거 일치도(0-40) + 검증가능성(0-30) + 논리구조(0-30)>,
+  "verdict": "<이 답변의 가장 중요한 개선 포인트 1문장. 구체적 인용 포함>",
   "opinion": "<토론을 반영한 최종 평가 3~4문장. 수정된 판단이 있으면 왜 바꿨는지 1문장으로 밝히세요>"
 }`;
   } else if (agentId === "technical") {
     jsonSchema = `{
-  "leadershipVerdict": "<단독 주도 | 팀 참여 | 제안 수준 | 불명확>",
-  "leadershipEvidence": "<위 판정의 근거가 된 답변 직접 인용>",
-  "starMissing": "<빠진 STAR 항목과 이유. 없으면 '없음'>",
-  "practicalRisks": "<채용 시 예상 실무 리스크 1~2개>",
-  "deployVerdict": "<즉시 가능 | 온보딩 후 가능 | 추가 경험 필요>",
+  "starEval": "<STAR 구조 충족도 분석. 빠진 항목 명시. 없으면 '없음'>",
+  "jobRelevanceEval": "<직무 요건과의 연관성 분석>",
+  "experienceEval": "<경험 구체성 및 주도성 분석. 모호한 표현 직접 인용>",
+  "score": <0-100 정수. STAR 충족도(0-40) + 직무 연관성(0-40) + 경험 구체성(0-20)>,
+  "verdict": "<이 답변의 가장 중요한 개선 포인트 1문장. 구체적 인용 포함>",
   "opinion": "<토론을 반영한 최종 평가 3~4문장. 수정된 판단이 있으면 왜 바꿨는지 1문장으로 밝히세요>"
 }`;
   } else {
     jsonSchema = `{
-  "changeStage": "<1 | 2 | 3>",
-  "changeEvidence": "<위 판정 근거가 된 답변 직접 인용>",
-  "feedbackDirection": "<능동적 | 수동적 | 판단 불가>",
-  "growthDesign": "<설계 있음 | 설계 없음>",
-  "collaborationRole": "<주도형 | 지원형 | 불명확>",
-  "collaborationEvidence": "<위 판정의 근거가 된 답변 직접 인용>",
-  "contributionBalance": "<수혜/기여 비율 서술>",
+  "growthEval": "<성장 경험의 구체성 분석. 모호한 성장 서술 직접 인용>",
+  "collaborationEval": "<협업/갈등 사례의 행동 중심 서술 여부 분석>",
+  "contributionEval": "<기여 지향성 분석. 수혜 vs 기여 표현 비율>",
+  "score": <0-100 정수. 성장 구체성(0-40) + 협업 묘사(0-40) + 기여 지향성(0-20)>,
+  "verdict": "<이 답변의 가장 중요한 개선 포인트 1문장. 구체적 인용 포함>",
   "opinion": "<토론을 반영한 최종 평가 3~4문장. 수정된 판단이 있으면 왜 바꿨는지 1문장으로 밝히세요>"
 }`;
   }
@@ -545,48 +532,56 @@ ${jsonSchema}
 
   if (agentId === "logic") {
     const parsed = extractJSON<{
-      unverifiable: string; logicErrors: string; weakestPoint: string;
-      reliabilityVerdict: string; opinion: string;
+      argumentEval: string; verifiabilityEval: string; logicEval: string;
+      score: number; verdict: string; opinion: string;
     }>(raw);
     const highlights = [
-      parsed.unverifiable && parsed.unverifiable !== "없음" ? `검증 불가: ${parsed.unverifiable}` : null,
-      parsed.logicErrors && parsed.logicErrors !== "없음" ? `논리 오류: ${parsed.logicErrors}` : null,
-      parsed.weakestPoint ? `취약점: ${parsed.weakestPoint}` : null,
+      parsed.argumentEval && parsed.argumentEval !== "없음" ? `주장-근거: ${parsed.argumentEval}` : null,
+      parsed.verifiabilityEval && parsed.verifiabilityEval !== "없음" ? `검증가능성: ${parsed.verifiabilityEval}` : null,
+      parsed.logicEval && parsed.logicEval !== "없음" ? `논리구조: ${parsed.logicEval}` : null,
     ].filter(Boolean) as string[];
-    return { agentId, agentLabel: agent.label, criterion: agent.criterion,
+    return {
+      agentId, agentLabel: agent.label, criterion: agent.criterion,
       opinion: parsed.opinion ?? "", highlights: highlights.slice(0, 3),
-      verdict: parsed.reliabilityVerdict ?? "", verdictLabel: "종합 신뢰도" };
+      score: typeof parsed.score === "number" ? Math.max(0, Math.min(100, Math.round(parsed.score))) : undefined,
+      verdict: parsed.verdict ?? "", verdictLabel: "핵심 피드백",
+    };
   }
 
   if (agentId === "technical") {
     const parsed = extractJSON<{
-      leadershipVerdict: string; leadershipEvidence: string; starMissing: string;
-      practicalRisks: string; deployVerdict: string; opinion: string;
+      starEval: string; jobRelevanceEval: string; experienceEval: string;
+      score: number; verdict: string; opinion: string;
     }>(raw);
     const highlights = [
-      parsed.leadershipVerdict ? `경험 주도성: ${parsed.leadershipVerdict}${parsed.leadershipEvidence ? ` — "${parsed.leadershipEvidence}"` : ""}` : null,
-      parsed.starMissing && parsed.starMissing !== "없음" ? `STAR 미충족: ${parsed.starMissing}` : null,
-      parsed.practicalRisks ? `실무 리스크: ${parsed.practicalRisks}` : null,
+      parsed.starEval && parsed.starEval !== "없음" ? `STAR: ${parsed.starEval}` : null,
+      parsed.jobRelevanceEval ? `직무 연관성: ${parsed.jobRelevanceEval}` : null,
+      parsed.experienceEval ? `경험 구체성: ${parsed.experienceEval}` : null,
     ].filter(Boolean) as string[];
-    return { agentId, agentLabel: agent.label, criterion: agent.criterion,
+    return {
+      agentId, agentLabel: agent.label, criterion: agent.criterion,
       opinion: parsed.opinion ?? "", highlights: highlights.slice(0, 3),
-      verdict: parsed.deployVerdict ?? "", verdictLabel: "즉시투입 판정" };
+      score: typeof parsed.score === "number" ? Math.max(0, Math.min(100, Math.round(parsed.score))) : undefined,
+      verdict: parsed.verdict ?? "", verdictLabel: "핵심 피드백",
+    };
   }
 
   // organization
   const parsed = extractJSON<{
-    changeStage: string; changeEvidence: string; feedbackDirection: string;
-    growthDesign: string; collaborationRole: string; collaborationEvidence: string;
-    contributionBalance: string; opinion: string;
+    growthEval: string; collaborationEval: string; contributionEval: string;
+    score: number; verdict: string; opinion: string;
   }>(raw);
   const highlights = [
-    parsed.changeStage ? `자기변화 ${parsed.changeStage}단계${parsed.changeEvidence ? ` — "${parsed.changeEvidence}"` : ""}` : null,
-    [parsed.feedbackDirection, parsed.growthDesign].filter(Boolean).join(", ") || null,
-    parsed.contributionBalance ? `기여 성향: ${parsed.contributionBalance}` : null,
+    parsed.growthEval ? `성장 구체성: ${parsed.growthEval}` : null,
+    parsed.collaborationEval ? `협업 묘사: ${parsed.collaborationEval}` : null,
+    parsed.contributionEval ? `기여 지향성: ${parsed.contributionEval}` : null,
   ].filter(Boolean) as string[];
-  return { agentId, agentLabel: agent.label, criterion: agent.criterion,
+  return {
+    agentId, agentLabel: agent.label, criterion: agent.criterion,
     opinion: parsed.opinion ?? "", highlights: highlights.slice(0, 3),
-    verdict: parsed.changeStage ? `${parsed.changeStage}단계` : "", verdictLabel: "자기변화" };
+    score: typeof parsed.score === "number" ? Math.max(0, Math.min(100, Math.round(parsed.score))) : undefined,
+    verdict: parsed.verdict ?? "", verdictLabel: "핵심 피드백",
+  };
 }
 
 // ── 중재자: 최종 종합 (Round 3 최종 의견 기반) ───────────────────────────
@@ -602,10 +597,21 @@ export async function generateModeratorResult(
   const conversationText = buildConversationText(messages);
   const contextBlock = buildContextBlock(profile, jobPosting);
 
+  // 에이전트 점수 가중평균 계산
+  const agentScores: Record<string, number> = {};
+  for (const op of finalOpinions) {
+    if (op.score != null) agentScores[op.agentId] = op.score;
+  }
+  const scoredOpinions = finalOpinions.filter((op) => op.score != null);
+  const baseScore = scoredOpinions.length > 0
+    ? Math.round(scoredOpinions.reduce((sum, op) => sum + op.score!, 0) / scoredOpinions.length)
+    : 50;
+
   const evaluationsText = finalOpinions
     .map((e) => {
-      const verdictLine = e.verdict ? `판정: ${e.verdictLabel} — ${e.verdict}` : "";
-      return `[${e.agentLabel}] 평가 영역: ${e.criterion}\n${e.opinion}\n핵심 포인트: ${e.highlights.join(" / ")}${verdictLine ? `\n${verdictLine}` : ""}`;
+      const scoreLine = e.score != null ? `점수: ${e.score}/100` : "";
+      const verdictLine = e.verdict ? `핵심 피드백: ${e.verdict}` : "";
+      return `[${e.agentLabel}] 평가 영역: ${e.criterion}\n${e.opinion}\n핵심 포인트: ${e.highlights.join(" / ")}${scoreLine ? `\n${scoreLine}` : ""}${verdictLine ? `\n${verdictLine}` : ""}`;
     })
     .join("\n\n");
 
@@ -642,18 +648,13 @@ ${rebuttalsText}
 [Round 3 — 에이전트 최종 의견]
 ${evaluationsText}
 
-위 토론 전체(Round 1~3)와 최종 의견을 바탕으로 최종 채용 판정과 결과를 종합하세요.
+에이전트 점수 가중평균: ${baseScore}/100 (논리 ${agentScores.logic ?? "없음"} / 기술 ${agentScores.technical ?? "없음"} / 조직 ${agentScores.organization ?? "없음"})
+기준 점수(${baseScore})를 기반으로, 토론 과정(논거의 변화, 의견 수렴/충돌 정도)이 답변 품질 이해에 영향을 줬다면 ±5점 이내로 조정하세요.
 
 다음 JSON 형식으로 응답하세요:
 {
-  "score": <0-100 정수.
-    90-100: 탁월 — 구체적 사례와 수치, 강한 자기 인식, 직무 요건 명확히 상회
-    75-89: 우수 — 구체적 사례, 좋은 구조, 사소한 빈틈만 있음
-    60-74: 보통 — 일부 구체성 있으나 일관성 부족, 잠재력은 보임
-    45-59: 미흡 — 추상적 답변 위주, 직무 구체성 부족
-    0-44: 부족 — 모호하거나 회피적 답변, 직무 요건과 심각한 불일치
-    비중: 조직전문가 33% + 논리전문가 33% + 기술전문가 33%>,
-  "recommendLevel": "<강력 추천 | 추천 | 보류 | 비추천. 90이상=강력 추천, 75-89=추천, 45-74=보류, 44이하=비추천>",
+  "adjustment": <-5 ~ +5 정수. 토론이 답변 품질 이해를 높였으면 양수, 도움이 안 됐으면 음수. 대부분 0~3 범위>,
+  "recommendLevel": "<강력 추천 | 추천 | 보류 | 비추천. 최종 점수 기준: 90이상=강력 추천, 75-89=추천, 45-74=보류, 44이하=비추천>",
   "overall": {
     "strengths": "<잘한 점 2~3문장. 구체적인 답변을 인용하세요>",
     "weaknesses": "<명확한 약점이나 빈틈 2~3문장>",
@@ -670,7 +671,7 @@ ${evaluationsText}
 
   const raw = await callOllama(systemPrompt, userContent);
   const parsedMod = extractJSON<{
-    score: number;
+    adjustment: number;
     recommendLevel: string;
     overall: { strengths: string; weaknesses: string; advice: string };
     improvementTips: string[];
@@ -682,8 +683,14 @@ ${evaluationsText}
     ? (parsedMod.recommendLevel as ModeratorResult["recommendLevel"])
     : "보류";
 
+  const adjustment = Math.max(-5, Math.min(5, Math.round(parsedMod.adjustment ?? 0)));
+  const score = Math.max(0, Math.min(100, baseScore + adjustment));
+
   return {
-    score: Math.max(0, Math.min(100, Math.round(parsedMod.score ?? 0))),
+    score,
+    baseScore,
+    adjustment,
+    agentScores,
     recommendLevel,
     overall: parsedMod.overall,
     improvementTips: (parsedMod.improvementTips ?? []).slice(0, 3),

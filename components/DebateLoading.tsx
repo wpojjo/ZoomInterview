@@ -8,7 +8,12 @@ export interface DebateResultData {
   agentEvaluations: AgentEvaluation[];
   agentFinalOpinions: AgentFinalOpinion[];
   finalScore: number;
-  finalFeedback: ModeratorResult["overall"] & { recommendLevel?: string };
+  finalFeedback: ModeratorResult["overall"] & {
+    recommendLevel?: string;
+    baseScore?: number;
+    adjustment?: number;
+    agentScores?: Record<string, number>;
+  };
   debateSummary: string;
   improvementTips: string[];
 }
@@ -144,14 +149,20 @@ function EvalCard({
             <p className="text-xs text-gray-400 dark:text-slate-500 pt-0.5">{evalData.criterion}</p>
           </div>
         </div>
-        {evalData.verdict && (
-          <div className="text-right shrink-0">
-            <p className="text-xs text-gray-400 dark:text-slate-500">{evalData.verdictLabel}</p>
-            <p className={`text-xs font-bold mt-0.5 ${meta.color}`}>{evalData.verdict}</p>
+        {evalData.score != null && (
+          <div className="shrink-0 text-right">
+            <span className={`text-sm font-bold ${meta.color}`}>{evalData.score}</span>
+            <span className="text-xs text-gray-400 dark:text-slate-500">/100</span>
           </div>
         )}
       </div>
       <p className="text-sm text-gray-700 dark:text-slate-300 leading-relaxed">{stripMd(evalData.opinion)}</p>
+      {evalData.verdict && (
+        <div className="border-l-2 border-gray-200 dark:border-slate-600 pl-3">
+          <p className="text-xs text-gray-400 dark:text-slate-500 mb-0.5">핵심 피드백</p>
+          <p className="text-xs text-gray-600 dark:text-slate-300 italic">{stripMd(evalData.verdict)}</p>
+        </div>
+      )}
       {evalData.highlights.length > 0 && (
         <ul className="space-y-1">
           {evalData.highlights.map((h, i) => (

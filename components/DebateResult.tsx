@@ -2,12 +2,21 @@
 
 import type { AgentEvaluation, AgentFinalOpinion } from "@/lib/agents";
 import type { AgentId } from "@/lib/interview";
+import { AGENT_ORDER } from "@/lib/interview";
 
 interface Props {
   finalScore: number;
   agentEvaluations: AgentEvaluation[];
   agentFinalOpinions?: AgentFinalOpinion[];
-  finalFeedback: { strengths: string; weaknesses: string; advice: string; recommendLevel?: string };
+  finalFeedback: {
+    strengths: string;
+    weaknesses: string;
+    advice: string;
+    recommendLevel?: string;
+    baseScore?: number;
+    adjustment?: number;
+    agentScores?: Record<string, number>;
+  };
   debateSummary: string;
   improvementTips: string[];
   onRestart: () => void;
@@ -75,18 +84,21 @@ function ScoreRing({ score }: { score: number }) {
   );
 }
 
-const AGENT_COLORS: Record<AgentId, { border: string; badge: string }> = {
+const AGENT_COLORS: Record<AgentId, { border: string; badge: string; bar: string }> = {
   organization: {
     border: "border-purple-100 dark:border-purple-900/40",
     badge: "bg-purple-100 dark:bg-purple-900/40 text-purple-700 dark:text-purple-300",
+    bar: "bg-purple-400 dark:bg-purple-500",
   },
   logic: {
     border: "border-blue-100 dark:border-blue-900/40",
     badge: "bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300",
+    bar: "bg-blue-400 dark:bg-blue-500",
   },
   technical: {
     border: "border-green-100 dark:border-green-900/40",
     badge: "bg-green-100 dark:bg-green-900/40 text-green-700 dark:text-green-300",
+    bar: "bg-green-400 dark:bg-green-500",
   },
 };
 
@@ -100,10 +112,12 @@ export default function DebateResult({
   onRestart,
   onBack,
 }: Props) {
-  // 최종 의견이 있으면 최종 의견 기준으로 표시, 없으면 Round 0 평가 사용
   const displayEvaluations: (AgentEvaluation | AgentFinalOpinion)[] =
     (agentFinalOpinions && agentFinalOpinions.length > 0 ? agentFinalOpinions : agentEvaluations) ?? [];
   const isFinalOpinion = agentFinalOpinions && agentFinalOpinions.length > 0;
+
+  const hasScores = displayEvaluations.some((e) => e.score != null);
+
   return (
     <div className="space-y-6">
       {/* 뒤로가기 */}
@@ -114,7 +128,7 @@ export default function DebateResult({
         ← 면접관 토론 돌아보기
       </button>
 
-      {/* 점수 링 + 채용 권고 */}
+      {/* 점수 링 + 채용 권고 + 점수 분포 */}
       <div className="card p-8 flex flex-col items-center gap-4">
         <ScoreRing score={finalScore} />
         {finalFeedback.recommendLevel && (() => {
@@ -127,9 +141,56 @@ export default function DebateResult({
             </div>
           );
         })()}
+
+        {/* 점수 산출 분포 */}
+        {hasScores && (
+          <div className="w-full space-y-3 border-t border-gray-100 dark:border-slate-700/50 pt-4">
+            <p className="text-xs text-gray-400 dark:text-slate-500 text-center font-medium">점수 산출</p>
+            <div className="space-y-2">
+              {AGENT_ORDER.map((agentId) => {
+                const evalEntry = displayEvaluations.find((e) => e.agentId === agentId);
+                const score = evalEntry?.score;
+                if (score == null) return null;
+                const colors = AGENT_COLORS[agentId];
+                return (
+                  <div key={agentId} className="flex items-center gap-3">
+                    <span className={`text-xs px-2 py-0.5 rounded-full ${colors.badge} w-20 text-center shrink-0`}>
+                      {evalEntry?.agentLabel ?? agentId}
+                    </span>
+                    <div className="flex-1 bg-gray-100 dark:bg-slate-700 rounded-full h-1.5 overflow-hidden">
+                      <div
+                        className={`h-1.5 rounded-full ${colors.bar}`}
+                        style={{ width: `${score}%` }}
+                      />
+                    </div>
+                    <span className="text-xs font-semibold text-gray-600 dark:text-slate-300 w-7 text-right shrink-0">
+                      {score}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+            {finalFeedback.baseScore != null && (
+              <div className="space-y-1 border-t border-gray-100 dark:border-slate-700/50 pt-2">
+                <div className="flex items-center justify-between text-xs">
+                  <span className="text-gray-400 dark:text-slate-500">평균</span>
+                  <span className="font-semibold text-gray-600 dark:text-slate-300">{finalFeedback.baseScore}</span>
+                </div>
+                {finalFeedback.adjustment != null && finalFeedback.adjustment !== 0 && (
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="text-gray-400 dark:text-slate-500">중재자 조정</span>
+                    <span className={`font-semibold ${finalFeedback.adjustment > 0 ? "text-green-500" : "text-red-500"}`}>
+                      {finalFeedback.adjustment > 0 ? "+" : ""}{finalFeedback.adjustment}
+                    </span>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
-      {/* 면접관별 평가 — 아코디언 (최종 의견 있으면 최종 의견 표시) */}
+      {/* 면접관별 평가 — 아코디언 */}
       {displayEvaluations.length > 0 && (
         <div className="space-y-3">
           <h3 className="font-bold text-gray-900 dark:text-slate-50 px-1">
@@ -145,9 +206,9 @@ export default function DebateResult({
                       {e.agentLabel}
                     </span>
                     <span className="text-xs text-gray-400 dark:text-slate-500">{e.criterion}</span>
-                    {e.verdict && (
-                      <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${colors.badge} opacity-80`}>
-                        {e.verdictLabel}: {e.verdict}
+                    {e.score != null && (
+                      <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${colors.badge} opacity-80`}>
+                        {e.score}점
                       </span>
                     )}
                   </div>
@@ -155,6 +216,12 @@ export default function DebateResult({
                 </summary>
                 <div className="px-5 pb-5 space-y-3 border-t border-gray-50 dark:border-slate-700/50 pt-4">
                   <p className="text-sm text-gray-700 dark:text-slate-300 leading-relaxed">{stripMd(e.opinion)}</p>
+                  {e.verdict && (
+                    <div className="border-l-2 border-gray-200 dark:border-slate-600 pl-3">
+                      <p className="text-xs text-gray-400 dark:text-slate-500 mb-0.5">핵심 피드백</p>
+                      <p className="text-xs text-gray-600 dark:text-slate-300 italic">{stripMd(e.verdict)}</p>
+                    </div>
+                  )}
                   {e.highlights.length > 0 && (
                     <ul className="space-y-1">
                       {e.highlights.map((h, i) => (
