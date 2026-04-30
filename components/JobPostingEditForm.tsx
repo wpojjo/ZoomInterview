@@ -37,7 +37,6 @@ export default function JobPostingEditForm({ initialData, isAnalyzing = false }:
   const [fadeIn, setFadeIn] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
-  const [analysisError, setAnalysisError] = useState("");
   const analyzeCalledRef = useRef(false);
 
   // 분석 단계 메시지 타이머
@@ -67,24 +66,19 @@ export default function JobPostingEditForm({ initialData, isAnalyzing = false }:
     analyzeCalledRef.current = true;
 
     fetch("/api/job-posting/analyze", { method: "POST" })
-      .then(async (res) => {
-        const data = await res.json();
-        if (!res.ok || !data.jobPosting) {
-          setAnalysisError("URL에서 공고 내용을 자동으로 가져오지 못했어요. 직접 입력해 주세요.");
-          setMode("editing");
-        } else {
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.jobPosting) {
           setFields({
             responsibilities: data.jobPosting.responsibilities ?? "",
             requirements:     data.jobPosting.requirements     ?? "",
             preferredQuals:   data.jobPosting.preferredQuals   ?? "",
           });
-          setMode("view");
         }
-        router.replace("/job-posting/edit");
       })
-      .catch(() => {
-        setAnalysisError("URL에서 공고 내용을 자동으로 가져오지 못했어요. 직접 입력해 주세요.");
-        setMode("editing");
+      .catch(() => {})
+      .finally(() => {
+        setMode("view");
         router.replace("/job-posting/edit");
       });
   }, [mode, router]);
@@ -221,11 +215,6 @@ export default function JobPostingEditForm({ initialData, isAnalyzing = false }:
   // 편집 UI
   return (
     <div className="space-y-4">
-      {analysisError && (
-        <div className="bg-amber-50 border border-amber-200 text-amber-800 text-sm rounded-xl px-4 py-3 dark:bg-amber-900/20 dark:border-amber-700 dark:text-amber-300">
-          {analysisError}
-        </div>
-      )}
       <div className="card p-5 space-y-4">
         {FIELDS.map(({ key, label, required, placeholder }) => (
           <div key={key} className="space-y-1">
