@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
+import { useSpeechRecognition } from "@/hooks/useSpeechRecognition";
 import {
   Message,
   Difficulty,
@@ -359,6 +360,28 @@ export default function InterviewSession({ name }: { name: string }) {
   const [debateError, setDebateError] = useState("");
   const proceededRef = useRef(false);
 
+  const [interimTranscript, setInterimTranscript] = useState("");
+  const finalTranscriptRef = useRef("");
+
+  const { isRecording, isSupported, start, stop } = useSpeechRecognition(
+    (interim) => setInterimTranscript(interim),
+    (final) => {
+      finalTranscriptRef.current += final;
+      setAnswer(finalTranscriptRef.current);
+      setInterimTranscript("");
+    },
+  );
+
+  function toggleRecording() {
+    if (isRecording) {
+      stop();
+      setInterimTranscript("");
+    } else {
+      finalTranscriptRef.current = answer;
+      start();
+    }
+  }
+
   function handleDifficultySelect(d: Difficulty) {
     setDifficulty(d);
     setAvatarSeeds({ organization: randomSeed(), logic: randomSeed(), technical: randomSeed() });
@@ -404,6 +427,10 @@ export default function InterviewSession({ name }: { name: string }) {
   }, [timeLeft, isLoading, isThinkingPhase, phase]);
 
   async function handleSubmit() {
+    if (isRecording) {
+      stop();
+      setInterimTranscript("");
+    }
     const trimmed = answer.trim();
     if (!trimmed || isLoading || isThinkingPhase) return;
 
@@ -493,6 +520,9 @@ export default function InterviewSession({ name }: { name: string }) {
   }
 
   function handleRestart() {
+    if (isRecording) stop();
+    setInterimTranscript("");
+    finalTranscriptRef.current = "";
     setPhase("selecting");
     setMessages([]);
     setAgentIndex(0);
@@ -721,15 +751,16 @@ export default function InterviewSession({ name }: { name: string }) {
       )}
 
       {/* 답변 입력 */}
-      <div className="card p-4 space-y-3">
+      <div className={`card p-4 space-y-3 transition-all ${isRecording ? "ring-2 ring-red-400 dark:ring-red-500" : ""}`}>
         <textarea
-          value={answer}
-          onChange={(e) => setAnswer(e.target.value)}
+          value={isRecording ? answer + interimTranscript : answer}
+          onChange={(e) => { if (!isRecording) setAnswer(e.target.value); }}
           onKeyDown={(e) => {
             if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) handleSubmit();
           }}
-          placeholder="답변을 입력하세요 (Ctrl+Enter로 제출)"
+          placeholder={isRecording ? "말씀해주세요..." : "답변을 입력하세요 (Ctrl+Enter로 제출)"}
           disabled={isLoading || isThinkingPhase}
+          readOnly={isRecording}
           rows={8}
           className="w-full resize-none border-0 outline-none text-sm text-gray-800 dark:text-slate-200 placeholder-gray-400 dark:placeholder-slate-500 bg-transparent disabled:opacity-50"
         />
@@ -743,13 +774,45 @@ export default function InterviewSession({ name }: { name: string }) {
           }`}>
             {formatTime(timeLeft)}
           </span>
-          <button
-            onClick={handleSubmit}
-            disabled={isLoading || isThinkingPhase || !answer.trim()}
-            className="btn-primary py-2 px-5"
-          >
-            {isThinkingPhase ? "생각 중..." : "제출 →"}
-          </button>
+          <div className="flex items-center gap-2">
+            {isSupported && (
+              <button
+                onClick={toggleRecording}
+                disabled={isLoading || isThinkingPhase}
+                className={`flex items-center gap-1.5 text-xs px-3 py-2 rounded-lg transition-colors disabled:opacity-40 ${
+                  isRecording
+                    ? "text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-900/30"
+                    : "text-gray-500 dark:text-slate-400 hover:bg-gray-100 dark:hover:bg-slate-700"
+                }`}
+              >
+                {isRecording ? (
+                  <>
+                    <span className="relative flex h-2 w-2">
+                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75" />
+                      <span className="relative inline-flex rounded-full h-2 w-2 bg-red-500" />
+                    </span>
+                    녹음 중지
+                  </>
+                ) : (
+                  <>
+                    <svg xmlns="http://www.w3.org/2000/svg" className="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z" />
+                      <path d="M19 10v2a7 7 0 0 1-14 0v-2" />
+                      <line x1="12" y1="19" x2="12" y2="22" />
+                    </svg>
+                    음성 입력
+                  </>
+                )}
+              </button>
+            )}
+            <button
+              onClick={handleSubmit}
+              disabled={isLoading || isThinkingPhase || !answer.trim()}
+              className="btn-primary py-2 px-5"
+            >
+              {isThinkingPhase ? "생각 중..." : "제출 →"}
+            </button>
+          </div>
         </div>
       </div>
     </div>
