@@ -254,8 +254,8 @@ ${jsonSchema}
 
     const highlights = [
       parsed.starEval && parsed.starEval !== "없음" ? `STAR: ${parsed.starEval}` : null,
-      parsed.jobRelevanceEval ? `직무 연관성: ${parsed.jobRelevanceEval}` : null,
-      parsed.experienceEval ? `경험 구체성: ${parsed.experienceEval}` : null,
+      parsed.jobRelevanceEval && parsed.jobRelevanceEval !== "없음" ? `직무 연관성: ${parsed.jobRelevanceEval}` : null,
+      parsed.experienceEval && parsed.experienceEval !== "없음" ? `경험 구체성: ${parsed.experienceEval}` : null,
     ].filter(Boolean) as string[];
 
     return {
@@ -281,9 +281,9 @@ ${jsonSchema}
   }>(raw);
 
   const highlights = [
-    parsed.growthEval ? `성장 구체성: ${parsed.growthEval}` : null,
-    parsed.collaborationEval ? `협업 묘사: ${parsed.collaborationEval}` : null,
-    parsed.contributionEval ? `기여 지향성: ${parsed.contributionEval}` : null,
+    parsed.growthEval && parsed.growthEval !== "없음" ? `성장 구체성: ${parsed.growthEval}` : null,
+    parsed.collaborationEval && parsed.collaborationEval !== "없음" ? `협업 묘사: ${parsed.collaborationEval}` : null,
+    parsed.contributionEval && parsed.contributionEval !== "없음" ? `기여 지향성: ${parsed.contributionEval}` : null,
   ].filter(Boolean) as string[];
 
   return {
@@ -555,8 +555,8 @@ ${jsonSchema}
     }>(raw);
     const highlights = [
       parsed.starEval && parsed.starEval !== "없음" ? `STAR: ${parsed.starEval}` : null,
-      parsed.jobRelevanceEval ? `직무 연관성: ${parsed.jobRelevanceEval}` : null,
-      parsed.experienceEval ? `경험 구체성: ${parsed.experienceEval}` : null,
+      parsed.jobRelevanceEval && parsed.jobRelevanceEval !== "없음" ? `직무 연관성: ${parsed.jobRelevanceEval}` : null,
+      parsed.experienceEval && parsed.experienceEval !== "없음" ? `경험 구체성: ${parsed.experienceEval}` : null,
     ].filter(Boolean) as string[];
     return {
       agentId, agentLabel: agent.label, criterion: agent.criterion,
@@ -572,9 +572,9 @@ ${jsonSchema}
     score: number; verdict: string; opinion: string;
   }>(raw);
   const highlights = [
-    parsed.growthEval ? `성장 구체성: ${parsed.growthEval}` : null,
-    parsed.collaborationEval ? `협업 묘사: ${parsed.collaborationEval}` : null,
-    parsed.contributionEval ? `기여 지향성: ${parsed.contributionEval}` : null,
+    parsed.growthEval && parsed.growthEval !== "없음" ? `성장 구체성: ${parsed.growthEval}` : null,
+    parsed.collaborationEval && parsed.collaborationEval !== "없음" ? `협업 묘사: ${parsed.collaborationEval}` : null,
+    parsed.contributionEval && parsed.contributionEval !== "없음" ? `기여 지향성: ${parsed.contributionEval}` : null,
   ].filter(Boolean) as string[];
   return {
     agentId, agentLabel: agent.label, criterion: agent.criterion,
@@ -692,7 +692,7 @@ ${evaluationsText}
     adjustment,
     agentScores,
     recommendLevel,
-    overall: parsedMod.overall,
+    overall: parsedMod.overall ?? { strengths: "", weaknesses: "", advice: "" },
     improvementTips: (parsedMod.improvementTips ?? []).slice(0, 3),
     debateSummary: parsedMod.debateSummary ?? "",
   };
