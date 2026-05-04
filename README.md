@@ -29,14 +29,16 @@
   ├── middleware.ts          → 미인증 시 /login 리다이렉트
   ├── Server Components      → Supabase DB 조회 (SSR)
   └── API Routes
-       ├── /api/profile
-       ├── /api/job-posting/analyze   → Jina Reader + Ollama
-       ├── /api/job-posting/manual    → 수동 입력 폴백
-       ├── /api/interview/question    → 질문 생성
-       ├── /api/interview/follow-up   → 꼬리질문 판단
-       ├── /api/interview/feedback    → Round 0 독립 평가
-       ├── /api/interview/debate      → 토론 오케스트레이터 (fire-and-forget)
-       └── /api/interview/debate/[id]/status  → 폴링 엔드포인트
+       ├── /api/profile                       → 프로필 조회·저장
+       ├── /api/job-posting                   → 채용공고 조회·저장
+       ├── /api/job-posting/analyze           → Jina Reader + Ollama
+       ├── /api/job-posting/manual            → 수동 입력 폴백
+       ├── /api/interview/question            → 질문 생성
+       ├── /api/interview/follow-up           → 꼬리질문 판단
+       ├── /api/interview/feedback            → 단독 피드백
+       ├── /api/interview/debate              → 토론 오케스트레이터 (fire-and-forget)
+       ├── /api/interview/debate/[id]/status  → 폴링 엔드포인트
+       └── /api/account                       → 회원탈퇴
 ```
 
 ---
@@ -58,14 +60,16 @@
 
 | 기능 | Method | Endpoint | 설명 |
 | :--- | :--- | :--- | :--- |
-| 프로필 저장·조회 | POST / GET | `/api/profile` | 이력서 정보(학력·경력·자격증 등) 저장 및 조회 |
+| 프로필 조회·저장 | GET / POST | `/api/profile` | 이력서 정보(학력·경력·자격증 등) 조회 및 저장 |
+| 채용공고 조회·저장 | GET / POST | `/api/job-posting` | 채용공고 정보 조회 및 저장 |
 | 채용공고 URL 분석 | POST | `/api/job-posting/analyze` | Jina Reader 크롤링 후 Ollama로 직무 요건 추출 |
 | 채용공고 수동 입력 | POST | `/api/job-posting/manual` | URL 분석 실패 시 텍스트 직접 입력 폴백 |
 | 면접 질문 생성 | POST | `/api/interview/question` | 에이전트·난이도·대화 히스토리 기반 다음 질문 생성 |
 | 꼬리질문 판단 | POST | `/api/interview/follow-up` | 답변 분석 후 꼬리질문 필요 여부 및 담당 에이전트 결정 |
-| 독립 평가 (Round 0) | POST | `/api/interview/feedback` | 3 에이전트 각자 독립적으로 면접 답변 평가 |
-| 토론 오케스트레이터 | POST | `/api/interview/debate` | Round 1–3 상호 반론 + 중재자 최종 점수 생성 (비동기) |
+| 단독 피드백 | POST | `/api/interview/feedback` | 개별 답변에 대한 specificity·jobRelevance·logic·growth 채점 |
+| 토론 오케스트레이터 | POST | `/api/interview/debate` | Round 0–3 평가·토론 + 중재자 최종 점수 생성 (비동기) |
 | 토론 상태 조회 | GET | `/api/interview/debate/[sessionId]/status` | 토론 진행 상황 폴링 (1.5초 간격) |
+| 회원 탈퇴 | DELETE | `/api/account` | DB 전체 삭제 + Auth 계정 제거 |
 
 ---
 
