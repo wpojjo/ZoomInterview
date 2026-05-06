@@ -84,7 +84,10 @@ ${text}`;
       if (key.includes(keyword)) { matched = canonical; break; }
     }
     const target = matched ?? (key in normalized ? key : null);
-    if (target) normalized[target] = value as string[];
+    if (target) {
+      const arr = Array.isArray(value) ? value as string[] : (value ? [String(value)] : []);
+      normalized[target] = normalized[target].concat(arr);
+    }
   }
 
   const join = (arr: string[]) => arr.join("\n");

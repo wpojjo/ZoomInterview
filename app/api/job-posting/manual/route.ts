@@ -47,7 +47,7 @@ export async function POST(request: NextRequest) {
         .insert({
           id: crypto.randomUUID(),
           userId,
-          sourceType: "LINK",
+          sourceType: "MANUAL",
           sourceUrl: null,
           responsibilities,
           requirements,
