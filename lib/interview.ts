@@ -1,5 +1,5 @@
-const OLLAMA_BASE_URL = process.env.OLLAMA_BASE_URL ?? "http://localhost:11434";
-const OLLAMA_MODEL = process.env.OLLAMA_MODEL ?? "exaone3.5:2.4b";
+const LLM_BASE_URL = process.env.LLM_BASE_URL ?? "http://localhost:11434";
+const LLM_MODEL = process.env.LLM_MODEL ?? "exaone3.5:2.4b";
 
 export type AgentId = "organization" | "logic" | "technical";
 export type Difficulty = "tutorial" | "easy" | "normal" | "hard";
@@ -241,30 +241,26 @@ function stripMarkdown(text: string): string {
     .trim();
 }
 
-async function callOllama(systemPrompt: string, userContent: string, json = false): Promise<string> {
-  const body: Record<string, unknown> = {
-    model: OLLAMA_MODEL,
-    stream: false,
-    messages: [
-      { role: "system", content: systemPrompt },
-      { role: "user", content: userContent },
-    ],
-  };
-  if (json) body.format = "json";
-
-  const response = await fetch(`${OLLAMA_BASE_URL}/api/chat`, {
+async function callOllama(systemPrompt: string, userContent: string, _json = false): Promise<string> {
+  const response = await fetch(`${LLM_BASE_URL}/v1/chat/completions`, {
     method: "POST",
-    headers: { "Content-Type": "application/json", "ngrok-skip-browser-warning": "true" },
-    body: JSON.stringify(body),
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      model: LLM_MODEL,
+      messages: [
+        { role: "system", content: systemPrompt },
+        { role: "user", content: userContent },
+      ],
+    }),
     signal: AbortSignal.timeout(180_000),
   });
 
   if (!response.ok) {
-    throw new Error(`Ollama 요청 실패: ${response.status} ${response.statusText}`);
+    throw new Error(`LLM 요청 실패: ${response.status} ${response.statusText}`);
   }
 
   const data = await response.json();
-  const raw: string = (data.message?.content ?? "").trim();
+  const raw: string = (data.choices?.[0]?.message?.content ?? "").trim();
   return raw.replace(/^(면접관|질문|interviewer|question)\s*:\s*/i, "").trim();
 }
 

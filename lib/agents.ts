@@ -1,7 +1,7 @@
 import { AgentId, AGENTS, Message, ProfileContext, JobPostingContext, buildProfileSummary } from "@/lib/interview";
 
-const OLLAMA_BASE_URL = process.env.OLLAMA_BASE_URL ?? "http://localhost:11434";
-const OLLAMA_MODEL = process.env.OLLAMA_MODEL ?? "exaone3.5:2.4b";
+const LLM_BASE_URL = process.env.LLM_BASE_URL ?? "http://localhost:11434";
+const LLM_MODEL = process.env.LLM_MODEL ?? "exaone3.5:2.4b";
 
 export interface AgentEvaluation {
   agentId: AgentId;
@@ -58,13 +58,11 @@ export interface ModeratorResult {
 }
 
 async function callOllama(systemPrompt: string, userContent: string): Promise<string> {
-  const response = await fetch(`${OLLAMA_BASE_URL}/api/chat`, {
+  const response = await fetch(`${LLM_BASE_URL}/v1/chat/completions`, {
     method: "POST",
-    headers: { "Content-Type": "application/json", "ngrok-skip-browser-warning": "true" },
+    headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
-      model: OLLAMA_MODEL,
-      stream: false,
-      format: "json",
+      model: LLM_MODEL,
       messages: [
         { role: "system", content: systemPrompt },
         { role: "user", content: userContent },
@@ -74,11 +72,11 @@ async function callOllama(systemPrompt: string, userContent: string): Promise<st
   });
 
   if (!response.ok) {
-    throw new Error(`Ollama 요청 실패: ${response.status} ${response.statusText}`);
+    throw new Error(`LLM 요청 실패: ${response.status} ${response.statusText}`);
   }
 
   const data = await response.json();
-  return (data.message?.content ?? "").trim();
+  return (data.choices?.[0]?.message?.content ?? "").trim();
 }
 
 function extractJSON<T>(raw: string): T {
