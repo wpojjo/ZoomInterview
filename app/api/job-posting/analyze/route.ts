@@ -2,8 +2,8 @@ import { NextResponse } from "next/server";
 import { supabaseAdmin as supabase } from "@/lib/supabase-admin";
 import { getAuthUser } from "@/lib/auth";
 
-const OLLAMA_BASE_URL = process.env.OLLAMA_BASE_URL ?? "http://localhost:11434";
-const OLLAMA_MODEL = process.env.OLLAMA_MODEL ?? "exaone3.5:2.4b";
+const LLM_BASE_URL = process.env.LLM_BASE_URL ?? "http://localhost:11434";
+const LLM_MODEL = process.env.LLM_MODEL ?? "exaone3.5:2.4b";
 
 async function fetchPageText(url: string): Promise<string> {
   const res = await fetch(`https://r.jina.ai/${url}`, {
@@ -42,17 +42,20 @@ async function extractJobInfo(text: string): Promise<{
 채용공고:
 ${text}`;
 
-  const response = await fetch(`${OLLAMA_BASE_URL}/api/generate`, {
+  const response = await fetch(`${LLM_BASE_URL}/v1/chat/completions`, {
     method: "POST",
-    headers: { "Content-Type": "application/json", "ngrok-skip-browser-warning": "true" },
-    body: JSON.stringify({ model: OLLAMA_MODEL, prompt, stream: false }),
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      model: LLM_MODEL,
+      messages: [{ role: "user", content: prompt }],
+    }),
     signal: AbortSignal.timeout(120_000),
   });
 
-  if (!response.ok) throw new Error(`Ollama 요청 실패 (${response.status})`);
+  if (!response.ok) throw new Error(`LLM 요청 실패 (${response.status})`);
 
   const data = await response.json();
-  const raw: string = data.response ?? "";
+  const raw: string = data.choices?.[0]?.message?.content ?? "";
 
   const start = raw.indexOf("{");
   const end = raw.lastIndexOf("}") + 1;
