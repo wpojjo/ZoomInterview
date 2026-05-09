@@ -247,24 +247,64 @@ function InterviewerPanel({
   );
 }
 
-function QuestionBubble({ agentId, question }: { agentId: AgentId; question: string }) {
+function QuestionBubble({ agentId, question, difficulty }: { agentId: AgentId; question: string; difficulty: Difficulty }) {
   const { displayed, done } = useTypewriter(question);
   const agentIdx = AGENT_ORDER.indexOf(agentId);
   const tailLeft = agentIdx === 0 ? "left-[16.6%]" : agentIdx === 1 ? "left-1/2" : "left-[83.3%]";
   const meta = AGENT_META[agentId];
+  const audioRef = useRef<HTMLAudioElement>(null);
+  const hasGeneratedRef = useRef(false);
+  const isAudioOnly = difficulty === "normal" || difficulty === "hard";
+
+  useEffect(() => {
+    // 질문 입력이 완료되거나 음성 전용 모드에서 텍스트가 있으면 자동으로 음성 생성 및 재생
+    if ((done || isAudioOnly) && !hasGeneratedRef.current && question) {
+      hasGeneratedRef.current = true;
+
+      (async () => {
+        try {
+          const res = await fetch("/api/tts", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ text: question, agentId }),
+          });
+          if (!res.ok) throw new Error("음성 생성 실패");
+          const data = await res.json();
+
+          if (audioRef.current) {
+            audioRef.current.src = data.audioUri;
+            audioRef.current.play();
+          }
+        } catch (error) {
+          console.error("TTS Error:", error);
+        }
+      })();
+    }
+  }, [done, isAudioOnly, question, agentId]);
 
   return (
     <div className="relative mt-2">
       {/* 위를 향하는 말풍선 꼭지 */}
       <div className={`absolute -top-3 ${tailLeft} -translate-x-1/2 w-5 h-5 rotate-45 bg-white dark:bg-slate-800 border-t border-l ${meta.border}`} />
       <div className={`card p-5 relative border ${meta.border}`}>
-        <p className="text-gray-900 dark:text-slate-100 text-[15px] leading-relaxed">
-          {displayed}
-          {!done && (
-            <span className="inline-block w-0.5 h-4 bg-gray-400 dark:bg-slate-400 ml-0.5 animate-pulse align-middle" />
-          )}
-        </p>
+        {!isAudioOnly && (
+          <p className="text-gray-900 dark:text-slate-100 text-[15px] leading-relaxed">
+            {displayed}
+            {!done && (
+              <span className="inline-block w-0.5 h-4 bg-gray-400 dark:bg-slate-400 ml-0.5 animate-pulse align-middle" />
+            )}
+          </p>
+        )}
+        {isAudioOnly && (
+          <p className="text-gray-400 dark:text-slate-500 text-[15px] leading-relaxed italic">
+            음성으로 질문을 들어주세요...
+          </p>
+        )}
       </div>
+      <audio
+        ref={audioRef}
+        className="hidden"
+      />
     </div>
   );
 }
@@ -700,7 +740,7 @@ export default function InterviewSession({ name }: { name: string }) {
 
       {/* 현재 질문 말풍선 */}
       {currentQuestion && currentQuestionAgentId && questionReady && (
-        <QuestionBubble agentId={currentQuestionAgentId} question={currentQuestion} />
+        <QuestionBubble agentId={currentQuestionAgentId} question={currentQuestion} difficulty={difficulty} />
       )}
 
       {/* 이전 대화 기록 */}
