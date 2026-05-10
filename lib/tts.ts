@@ -11,19 +11,19 @@ const AGENT_VOICE_CONFIG: Record<
     name: "ko-KR-Neural2-B", // 40대 여성 (차분하고 진중한 톤)
     ssmlGender: "FEMALE",
     pitch: -1.0,
-    speakingRate: 0.92,
+    speakingRate: 1.2,
   },
   logic: {
     name: "ko-KR-Neural2-C", // 50대 남성 (진중하고 어두운 톤)
     ssmlGender: "MALE",
     pitch: -1.8,
-    speakingRate: 0.80,
+    speakingRate: 1.2,
   },
   technical: {
     name: "ko-KR-Standard-C", // 젊은 남성 (밝고 명확한 톤)
     ssmlGender: "MALE",
     pitch: 0.6,
-    speakingRate: 1.15,
+    speakingRate: 1.2,
   },
 };
 
