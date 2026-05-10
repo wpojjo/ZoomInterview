@@ -20,12 +20,13 @@ async function getJobPosting() {
 export default async function JobPostingEditPage({
   searchParams,
 }: {
-  searchParams: { analyzing?: string };
+  searchParams: { analyzing?: string; mode?: string };
 }) {
   const userId = await getAuthUser();
   if (!userId) redirect("/login");
 
   const isAnalyzing = searchParams.analyzing === "true";
+  const isPasteMode = searchParams.mode === "paste";
   const jobPosting = isAnalyzing ? null : await getJobPosting();
 
   const initialData = {
@@ -49,7 +50,7 @@ export default async function JobPostingEditPage({
             <p className="text-sm text-gray-500 dark:text-slate-400">내용이 맞으면 면접을 시작하세요</p>
           )}
         </div>
-        <JobPostingEditForm initialData={initialData} isAnalyzing={isAnalyzing} />
+        <JobPostingEditForm initialData={initialData} isAnalyzing={isAnalyzing} isPasteMode={isPasteMode} />
       </div>
     </main>
   );

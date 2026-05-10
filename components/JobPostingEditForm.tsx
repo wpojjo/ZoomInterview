@@ -11,6 +11,7 @@ interface Props {
     preferredQuals: string;
   };
   isAnalyzing?: boolean;
+  isPasteMode?: boolean;
 }
 
 const FIELDS = [
@@ -29,7 +30,7 @@ const ANALYZE_STEPS = [
 
 type Mode = "analyzing" | "view" | "editing";
 
-export default function JobPostingEditForm({ initialData, isAnalyzing = false }: Props) {
+export default function JobPostingEditForm({ initialData, isAnalyzing = false, isPasteMode = false }: Props) {
   const router = useRouter();
   const [mode, setMode] = useState<Mode>(isAnalyzing ? "analyzing" : "view");
   const [fields, setFields] = useState(initialData);
@@ -38,6 +39,9 @@ export default function JobPostingEditForm({ initialData, isAnalyzing = false }:
   const [isSaving, setIsSaving] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
   const [analysisError, setAnalysisError] = useState("");
+  const [pasteInput, setPasteInput] = useState("");
+  const [isPasteAnalyzing, setIsPasteAnalyzing] = useState(false);
+  const [showManualFields, setShowManualFields] = useState(false);
   const analyzeCalledRef = useRef(false);
 
   // 분석 단계 메시지 타이머
@@ -66,19 +70,31 @@ export default function JobPostingEditForm({ initialData, isAnalyzing = false }:
     if (mode !== "analyzing" || analyzeCalledRef.current) return;
     analyzeCalledRef.current = true;
 
-    fetch("/api/job-posting/analyze", { method: "POST" })
+    const pastedText = isPasteMode ? (sessionStorage.getItem("pastedJobText") ?? "") : undefined;
+    if (isPasteMode) sessionStorage.removeItem("pastedJobText");
+
+    const body = pastedText ? { pastedText } : {};
+
+    fetch("/api/job-posting/analyze", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    })
       .then(async (res) => {
         const data = await res.json();
-        if (!res.ok || !data.jobPosting) {
-          setAnalysisError("URL에서 공고 내용을 자동으로 가져오지 못했어요. 직접 입력해 주세요.");
-          setMode("editing");
-        } else {
+        if (res.ok && data.jobPosting) {
           setFields({
             responsibilities: data.jobPosting.responsibilities ?? "",
             requirements:     data.jobPosting.requirements     ?? "",
             preferredQuals:   data.jobPosting.preferredQuals   ?? "",
           });
           setMode("view");
+        } else if (res.status === 422 && data.needsManualInput) {
+          setAnalysisError("공고 내용을 자동으로 읽지 못했어요. 아래에 공고 텍스트를 붙여넣으면 분석해드릴게요.");
+          setMode("editing");
+        } else {
+          setAnalysisError("URL에서 공고 내용을 자동으로 가져오지 못했어요. 직접 입력해 주세요.");
+          setMode("editing");
         }
         router.replace("/job-posting/edit");
       })
@@ -87,7 +103,37 @@ export default function JobPostingEditForm({ initialData, isAnalyzing = false }:
         setMode("editing");
         router.replace("/job-posting/edit");
       });
-  }, [mode, router]);
+  }, [mode, router, isPasteMode]);
+
+  async function handlePasteAnalyze() {
+    if (!pasteInput.trim()) return;
+    setIsPasteAnalyzing(true);
+    setErrorMessage("");
+
+    try {
+      const res = await fetch("/api/job-posting/analyze", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ pastedText: pasteInput.trim() }),
+      });
+      const data = await res.json();
+      if (res.ok && data.jobPosting) {
+        setFields({
+          responsibilities: data.jobPosting.responsibilities ?? "",
+          requirements:     data.jobPosting.requirements     ?? "",
+          preferredQuals:   data.jobPosting.preferredQuals   ?? "",
+        });
+        setAnalysisError("");
+        setMode("view");
+      } else {
+        setErrorMessage(data.error ?? "텍스트에서 공고 내용을 찾지 못했어요. 직접 입력해 주세요.");
+      }
+    } catch {
+      setErrorMessage("네트워크 오류가 발생했습니다");
+    } finally {
+      setIsPasteAnalyzing(false);
+    }
+  }
 
   async function handleSave() {
     if (!fields.responsibilities.trim() || !fields.requirements.trim()) return;
@@ -127,9 +173,7 @@ export default function JobPostingEditForm({ initialData, isAnalyzing = false }:
   if (mode === "analyzing") {
     return (
       <div className="space-y-3">
-        {/* 로더 + 단계 메시지 */}
         <div className="card px-6 py-8 flex flex-col items-center gap-5">
-          {/* Toss 스타일 원형 로더 */}
           <div
             className="animate-spin"
             style={{ animationDuration: "1.2s", animationTimingFunction: "linear" }}
@@ -143,7 +187,6 @@ export default function JobPostingEditForm({ initialData, isAnalyzing = false }:
             </svg>
           </div>
 
-          {/* 단계 메시지 */}
           <div className="text-center" style={{ minHeight: "48px" }}>
             <p
               className="text-base font-semibold text-gray-900 dark:text-slate-50 transition-opacity duration-300"
@@ -155,7 +198,6 @@ export default function JobPostingEditForm({ initialData, isAnalyzing = false }:
           </div>
         </div>
 
-        {/* 스켈레톤 결과 카드 */}
         <div className="card p-5 space-y-5">
           {[80, 65, 50].map((w, i) => (
             <div key={i} className="space-y-2">
@@ -200,16 +242,10 @@ export default function JobPostingEditForm({ initialData, isAnalyzing = false }:
             ← 다시 입력
           </Link>
           <div className="flex gap-2">
-            <button
-              onClick={() => setMode("editing")}
-              className="btn-secondary"
-            >
+            <button onClick={() => setMode("editing")} className="btn-secondary">
               편집하기
             </button>
-            <Link
-              href="/interview"
-              className="btn-primary"
-            >
+            <Link href="/interview" className="btn-primary">
               면접 시작하기 →
             </Link>
           </div>
@@ -226,28 +262,60 @@ export default function JobPostingEditForm({ initialData, isAnalyzing = false }:
           {analysisError}
         </div>
       )}
-      <div className="card p-5 space-y-4">
-        {FIELDS.map(({ key, label, required, placeholder }) => (
-          <div key={key} className="space-y-1">
-            <label className="text-sm font-medium text-gray-700 dark:text-slate-300">
-              {label}{required && <span className="text-red-500 ml-0.5">*</span>}
-            </label>
-            <textarea
-              value={fields[key]}
-              onChange={(e) => setFields((prev) => ({ ...prev, [key]: e.target.value }))}
-              placeholder={placeholder}
-              rows={8}
-              className="input resize-none"
-            />
-          </div>
-        ))}
 
-        {errorMessage && (
-          <div className="bg-red-50 border border-red-100 text-red-600 text-sm rounded-xl px-4 py-3 dark:bg-red-900/30 dark:border-red-800 dark:text-red-400">
-            {errorMessage}
-          </div>
-        )}
-      </div>
+      {/* 붙여넣기 분석 섹션 (자동 추출 실패 시 표시) */}
+      {analysisError && (
+        <div className="card p-5 space-y-3">
+          <p className="text-sm font-medium text-gray-700 dark:text-slate-300">공고 텍스트 붙여넣기</p>
+          <textarea
+            value={pasteInput}
+            onChange={(e) => setPasteInput(e.target.value)}
+            placeholder={"채용공고 페이지의 내용을 복사해서 붙여 넣어주세요\n(회사명, 사업부/팀명, 담당업무, 자격요건, 우대사항 등)"}
+            rows={14}
+            disabled={isPasteAnalyzing}
+            className="input resize-none disabled:opacity-50"
+          />
+          <button
+            onClick={handlePasteAnalyze}
+            disabled={isPasteAnalyzing || !pasteInput.trim()}
+            className="btn-primary w-full disabled:opacity-50"
+          >
+            {isPasteAnalyzing ? "분석 중..." : "텍스트로 분석하기"}
+          </button>
+          <button
+            type="button"
+            onClick={() => setShowManualFields((v) => !v)}
+            className="w-full text-xs text-gray-400 dark:text-slate-500 hover:text-gray-600 dark:hover:text-slate-300 py-1"
+          >
+            {showManualFields ? "직접 입력 닫기" : "직접 입력할게요"}
+          </button>
+        </div>
+      )}
+
+      {(!analysisError || showManualFields) && (
+        <div className="card p-5 space-y-4">
+          {FIELDS.map(({ key, label, required, placeholder }) => (
+            <div key={key} className="space-y-1">
+              <label className="text-sm font-medium text-gray-700 dark:text-slate-300">
+                {label}{required && <span className="text-red-500 ml-0.5">*</span>}
+              </label>
+              <textarea
+                value={fields[key]}
+                onChange={(e) => setFields((prev) => ({ ...prev, [key]: e.target.value }))}
+                placeholder={placeholder}
+                rows={8}
+                className="input resize-none"
+              />
+            </div>
+          ))}
+
+          {errorMessage && (
+            <div className="bg-red-50 border border-red-100 text-red-600 text-sm rounded-xl px-4 py-3 dark:bg-red-900/30 dark:border-red-800 dark:text-red-400">
+              {errorMessage}
+            </div>
+          )}
+        </div>
+      )}
 
       <div className="flex items-center justify-between gap-3">
         <button onClick={() => setMode("view")} className="btn-secondary">
