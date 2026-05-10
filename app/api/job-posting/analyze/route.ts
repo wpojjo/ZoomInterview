@@ -1,18 +1,29 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin as supabase } from "@/lib/supabase-admin";
 import { getAuthUser } from "@/lib/auth";
+import { extractTextFromImageUrl } from "@/lib/ocr";
 
 const LLM_BASE_URL = process.env.LLM_BASE_URL ?? "http://localhost:11434";
 const LLM_MODEL = process.env.LLM_MODEL ?? "exaone3.5:2.4b";
 
-async function fetchPageText(url: string): Promise<string> {
+async function fetchPageText(url: string): Promise<{ text: string; markdown: string }> {
   const res = await fetch(`https://r.jina.ai/${url}`, {
     headers: { Accept: "text/plain" },
     signal: AbortSignal.timeout(30_000),
   });
   if (!res.ok) throw new Error(`페이지 가져오기 실패 (${res.status})`);
-  const text = await res.text();
-  return text.slice(0, 8000);
+  const markdown = await res.text();
+  return { text: markdown.slice(0, 8000), markdown };
+}
+
+function extractImageUrls(markdown: string): string[] {
+  const pattern = /!\[.*?\]\((https?:\/\/[^)]+)\)/g;
+  const urls: string[] = [];
+  let match: RegExpExecArray | null;
+  while ((match = pattern.exec(markdown)) !== null) {
+    urls.push(match[1]);
+  }
+  return urls;
 }
 
 async function extractJobInfo(text: string): Promise<{
@@ -101,12 +112,19 @@ ${text}`;
   };
 }
 
-export async function POST() {
+function isAllEmpty(extracted: { responsibilities: string; requirements: string; preferredQuals: string }) {
+  return !extracted.responsibilities && !extracted.requirements && !extracted.preferredQuals;
+}
+
+export async function POST(request: NextRequest) {
   try {
     const userId = await getAuthUser();
     if (!userId) {
       return NextResponse.json({ error: "로그인이 필요합니다" }, { status: 401 });
     }
+
+    const body = await request.json().catch(() => ({})) as { pastedText?: string };
+    const pastedText = body?.pastedText?.trim();
 
     const { data: rows } = await supabase
       .from("job_postings")
@@ -119,12 +137,42 @@ export async function POST() {
     if (!posting) {
       return NextResponse.json({ error: "저장된 채용공고가 없습니다" }, { status: 404 });
     }
-    if (!posting.sourceUrl) {
-      return NextResponse.json({ error: "URL이 없습니다" }, { status: 400 });
+
+    let text: string;
+    let markdown = "";
+
+    if (pastedText) {
+      text = pastedText.slice(0, 8000);
+    } else {
+      if (!posting.sourceUrl) {
+        return NextResponse.json({ error: "URL이 없습니다" }, { status: 400 });
+      }
+      const fetched = await fetchPageText(posting.sourceUrl);
+      text = fetched.text;
+      markdown = fetched.markdown;
     }
 
-    const text = await fetchPageText(posting.sourceUrl);
-    const extracted = await extractJobInfo(text);
+    let extracted = await extractJobInfo(text);
+
+    if (isAllEmpty(extracted) && !pastedText) {
+      const imageUrls = extractImageUrls(markdown);
+      for (const imageUrl of imageUrls.slice(0, 3)) {
+        const ocrText = await extractTextFromImageUrl(imageUrl);
+        if (!ocrText) continue;
+        const ocrExtracted = await extractJobInfo(ocrText);
+        if (!isAllEmpty(ocrExtracted)) {
+          extracted = ocrExtracted;
+          break;
+        }
+      }
+    }
+
+    if (isAllEmpty(extracted)) {
+      return NextResponse.json(
+        { error: "공고 내용을 자동으로 읽지 못했습니다.", needsManualInput: true },
+        { status: 422 }
+      );
+    }
 
     const now = new Date().toISOString();
     const { data: updated } = await supabase

@@ -54,11 +54,13 @@ export async function POST(request: NextRequest) {
     const existing = rows?.[0] ?? null;
 
     let jobPosting;
+    const sourceType = sourceUrl ? "LINK" : "PASTE";
+
     if (existing) {
       const { data } = await supabase
         .from("job_postings")
         .update({
-          sourceType: "LINK",
+          sourceType,
           sourceUrl,
           responsibilities: null,
           requirements: null,
@@ -75,7 +77,7 @@ export async function POST(request: NextRequest) {
         .insert({
           id: crypto.randomUUID(),
           userId,
-          sourceType: "LINK",
+          sourceType,
           sourceUrl,
           updatedAt: now,
         })
