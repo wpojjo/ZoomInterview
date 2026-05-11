@@ -172,14 +172,12 @@ export async function POST(request: NextRequest) {
 
     if (isAllEmpty(extracted) && !pastedText) {
       const imageUrls = extractImageUrls(markdown);
-      for (const imageUrl of imageUrls.slice(0, 3)) {
-        const ocrText = await extractTextFromImageUrl(imageUrl);
-        if (!ocrText) continue;
-        const ocrExtracted = await extractJobInfo(ocrText);
-        if (!isAllEmpty(ocrExtracted)) {
-          extracted = ocrExtracted;
-          break;
-        }
+      const ocrTexts = await Promise.all(
+        imageUrls.slice(0, 3).map(url => extractTextFromImageUrl(url))
+      );
+      const combinedText = ocrTexts.filter(Boolean).join('\n');
+      if (combinedText) {
+        extracted = await extractJobInfo(combinedText);
       }
     }
 
