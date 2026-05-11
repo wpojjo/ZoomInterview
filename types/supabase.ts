@@ -222,35 +222,47 @@ export type Database = {
       }
       job_postings: {
         Row: {
+          companyName: string | null
           createdAt: string
+          divisionName: string | null
           id: string
+          isITCompany: boolean
           preferredQuals: string | null
           requirements: string | null
           responsibilities: string | null
           sourceType: string
           sourceUrl: string | null
+          techStack: string | null
           updatedAt: string
           userId: string
         }
         Insert: {
+          companyName?: string | null
           createdAt?: string
+          divisionName?: string | null
           id: string
+          isITCompany?: boolean
           preferredQuals?: string | null
           requirements?: string | null
           responsibilities?: string | null
           sourceType: string
           sourceUrl?: string | null
+          techStack?: string | null
           updatedAt?: string
           userId: string
         }
         Update: {
+          companyName?: string | null
           createdAt?: string
+          divisionName?: string | null
           id?: string
+          isITCompany?: boolean
           preferredQuals?: string | null
           requirements?: string | null
           responsibilities?: string | null
           sourceType?: string
           sourceUrl?: string | null
+          techStack?: string | null
           updatedAt?: string
           userId?: string
         }
