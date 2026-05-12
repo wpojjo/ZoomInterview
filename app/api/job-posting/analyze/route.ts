@@ -1,10 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin as supabase } from "@/lib/supabase-admin";
 import { getAuthUser } from "@/lib/auth";
+import { callLLM } from "@/lib/runpod-client";
 import { extractTextFromImageUrl } from "@/lib/ocr";
-
-const LLM_BASE_URL = process.env.LLM_BASE_URL ?? "http://localhost:11434";
-const LLM_MODEL = process.env.LLM_MODEL ?? "exaone3.5:2.4b";
 
 async function fetchPageText(url: string): Promise<{ text: string; markdown: string }> {
   const res = await fetch(`https://r.jina.ai/${url}`, {
@@ -65,20 +63,10 @@ async function extractJobInfo(text: string): Promise<{
 채용공고:
 ${text}`;
 
-  const response = await fetch(`${LLM_BASE_URL}/v1/chat/completions`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      model: LLM_MODEL,
-      messages: [{ role: "user", content: prompt }],
-    }),
-    signal: AbortSignal.timeout(120_000),
+  const raw = await callLLM({
+    messages: [{ role: "user", content: prompt }],
+    max_tokens: 1000,
   });
-
-  if (!response.ok) throw new Error(`LLM 요청 실패 (${response.status})`);
-
-  const data = await response.json();
-  const raw: string = data.choices?.[0]?.message?.content ?? "";
 
   const start = raw.indexOf("{");
   const end = raw.lastIndexOf("}") + 1;
