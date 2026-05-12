@@ -1,4 +1,5 @@
 import { AgentId, AGENTS, Message, ProfileContext, JobPostingContext, buildProfileSummary } from "@/lib/interview";
+import { callLLM } from "@/lib/runpod-client";
 
 const LLM_BASE_URL = process.env.LLM_BASE_URL ?? "http://localhost:11434";
 const LLM_MODEL = process.env.LLM_MODEL ?? "exaone3.5:2.4b";
@@ -58,25 +59,13 @@ export interface ModeratorResult {
 }
 
 async function callOllama(systemPrompt: string, userContent: string): Promise<string> {
-  const response = await fetch(`${LLM_BASE_URL}/v1/chat/completions`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      model: LLM_MODEL,
-      messages: [
-        { role: "system", content: systemPrompt },
-        { role: "user", content: userContent },
-      ],
-    }),
-    signal: AbortSignal.timeout(180_000),
+  return callLLM({
+    messages: [
+      { role: "system", content: systemPrompt },
+      { role: "user", content: userContent },
+    ],
+    max_tokens: 2000,
   });
-
-  if (!response.ok) {
-    throw new Error(`LLM 요청 실패: ${response.status} ${response.statusText}`);
-  }
-
-  const data = await response.json();
-  return (data.choices?.[0]?.message?.content ?? "").trim();
 }
 
 function extractJSON<T>(raw: string): T {
