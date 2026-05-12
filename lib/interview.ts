@@ -242,25 +242,14 @@ function stripMarkdown(text: string): string {
 }
 
 async function callOllama(systemPrompt: string, userContent: string, _json = false): Promise<string> {
-  const response = await fetch(`${LLM_BASE_URL}/v1/chat/completions`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      model: LLM_MODEL,
-      messages: [
-        { role: "system", content: systemPrompt },
-        { role: "user", content: userContent },
-      ],
-    }),
-    signal: AbortSignal.timeout(180_000),
+  const { callLLM } = await import("@/lib/runpod-client");
+  const raw = await callLLM({
+    messages: [
+      { role: "system", content: systemPrompt },
+      { role: "user", content: userContent },
+    ],
+    max_tokens: 1000,
   });
-
-  if (!response.ok) {
-    throw new Error(`LLM 요청 실패: ${response.status} ${response.statusText}`);
-  }
-
-  const data = await response.json();
-  const raw: string = (data.choices?.[0]?.message?.content ?? "").trim();
   return raw.replace(/^(면접관|질문|interviewer|question)\s*:\s*/i, "").trim();
 }
 
