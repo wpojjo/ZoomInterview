@@ -47,7 +47,7 @@ export const profileSchema = z.object({
 });
 
 export const jobPostingSchema = z.object({
-  sourceUrl: z.string().url("올바른 URL을 입력해주세요"),
+  sourceUrl: z.string().url("올바른 URL을 입력해주세요").nullable(),
 });
 
 export const jobPostingManualSchema = z.object({

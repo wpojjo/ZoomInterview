@@ -4,6 +4,56 @@
 - **서비스명:** 줌인터뷰 - 면접관을 보다 가까이서 바라보다.
 - **역할:** 이력서와 채용공고를 분석해 개인화된 면접 질문을 생성하고, 3가지 관점의 AI 면접관과 실전 모의면접을 진행합니다. 면접 종료 후 에이전트 간 멀티라운드 토론을 통해 항목별 점수와 구체적 개선 포인트를 제공합니다.
 
+## 로컬 개발 환경 설정
+
+### 1. 환경변수 설정
+
+`.env.example`을 `.env`로 복사 후 아래 값 입력:
+
+```
+LLM_BASE_URL="https://<pod-id>-8000.proxy.runpod.net"
+LLM_MODEL="LGAI-EXAONE/EXAONE-3.5-7.8B-Instruct"
+```
+
+### 2. vLLM 서버 실행 (RunPod)
+
+RunPod 대시보드에서 Pod 시작 후 웹터미널에서 실행:
+
+**최초 실행** (vLLM 설치 + 모델 다운로드 포함):
+```bash
+pip install vllm && \
+export HF_HUB_DISABLE_XET=1 && \
+export HF_HOME=/workspace/huggingface && \
+nohup python -m vllm.entrypoints.openai.api_server \
+  --model LGAI-EXAONE/EXAONE-3.5-7.8B-Instruct \
+  --port 8000 \
+  --max-model-len 8192 \
+  --trust-remote-code \
+  --download-dir /workspace/huggingface \
+  > /workspace/vllm.log 2>&1 &
+```
+
+**Pod 재시작 후** (모델은 /workspace에 유지됨):
+```bash
+export HF_HUB_DISABLE_XET=1 && \
+export HF_HOME=/workspace/huggingface && \
+nohup python -m vllm.entrypoints.openai.api_server \
+  --model LGAI-EXAONE/EXAONE-3.5-7.8B-Instruct \
+  --port 8000 \
+  --max-model-len 8192 \
+  --trust-remote-code \
+  --download-dir /workspace/huggingface \
+  > /workspace/vllm.log 2>&1 &
+```
+
+서버 준비 확인:
+```bash
+tail -f /workspace/vllm.log
+# "Application startup complete." 메시지 확인
+```
+
+> ⚠️ Pod를 **삭제**하면 `/workspace` 데이터도 초기화됩니다. Stop/Start는 유지됩니다.
+
 ---
 
 📦 **주요 기능**
@@ -20,7 +70,7 @@
 
 - **프레임워크:** Next.js 14 App Router로 Server Components(SSR DB 조회)와 API Routes를 단일 리포에서 운영
 - **인증·DB:** Supabase Auth + PostgreSQL로 인증과 데이터 저장을 통합 관리, `middleware.ts`로 미인증 접근 차단
-- **LLM 서빙:** Ollama 자체 호스팅 — 채용공고 분석·질문 생성·에이전트 평가·토론 전 단계에서 사용
+- **LLM 서빙:** vLLM (RunPod) — OpenAI 호환 API로 채용공고 분석·질문 생성·에이전트 평가·토론 전 단계에서 사용
 - **크롤링:** Jina Reader API로 채용공고 URL을 파싱, 실패 시 `/api/job-posting/manual` 폴백
 - **비동기 처리:** 토론 오케스트레이터(`/api/interview/debate`)는 fire-and-forget으로 실행되며, 클라이언트는 1.5초 간격 폴링으로 완료 여부 확인
 
@@ -31,7 +81,7 @@
   └── API Routes
        ├── /api/profile                       → 프로필 조회·저장
        ├── /api/job-posting                   → 채용공고 조회·저장
-       ├── /api/job-posting/analyze           → Jina Reader + Ollama
+       ├── /api/job-posting/analyze           → Jina Reader + vLLM
        ├── /api/job-posting/manual            → 수동 입력 폴백
        ├── /api/interview/question            → 질문 생성
        ├── /api/interview/follow-up           → 꼬리질문 판단
@@ -49,7 +99,7 @@
 | :--- | :--- | :--- | :--- |
 | **프레임워크** | `Next.js` (App Router) + `TypeScript` | `14.2` / `5.5` | SSR·API Routes·미들웨어를 단일 프레임워크로 통합, 서버·클라이언트 코드 분리 명확 |
 | **인증·DB** | `Supabase Auth` + `PostgreSQL` | `2.101` | 인증·RLS·실시간 DB를 하나의 플랫폼으로 제공, 별도 인증 서버 불필요 |
-| **LLM** | `Ollama` (자체 호스팅) | - | API 비용 없이 로컬에서 LLM 운영 가능, 모델 교체 자유로움 |
+| **LLM** | `vLLM` (RunPod 호스팅) | `0.20+` | OpenAI 호환 API로 자체 모델 서빙, 모델 교체 자유로움 |
 | **크롤링** | `Jina Reader API` | - | 별도 크롤러 구현 없이 URL만으로 구조화된 텍스트 추출, 실패 시 수동 입력 폴백 |
 | **스키마 검증** | `Zod` | `3.23` | 런타임 검증과 TypeScript 타입을 단일 소스로 정의, API 경계 안전성 확보 |
 | **스타일링** | `Tailwind CSS` | `3.4` | 유틸리티 클래스 기반으로 빠른 UI 개발, 별도 CSS 파일 최소화 |
@@ -62,7 +112,7 @@
 | :--- | :--- | :--- | :--- |
 | 프로필 조회·저장 | GET / POST | `/api/profile` | 이력서 정보(학력·경력·자격증 등) 조회 및 저장 |
 | 채용공고 조회·저장 | GET / POST | `/api/job-posting` | 채용공고 정보 조회 및 저장 |
-| 채용공고 URL 분석 | POST | `/api/job-posting/analyze` | Jina Reader 크롤링 후 Ollama로 직무 요건 추출 |
+| 채용공고 URL 분석 | POST | `/api/job-posting/analyze` | Jina Reader 크롤링 후 vLLM으로 직무 요건 추출 |
 | 채용공고 수동 입력 | POST | `/api/job-posting/manual` | URL 분석 실패 시 텍스트 직접 입력 폴백 |
 | 면접 질문 생성 | POST | `/api/interview/question` | 에이전트·난이도·대화 히스토리 기반 다음 질문 생성 |
 | 꼬리질문 판단 | POST | `/api/interview/follow-up` | 답변 분석 후 꼬리질문 필요 여부 및 담당 에이전트 결정 |
@@ -77,7 +127,7 @@
 
 **1. 사전 준비**
 - 이력서 정보 입력 (학력·경력·자격증·활동)
-- 채용공고 URL 입력 → Jina Reader 크롤링 → Ollama 직무 분석
+- 채용공고 URL 입력 → Jina Reader 크롤링 → vLLM 직무 분석
 - 면접 난이도 선택 (Tutorial / Easy / Normal / Hard)
 
 **2. 실전 면접**

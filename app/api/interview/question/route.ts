@@ -49,7 +49,7 @@ export async function POST(request: NextRequest) {
 
     const { data: jobPosting } = await supabase
       .from("job_postings")
-      .select("responsibilities, requirements, preferredQuals")
+      .select("responsibilities, requirements, preferredQuals, companyName, divisionName, techStack")
       .eq("userId", userId)
       .order("updatedAt", { ascending: false })
       .limit(1)
@@ -74,6 +74,9 @@ export async function POST(request: NextRequest) {
       responsibilities: jobPosting.responsibilities ?? "",
       requirements: jobPosting.requirements ?? "",
       preferredQuals: jobPosting.preferredQuals ?? "",
+      companyName: jobPosting.companyName ?? undefined,
+      divisionName: jobPosting.divisionName ?? undefined,
+      techStack: jobPosting.techStack ?? undefined,
     };
 
     const result = await generateAgentBaseQuestion(

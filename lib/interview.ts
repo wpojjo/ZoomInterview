@@ -74,6 +74,9 @@ export interface JobPostingContext {
   responsibilities: string;
   requirements: string;
   preferredQuals: string;
+  companyName?: string;
+  divisionName?: string;
+  techStack?: string;
 }
 
 export function buildProfileSummary(profile: ProfileContext): string {
@@ -219,9 +222,9 @@ function buildAgentSystemPrompt(
 ${DIFFICULTY_QUESTION_HINT[difficulty]}
 
 [채용공고]
-담당 업무: ${jobPosting.responsibilities || "N/A"}
+${jobPosting.companyName ? `회사명: ${jobPosting.companyName}\n` : ""}${jobPosting.divisionName ? `지원 사업부: ${jobPosting.divisionName}\n` : ""}담당 업무: ${jobPosting.responsibilities || "N/A"}
 자격 요건: ${jobPosting.requirements || "N/A"}
-우대 사항: ${jobPosting.preferredQuals || "N/A"}
+우대 사항: ${jobPosting.preferredQuals || "N/A"}${jobPosting.techStack ? `\n기술스택: ${jobPosting.techStack}` : ""}
 
 [지원자 프로필]
 ${profileSummary}
@@ -459,9 +462,9 @@ async function generateSingleAgentThought(
   const systemPrompt = `${AGENT_THOUGHT_PERSONA[agentId]}
 
 [채용공고]
-담당 업무: ${jobPosting.responsibilities || "N/A"}
+${jobPosting.companyName ? `회사명: ${jobPosting.companyName}\n` : ""}${jobPosting.divisionName ? `지원 사업부: ${jobPosting.divisionName}\n` : ""}담당 업무: ${jobPosting.responsibilities || "N/A"}
 자격 요건: ${jobPosting.requirements || "N/A"}
-우대 사항: ${jobPosting.preferredQuals || "N/A"}
+우대 사항: ${jobPosting.preferredQuals || "N/A"}${jobPosting.techStack ? `\n기술스택: ${jobPosting.techStack}` : ""}
 
 [지원자 프로필]
 ${profileSummary}
