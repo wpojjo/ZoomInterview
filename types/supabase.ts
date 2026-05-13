@@ -222,6 +222,8 @@ export type Database = {
       }
       job_postings: {
         Row: {
+          companyCulture: string | null
+          companyDescription: string | null
           companyName: string | null
           createdAt: string
           divisionName: string | null
@@ -237,6 +239,8 @@ export type Database = {
           userId: string
         }
         Insert: {
+          companyCulture?: string | null
+          companyDescription?: string | null
           companyName?: string | null
           createdAt?: string
           divisionName?: string | null
@@ -252,6 +256,8 @@ export type Database = {
           userId: string
         }
         Update: {
+          companyCulture?: string | null
+          companyDescription?: string | null
           companyName?: string | null
           createdAt?: string
           divisionName?: string | null
