@@ -22,7 +22,7 @@ async function submitJob(input: RunPodInput): Promise<string> {
   return data.id as string;
 }
 
-async function pollJob(jobId: string, timeoutMs = 180_000): Promise<string> {
+async function pollJob(jobId: string, timeoutMs = 540_000): Promise<string> {
   const start = Date.now();
   while (Date.now() - start < timeoutMs) {
     const res = await fetch(`${BASE_URL}/status/${jobId}`, {
