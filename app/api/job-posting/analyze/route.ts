@@ -5,6 +5,7 @@ import { supabaseAdmin as supabase } from "@/lib/supabase-admin";
 import { getAuthUser } from "@/lib/auth";
 import { callLLM } from "@/lib/runpod-client";
 import { extractTextFromImageUrl } from "@/lib/ocr";
+import { collectCompanyInfo } from "@/lib/company-info-collector";
 
 async function fetchPageText(url: string): Promise<{ text: string; markdown: string }> {
   const res = await fetch(`https://r.jina.ai/${url}`, {
@@ -216,6 +217,10 @@ export async function POST(request: NextRequest) {
       .eq("id", posting.id)
       .select()
       .single();
+
+    if (extracted.companyName) {
+      collectCompanyInfo(posting.id, extracted.companyName).catch(() => {});
+    }
 
     return NextResponse.json({ jobPosting: updated });
   } catch (error) {

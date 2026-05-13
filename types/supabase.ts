@@ -119,6 +119,62 @@ export type Database = {
           },
         ]
       }
+      company_info: {
+        Row: {
+          collectedAt: string
+          companyName: string
+          dartSummary: string | null
+          id: string
+          isListed: boolean
+          jobPostingId: string
+        }
+        Insert: {
+          collectedAt?: string
+          companyName: string
+          dartSummary?: string | null
+          id?: string
+          isListed?: boolean
+          jobPostingId: string
+        }
+        Update: {
+          collectedAt?: string
+          companyName?: string
+          dartSummary?: string | null
+          id?: string
+          isListed?: boolean
+          jobPostingId?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "company_info_jobPostingId_fkey"
+            columns: ["jobPostingId"]
+            isOneToOne: true
+            referencedRelation: "job_postings"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      dart_corps: {
+        Row: {
+          corp_code: string
+          corp_name: string
+          modify_date: string | null
+          stock_code: string | null
+        }
+        Insert: {
+          corp_code: string
+          corp_name: string
+          modify_date?: string | null
+          stock_code?: string | null
+        }
+        Update: {
+          corp_code?: string
+          corp_name?: string
+          modify_date?: string | null
+          stock_code?: string | null
+        }
+        Relationships: []
+      }
       educations: {
         Row: {
           degree: string | null
