@@ -1,4 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
+
+export const maxDuration = 300;
 import { supabaseAdmin as supabase } from "@/lib/supabase-admin";
 import { getAuthUser } from "@/lib/auth";
 import {
