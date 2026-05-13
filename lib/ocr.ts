@@ -5,12 +5,16 @@ export async function extractTextFromImageUrl(imageUrl: string): Promise<string>
   if (!apiKey) return "";
 
   try {
+    const imgRes = await fetch(imageUrl, { signal: AbortSignal.timeout(15_000) });
+    if (!imgRes.ok) return "";
+    const base64 = Buffer.from(await imgRes.arrayBuffer()).toString("base64");
+
     const res = await fetch(`${VISION_API_URL}?key=${apiKey}`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         requests: [{
-          image: { source: { imageUri: imageUrl } },
+          image: { content: base64 },
           features: [{ type: "TEXT_DETECTION" }],
         }],
       }),
