@@ -124,6 +124,24 @@ ${text}`;
   };
 }
 
+function mergeExtracted(
+  a: Awaited<ReturnType<typeof extractJobInfo>>,
+  b: Awaited<ReturnType<typeof extractJobInfo>>,
+) {
+  const longer = (x: string, y: string) => (x.length >= y.length ? x : y);
+  return {
+    responsibilities:   longer(a.responsibilities, b.responsibilities),
+    requirements:       longer(a.requirements, b.requirements),
+    preferredQuals:     longer(a.preferredQuals, b.preferredQuals),
+    companyName:        longer(a.companyName, b.companyName),
+    divisionName:       longer(a.divisionName, b.divisionName),
+    techStack:          longer(a.techStack, b.techStack),
+    isITCompany:        a.isITCompany || b.isITCompany,
+    companyDescription: longer(a.companyDescription, b.companyDescription),
+    companyCulture:     longer(a.companyCulture, b.companyCulture),
+  };
+}
+
 function isAllEmpty(extracted: { responsibilities: string; requirements: string; preferredQuals: string }) {
   return !extracted.responsibilities && !extracted.requirements && !extracted.preferredQuals;
 }
@@ -164,17 +182,24 @@ export async function POST(request: NextRequest) {
       markdown = fetched.markdown;
     }
 
-    let extracted = await extractJobInfo(text);
+    let extracted: Awaited<ReturnType<typeof extractJobInfo>>;
 
-    if (isAllEmpty(extracted) && !pastedText) {
+    if (!pastedText) {
       const imageUrls = extractImageUrls(markdown);
-      const ocrTexts = await Promise.all(
-        imageUrls.slice(0, 3).map(url => extractTextFromImageUrl(url))
-      );
-      const combinedText = ocrTexts.filter(Boolean).join('\n');
-      if (combinedText) {
-        extracted = await extractJobInfo(combinedText);
+      if (imageUrls.length > 0) {
+        const [textExtracted, ocrTexts] = await Promise.all([
+          extractJobInfo(text),
+          Promise.all(imageUrls.slice(0, 3).map(url => extractTextFromImageUrl(url))),
+        ]);
+        const combinedOcrText = ocrTexts.filter(Boolean).join('\n');
+        extracted = combinedOcrText
+          ? mergeExtracted(textExtracted, await extractJobInfo(combinedOcrText))
+          : textExtracted;
+      } else {
+        extracted = await extractJobInfo(text);
       }
+    } else {
+      extracted = await extractJobInfo(text);
     }
 
     if (isAllEmpty(extracted)) {
