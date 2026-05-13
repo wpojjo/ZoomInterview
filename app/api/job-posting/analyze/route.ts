@@ -34,6 +34,8 @@ async function extractJobInfo(text: string): Promise<{
   divisionName: string;
   techStack: string;
   isITCompany: boolean;
+  companyDescription: string;
+  companyCulture: string;
 }> {
   const prompt = `아래는 채용공고 텍스트입니다.
 텍스트에서 의미상 아래 항목에 해당하는 내용을 찾아 JSON으로 추출해주세요.
@@ -47,6 +49,8 @@ async function extractJobInfo(text: string): Promise<{
 - "사업부": 지원 팀·사업부·부서명 (없으면 빈 문자열)
 - "기술스택": 공고에 언급된 기술·툴·언어 목록을 쉼표로 연결 (없으면 빈 문자열)
 - "IT기업": 소프트웨어·인터넷·테크 기업이면 true, 아니면 false
+- "회사 소개": 회사의 사업·미션·비전을 설명하는 내용을 1-2문장으로 요약 (없으면 빈 문자열)
+- "조직 문화": 회사의 문화·가치관·일하는 방식을 나타내는 키워드를 쉼표로 연결 (없으면 빈 문자열)
 
 명시적인 항목 구분 없이 문장이 나열된 경우에도 문맥을 파악해서 적절히 분류하세요.
 해당 항목이 없으면 빈 리스트(배열 항목) 또는 빈 문자열로 반환하세요.
@@ -59,7 +63,9 @@ async function extractJobInfo(text: string): Promise<{
   "회사명": "...",
   "사업부": "...",
   "기술스택": "...",
-  "IT기업": true
+  "IT기업": true,
+  "회사 소개": "...",
+  "조직 문화": "..."
 }
 
 채용공고:
@@ -111,10 +117,12 @@ ${text}`;
     responsibilities: join(normalized["업무 내용"]),
     requirements:     join(normalized["지원 자격"]),
     preferredQuals:   join(normalized["우대 사항"]),
-    companyName:      typeof parsed["회사명"] === "string" ? parsed["회사명"] : "",
-    divisionName:     typeof parsed["사업부"] === "string" ? parsed["사업부"] : "",
-    techStack:        typeof parsed["기술스택"] === "string" ? parsed["기술스택"] : (Array.isArray(parsed["기술스택"]) ? (parsed["기술스택"] as string[]).join(", ") : ""),
-    isITCompany:      parsed["IT기업"] === true,
+    companyName:        typeof parsed["회사명"] === "string" ? parsed["회사명"] : "",
+    divisionName:       typeof parsed["사업부"] === "string" ? parsed["사업부"] : "",
+    techStack:          typeof parsed["기술스택"] === "string" ? parsed["기술스택"] : (Array.isArray(parsed["기술스택"]) ? (parsed["기술스택"] as string[]).join(", ") : ""),
+    isITCompany:        parsed["IT기업"] === true,
+    companyDescription: typeof parsed["회사 소개"] === "string" ? parsed["회사 소개"] : "",
+    companyCulture:     typeof parsed["조직 문화"] === "string" ? parsed["조직 문화"] : "",
   };
 }
 

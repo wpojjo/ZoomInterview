@@ -52,7 +52,7 @@ export async function POST(request: NextRequest) {
 
     const { data: jobPosting } = await supabase
       .from("job_postings")
-      .select("responsibilities, requirements, preferredQuals, companyName, divisionName, techStack")
+      .select("responsibilities, requirements, preferredQuals, companyName, divisionName, techStack, companyDescription, companyCulture")
       .eq("userId", userId)
       .order("updatedAt", { ascending: false })
       .limit(1)
@@ -80,6 +80,8 @@ export async function POST(request: NextRequest) {
       companyName: jobPosting.companyName ?? undefined,
       divisionName: jobPosting.divisionName ?? undefined,
       techStack: jobPosting.techStack ?? undefined,
+      companyDescription: jobPosting.companyDescription ?? undefined,
+      companyCulture: jobPosting.companyCulture ?? undefined,
     };
 
     const { thought, selectedAgentId } = await findFollowUpAgent(
