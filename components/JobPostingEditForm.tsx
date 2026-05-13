@@ -41,7 +41,6 @@ export default function JobPostingEditForm({ initialData, isAnalyzing = false, i
   const [analysisError, setAnalysisError] = useState("");
   const [pasteInput, setPasteInput] = useState("");
   const [isPasteAnalyzing, setIsPasteAnalyzing] = useState(false);
-  const [showManualFields, setShowManualFields] = useState(false);
   const analyzeCalledRef = useRef(false);
 
   // 분석 단계 메시지 타이머
@@ -90,7 +89,7 @@ export default function JobPostingEditForm({ initialData, isAnalyzing = false, i
           });
           setMode("view");
         } else if (res.status === 422 && data.needsManualInput) {
-          setAnalysisError("공고 내용을 자동으로 읽지 못했어요. 아래에 공고 텍스트를 붙여넣으면 분석해드릴게요.");
+          setAnalysisError("공고 내용을 자동으로 읽지 못했어요. 이미지로만 된 공고이거나 로그인이 필요한 페이지일 수 있어요. 공고를 보면서 내용을 직접 입력해 주세요.");
           setMode("editing");
         } else {
           setAnalysisError("URL에서 공고 내용을 자동으로 가져오지 못했어요. 직접 입력해 주세요.");
@@ -271,7 +270,7 @@ export default function JobPostingEditForm({ initialData, isAnalyzing = false, i
             value={pasteInput}
             onChange={(e) => setPasteInput(e.target.value)}
             placeholder={"채용공고 페이지의 내용을 복사해서 붙여 넣어주세요\n(회사명, 사업부/팀명, 담당업무, 자격요건, 우대사항 등)"}
-            rows={14}
+            rows={8}
             disabled={isPasteAnalyzing}
             className="input resize-none disabled:opacity-50"
           />
@@ -282,18 +281,10 @@ export default function JobPostingEditForm({ initialData, isAnalyzing = false, i
           >
             {isPasteAnalyzing ? "분석 중..." : "텍스트로 분석하기"}
           </button>
-          <button
-            type="button"
-            onClick={() => setShowManualFields((v) => !v)}
-            className="w-full text-xs text-gray-400 dark:text-slate-500 hover:text-gray-600 dark:hover:text-slate-300 py-1"
-          >
-            {showManualFields ? "직접 입력 닫기" : "직접 입력할게요"}
-          </button>
         </div>
       )}
 
-      {(!analysisError || showManualFields) && (
-        <div className="card p-5 space-y-4">
+      <div className="card p-5 space-y-4">
           {FIELDS.map(({ key, label, required, placeholder }) => (
             <div key={key} className="space-y-1">
               <label className="text-sm font-medium text-gray-700 dark:text-slate-300">
@@ -315,7 +306,6 @@ export default function JobPostingEditForm({ initialData, isAnalyzing = false, i
             </div>
           )}
         </div>
-      )}
 
       <div className="flex items-center justify-between gap-3">
         <button onClick={() => setMode("view")} className="btn-secondary">
