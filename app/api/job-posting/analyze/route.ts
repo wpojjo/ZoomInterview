@@ -10,11 +10,34 @@ import { collectCompanyInfo } from "@/lib/company-info-collector";
 async function fetchPageText(url: string): Promise<{ text: string; markdown: string }> {
   const res = await fetch(`https://r.jina.ai/${url}`, {
     headers: { Accept: "text/plain" },
-    signal: AbortSignal.timeout(30_000),
+    signal: AbortSignal.timeout(60_000),
   });
   if (!res.ok) throw new Error(`페이지 가져오기 실패 (${res.status})`);
   const markdown = await res.text();
   return { text: markdown.slice(0, 8000), markdown };
+}
+
+async function fetchImageUrlsFromHtml(url: string): Promise<string[]> {
+  try {
+    const res = await fetch(url, {
+      headers: {
+        "User-Agent": "Mozilla/5.0 (compatible; Googlebot/2.1)",
+        "Accept": "text/html,application/xhtml+xml",
+      },
+      signal: AbortSignal.timeout(15_000),
+    });
+    if (!res.ok) return [];
+    const html = await res.text();
+    const seen = new Set<string>();
+    const pattern = /<img[^>]+(?:src|data-src)=["'](https?:\/\/[^"']+)["']/gi;
+    let match;
+    while ((match = pattern.exec(html)) !== null) {
+      seen.add(match[1]);
+    }
+    return Array.from(seen);
+  } catch {
+    return [];
+  }
 }
 
 function extractImageUrls(markdown: string): string[] {
@@ -169,8 +192,8 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "저장된 채용공고가 없습니다" }, { status: 404 });
     }
 
-    let text: string;
-    let markdown = "";
+    let text = "";
+    let imageUrls: string[] = [];
 
     if (pastedText) {
       text = pastedText.slice(0, 8000);
@@ -178,26 +201,44 @@ export async function POST(request: NextRequest) {
       if (!posting.sourceUrl) {
         return NextResponse.json({ error: "URL이 없습니다" }, { status: 400 });
       }
-      const fetched = await fetchPageText(posting.sourceUrl);
-      text = fetched.text;
-      markdown = fetched.markdown;
+      try {
+        const fetched = await fetchPageText(posting.sourceUrl);
+        text = fetched.text;
+        imageUrls = extractImageUrls(fetched.markdown);
+      } catch {
+        // Jina 실패 시 HTML 직접 파싱으로 이미지 URL 추출
+        imageUrls = await fetchImageUrlsFromHtml(posting.sourceUrl);
+      }
+
+      if (!text && imageUrls.length === 0) {
+        return NextResponse.json(
+          { error: "공고 내용을 자동으로 읽지 못했습니다.", needsManualInput: true },
+          { status: 422 }
+        );
+      }
     }
 
     let extracted: Awaited<ReturnType<typeof extractJobInfo>>;
 
-    if (!pastedText) {
-      const imageUrls = extractImageUrls(markdown);
-      if (imageUrls.length > 0) {
-        const [textExtracted, ocrTexts] = await Promise.all([
-          extractJobInfo(text),
-          Promise.all(imageUrls.slice(0, 3).map(url => extractTextFromImageUrl(url))),
-        ]);
-        const combinedOcrText = ocrTexts.filter(Boolean).join('\n');
-        extracted = combinedOcrText
-          ? mergeExtracted(textExtracted, await extractJobInfo(combinedOcrText))
-          : textExtracted;
+    if (!pastedText && imageUrls.length > 0) {
+      const textPromise = text ? extractJobInfo(text) : Promise.resolve(null);
+      const [textExtracted, ocrTexts] = await Promise.all([
+        textPromise,
+        Promise.all(imageUrls.slice(0, 3).map(url => extractTextFromImageUrl(url))),
+      ]);
+      const combinedOcrText = ocrTexts.filter(Boolean).join('\n');
+
+      if (textExtracted && combinedOcrText) {
+        extracted = mergeExtracted(textExtracted, await extractJobInfo(combinedOcrText));
+      } else if (combinedOcrText) {
+        extracted = await extractJobInfo(combinedOcrText);
+      } else if (textExtracted) {
+        extracted = textExtracted;
       } else {
-        extracted = await extractJobInfo(text);
+        return NextResponse.json(
+          { error: "공고 내용을 자동으로 읽지 못했습니다.", needsManualInput: true },
+          { status: 422 }
+        );
       }
     } else {
       extracted = await extractJobInfo(text);
