@@ -1,9 +1,11 @@
 # 줌인터뷰
 
 ## 🖥️ 프로젝트 개요
-> 면접관을 보다 가까이서 바라보다.
+> 면접관을 보다 가까이서 바라보다. <br> 실제 면접 상황과 유사한 모의 면접 시뮬레이션 제공
 
-> 실제 면접 상황과 유사한 모의 면접 시뮬레이션 제공
+### 기획 배경
+
+
 
 ### 🛠️ 기여하기
 
@@ -15,6 +17,18 @@
 **사용자 흐름**
 
 사용자 기본 정보 입력 -> 기업 채용 홈페이지 복붙 -> 면접 난이도 선택 -> 면접 진행
+
+
+## 팀원 소개
+
+
+
+
+## 프로젝트 기간
+
+
+
+
 
 
 ## ⚙️ 기술 스택
@@ -88,44 +102,9 @@
 
 ## 🏛️ 시스템 아키텍쳐
 
-```mermaid
-graph TD
-    Client(["👤 사용자"])
-
-    subgraph Vercel
-        FE["Frontend\nReact · TypeScript · Tailwind CSS"]
-        API["Next.js API Routes"]
-    end
-
-    subgraph Supabase
-        Auth["Auth"]
-        DB[("PostgreSQL")]
-    end
-
-    subgraph RunPod["RunPod Serverless"]
-        vLLM["vLLM"]
-        EXAONE["EXAONE 3.5"]
-    end
-
-    GCP_TTS["Google Cloud TTS"]
-    GCP_Vision["Google Cloud Vision (OCR)"]
-    DART["DART API"]
-
-    Client --> FE
-    FE --> API
-    API --> Auth
-    API --> DB
-    API --> vLLM
-    vLLM --> EXAONE
-    API --> GCP_TTS
-    API --> GCP_Vision
-    API --> DART
-```
 
 
 ## 📡 배포 전략
-
-![배포사진](https://github.com/interview-partner/interview-partner/assets/121853214/fd27058b-2e41-40a3-8837-64f4272c98ae)
 
 
 
