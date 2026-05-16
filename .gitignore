@@ -33,6 +33,9 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 
+# local notes
+/notes/
+
 # python cache
 server/__pycache__/
 **/*.pyc
