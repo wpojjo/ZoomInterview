@@ -105,13 +105,19 @@ async function fetchFinancialYear(corpCode: string, year: number): Promise<{ rev
   const data = await res.json() as { status: string; list?: { account_nm: string; thstrm_amount: string; fs_div: string }[] };
   if (data.status !== "000" || !data.list?.length) return null;
 
-  const map: Record<string, number> = {};
+  const REVENUE_NAMES = ["매출액", "영업수익", "보험수익", "이자수익"];
+  const byDiv: Record<string, Record<string, number>> = {};
   for (const item of data.list) {
-    if (item.fs_div !== "CFS") continue;
-    if (item.account_nm === "매출액" || item.account_nm === "영업이익") {
-      map[item.account_nm] = Number(item.thstrm_amount.replace(/,/g, ""));
+    const isRevenue = REVENUE_NAMES.includes(item.account_nm);
+    const isOperatingProfit = item.account_nm === "영업이익" || item.account_nm === "영업이익(손실)";
+    if (!isRevenue && !isOperatingProfit) continue;
+    byDiv[item.fs_div] ??= {};
+    const key = isRevenue ? "매출액" : "영업이익";
+    if (!(key in byDiv[item.fs_div])) {
+      byDiv[item.fs_div][key] = Number(item.thstrm_amount.replace(/,/g, ""));
     }
   }
+  const map = byDiv["OFS"] ?? byDiv["CFS"] ?? {};
   if (!("매출액" in map)) return null;
   return { revenue: map["매출액"], operatingProfit: map["영업이익"] ?? 0 };
 }
@@ -187,21 +193,31 @@ function formatIndutyCls(code: string): string {
   if (n >= 5 && n <= 8) return "광업";
   if (n >= 10 && n <= 12) return "식품·음료 제조업";
   if (n >= 13 && n <= 15) return "섬유·의복 제조업";
+  if (n === 19) return "에너지·정유업";
   if (n === 20) return "화학 제조업";
   if (n === 21) return "의약품 제조업";
-  if (n >= 25 && n <= 28) return "기계·전자 제조업";
+  if (n === 24) return "철강·금속 제조업";
   if (n === 26) return "전자·반도체 제조업";
+  if (n >= 25 && n <= 28) return "기계·전자 제조업";
   if (n === 29 || n === 30) return "자동차·운송장비 제조업";
   if (n >= 10 && n <= 33) return "제조업";
   if (n === 35) return "전기·가스업";
   if (n >= 41 && n <= 42) return "건설업";
+  if (n === 47) return "소매업";
   if (n >= 45 && n <= 47) return "도소매업";
   if (n >= 49 && n <= 52) return "운수·창고업";
   if (n >= 55 && n <= 56) return "숙박·음식점업";
+  if (n === 59) return "미디어·콘텐츠업";
+  if (n === 60) return "방송업";
+  if (n === 61) return "통신업";
   if (n >= 58 && n <= 63) return "정보통신업";
+  if (n === 64) return "금융업";
+  if (n === 65) return "보험업";
   if (n >= 64 && n <= 66) return "금융·보험업";
   if (n === 68) return "부동산업";
+  if (n === 72) return "엔지니어링 서비스업";
   if (n >= 70 && n <= 73) return "전문·과학기술 서비스업";
+  if (n === 82) return "사업지원 서비스업";
   if (n === 85) return "교육 서비스업";
   if (n >= 86 && n <= 87) return "보건·의료업";
   return "";
