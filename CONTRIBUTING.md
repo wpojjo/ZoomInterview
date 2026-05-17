@@ -9,7 +9,7 @@
 **1. 작업 시작 전 main 최신화**
 ```bash
 git checkout main
-git pull
+git pull origin main
 ```
 
 **2. feat 브랜치 생성**
