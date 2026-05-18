@@ -52,7 +52,7 @@ export async function POST(request: NextRequest) {
 
     const { data: jobPosting } = await supabase
       .from("job_postings")
-      .select("responsibilities, requirements, preferredQuals, companyName, divisionName, techStack, companyDescription, companyCulture")
+      .select("id, responsibilities, requirements, preferredQuals, companyName, divisionName, techStack, companyDescription, companyCulture")
       .eq("userId", userId)
       .order("updatedAt", { ascending: false })
       .limit(1)
@@ -64,6 +64,20 @@ export async function POST(request: NextRequest) {
         { status: 404 },
       );
     }
+
+    const { data: companyInfo } = await supabase
+      .from("company_info")
+      .select("company_cache(foundedYear, listingStatus, industrySector, financialSummary, recentDisclosures)")
+      .eq("jobPostingId", jobPosting.id)
+      .maybeSingle();
+
+    const cache = companyInfo?.company_cache as {
+      foundedYear: string | null;
+      listingStatus: string | null;
+      industrySector: string | null;
+      financialSummary: string | null;
+      recentDisclosures: string | null;
+    } | null;
 
     const profileContext = {
       name: profile.name,
@@ -82,6 +96,11 @@ export async function POST(request: NextRequest) {
       techStack: jobPosting.techStack ?? undefined,
       companyDescription: jobPosting.companyDescription ?? undefined,
       companyCulture: jobPosting.companyCulture ?? undefined,
+      foundedYear: cache?.foundedYear ?? undefined,
+      listingStatus: cache?.listingStatus ?? undefined,
+      industrySector: cache?.industrySector ?? undefined,
+      financialSummary: cache?.financialSummary ?? undefined,
+      recentDisclosures: cache?.recentDisclosures ?? undefined,
     };
 
     const { thought, selectedAgentId } = await findFollowUpAgent(

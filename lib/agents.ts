@@ -89,6 +89,12 @@ function buildConversationText(messages: Message[]): string {
 function buildContextBlock(profile: ProfileContext, jobPosting: JobPostingContext): string {
   const profileSummary = buildProfileSummary(profile);
   const jobParts = [
+    jobPosting.companyName ? `회사명: ${jobPosting.companyName}` : "",
+    jobPosting.foundedYear ? `설립: ${jobPosting.foundedYear}` : "",
+    jobPosting.listingStatus ? `상장 현황: ${jobPosting.listingStatus}` : "",
+    jobPosting.industrySector ? `업종: ${jobPosting.industrySector}` : "",
+    jobPosting.financialSummary ? `재무 현황:\n${jobPosting.financialSummary}` : "",
+    jobPosting.recentDisclosures ? `최근 주요 공시:\n${jobPosting.recentDisclosures}` : "",
     jobPosting.responsibilities ? `담당 업무: ${jobPosting.responsibilities}` : "",
     jobPosting.requirements ? `자격 요건: ${jobPosting.requirements}` : "",
     jobPosting.preferredQuals ? `우대 사항: ${jobPosting.preferredQuals}` : "",
