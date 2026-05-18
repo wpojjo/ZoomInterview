@@ -119,32 +119,78 @@ export type Database = {
           },
         ]
       }
+      company_cache: {
+        Row: {
+          ceoName: string | null
+          collectedAt: string
+          companyName: string
+          financialSummary: string | null
+          foundedYear: string | null
+          id: string
+          industrySector: string | null
+          isListed: boolean
+          listingStatus: string | null
+          recentDisclosures: string | null
+        }
+        Insert: {
+          ceoName?: string | null
+          collectedAt?: string
+          companyName: string
+          financialSummary?: string | null
+          foundedYear?: string | null
+          id?: string
+          industrySector?: string | null
+          isListed?: boolean
+          listingStatus?: string | null
+          recentDisclosures?: string | null
+        }
+        Update: {
+          ceoName?: string | null
+          collectedAt?: string
+          companyName?: string
+          financialSummary?: string | null
+          foundedYear?: string | null
+          id?: string
+          industrySector?: string | null
+          isListed?: boolean
+          listingStatus?: string | null
+          recentDisclosures?: string | null
+        }
+        Relationships: []
+      }
       company_info: {
         Row: {
           collectedAt: string
+          companyCacheId: string | null
           companyName: string
-          dartSummary: string | null
           id: string
           isListed: boolean
           jobPostingId: string
         }
         Insert: {
           collectedAt?: string
+          companyCacheId?: string | null
           companyName: string
-          dartSummary?: string | null
           id?: string
           isListed?: boolean
           jobPostingId: string
         }
         Update: {
           collectedAt?: string
+          companyCacheId?: string | null
           companyName?: string
-          dartSummary?: string | null
           id?: string
           isListed?: boolean
           jobPostingId?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "company_info_companyCacheId_fkey"
+            columns: ["companyCacheId"]
+            isOneToOne: false
+            referencedRelation: "company_cache"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "company_info_jobPostingId_fkey"
             columns: ["jobPostingId"]
