@@ -79,6 +79,12 @@ export interface JobPostingContext {
   techStack?: string;
   companyDescription?: string;
   companyCulture?: string;
+  // DART 수집 데이터
+  foundedYear?: string;
+  listingStatus?: string;
+  industrySector?: string;
+  financialSummary?: string;
+  recentDisclosures?: string;
 }
 
 export function buildProfileSummary(profile: ProfileContext): string {
@@ -216,15 +222,44 @@ function buildAgentSystemPrompt(
 이력서나 지금까지 답변에 나온 특정 기술·경험을 직접 짚어서 검증하는 질문을 하나 하세요. 채용공고에 없는 요건을 만들지 마세요.`,
   };
 
+  const commonJobBlock = [
+    `담당 업무: ${jobPosting.responsibilities || "N/A"}`,
+    `자격 요건: ${jobPosting.requirements || "N/A"}`,
+    `우대 사항: ${jobPosting.preferredQuals || "N/A"}`,
+  ].join("\n");
+
+  const agentJobBlock: Record<AgentId, string> = {
+    organization: [
+      jobPosting.companyName ? `회사명: ${jobPosting.companyName}` : "",
+      jobPosting.foundedYear ? `설립: ${jobPosting.foundedYear}` : "",
+      jobPosting.listingStatus ? `상장 현황: ${jobPosting.listingStatus}` : "",
+      jobPosting.industrySector ? `업종: ${jobPosting.industrySector}` : "",
+      jobPosting.companyDescription ? `회사 소개: ${jobPosting.companyDescription}` : "",
+      jobPosting.companyCulture ? `조직 문화: ${jobPosting.companyCulture}` : "",
+      commonJobBlock,
+    ].filter(Boolean).join("\n"),
+    logic: [
+      jobPosting.companyName ? `회사명: ${jobPosting.companyName}` : "",
+      jobPosting.divisionName ? `지원 사업부: ${jobPosting.divisionName}` : "",
+      jobPosting.financialSummary ? `재무 현황:\n${jobPosting.financialSummary}` : "",
+      jobPosting.recentDisclosures ? `최근 주요 공시:\n${jobPosting.recentDisclosures}` : "",
+      commonJobBlock,
+    ].filter(Boolean).join("\n"),
+    technical: [
+      jobPosting.techStack ? `기술스택: ${jobPosting.techStack}` : "",
+      jobPosting.industrySector ? `업종: ${jobPosting.industrySector}` : "",
+      jobPosting.recentDisclosures ? `최근 주요 공시:\n${jobPosting.recentDisclosures}` : "",
+      commonJobBlock,
+    ].filter(Boolean).join("\n"),
+  };
+
   return `${agentRole[agentId]}
 
 [면접 난이도]
 ${DIFFICULTY_QUESTION_HINT[difficulty]}
 
 [채용공고]
-${jobPosting.companyName ? `회사명: ${jobPosting.companyName}\n` : ""}${jobPosting.divisionName ? `지원 사업부: ${jobPosting.divisionName}\n` : ""}${jobPosting.companyDescription ? `회사 소개: ${jobPosting.companyDescription}\n` : ""}${jobPosting.companyCulture ? `조직 문화: ${jobPosting.companyCulture}\n` : ""}담당 업무: ${jobPosting.responsibilities || "N/A"}
-자격 요건: ${jobPosting.requirements || "N/A"}
-우대 사항: ${jobPosting.preferredQuals || "N/A"}${jobPosting.techStack ? `\n기술스택: ${jobPosting.techStack}` : ""}
+${agentJobBlock[agentId]}
 
 [지원자 프로필]
 ${profileSummary}
@@ -459,12 +494,41 @@ async function generateSingleAgentThought(
     .map((m) => `${m.role === "interviewer" ? "면접관" : "지원자"}: ${m.content}`)
     .join("\n\n");
 
+  const thoughtCommonJobBlock = [
+    `담당 업무: ${jobPosting.responsibilities || "N/A"}`,
+    `자격 요건: ${jobPosting.requirements || "N/A"}`,
+    `우대 사항: ${jobPosting.preferredQuals || "N/A"}`,
+  ].join("\n");
+
+  const thoughtAgentJobBlock: Record<AgentId, string> = {
+    organization: [
+      jobPosting.companyName ? `회사명: ${jobPosting.companyName}` : "",
+      jobPosting.foundedYear ? `설립: ${jobPosting.foundedYear}` : "",
+      jobPosting.listingStatus ? `상장 현황: ${jobPosting.listingStatus}` : "",
+      jobPosting.industrySector ? `업종: ${jobPosting.industrySector}` : "",
+      jobPosting.companyDescription ? `회사 소개: ${jobPosting.companyDescription}` : "",
+      jobPosting.companyCulture ? `조직 문화: ${jobPosting.companyCulture}` : "",
+      thoughtCommonJobBlock,
+    ].filter(Boolean).join("\n"),
+    logic: [
+      jobPosting.companyName ? `회사명: ${jobPosting.companyName}` : "",
+      jobPosting.divisionName ? `지원 사업부: ${jobPosting.divisionName}` : "",
+      jobPosting.financialSummary ? `재무 현황:\n${jobPosting.financialSummary}` : "",
+      jobPosting.recentDisclosures ? `최근 주요 공시:\n${jobPosting.recentDisclosures}` : "",
+      thoughtCommonJobBlock,
+    ].filter(Boolean).join("\n"),
+    technical: [
+      jobPosting.techStack ? `기술스택: ${jobPosting.techStack}` : "",
+      jobPosting.industrySector ? `업종: ${jobPosting.industrySector}` : "",
+      jobPosting.recentDisclosures ? `최근 주요 공시:\n${jobPosting.recentDisclosures}` : "",
+      thoughtCommonJobBlock,
+    ].filter(Boolean).join("\n"),
+  };
+
   const systemPrompt = `${AGENT_THOUGHT_PERSONA[agentId]}
 
 [채용공고]
-${jobPosting.companyName ? `회사명: ${jobPosting.companyName}\n` : ""}${jobPosting.divisionName ? `지원 사업부: ${jobPosting.divisionName}\n` : ""}${jobPosting.companyDescription ? `회사 소개: ${jobPosting.companyDescription}\n` : ""}${jobPosting.companyCulture ? `조직 문화: ${jobPosting.companyCulture}\n` : ""}담당 업무: ${jobPosting.responsibilities || "N/A"}
-자격 요건: ${jobPosting.requirements || "N/A"}
-우대 사항: ${jobPosting.preferredQuals || "N/A"}${jobPosting.techStack ? `\n기술스택: ${jobPosting.techStack}` : ""}
+${thoughtAgentJobBlock[agentId]}
 
 [지원자 프로필]
 ${profileSummary}
