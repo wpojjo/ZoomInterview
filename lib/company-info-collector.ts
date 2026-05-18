@@ -56,7 +56,6 @@ function normalizeName(name: string): string {
 
 async function findCorpCode(companyName: string): Promise<{ corp_code: string; stock_code: string | null } | null> {
   const normalized = normalizeName(companyName);
-  // 각 단계에서 stock_code 있는 행(상장사) 우선 정렬
   const queries = [
     supabase.from("dart_corps").select("corp_code, stock_code").eq("corp_name", normalized).order("stock_code", { ascending: false, nullsFirst: false }).limit(1).maybeSingle(),
     supabase.from("dart_corps").select("corp_code, stock_code").ilike("corp_name", `${normalized}%`).order("stock_code", { ascending: false, nullsFirst: false }).limit(1).maybeSingle(),
@@ -150,7 +149,7 @@ async function fetchFinancial3Years(corpCode: string): Promise<string> {
     lines.push(line);
   }
 
-  return lines.length > 0 ? `[재무]\n${lines.join("\n")}` : "";
+  return lines.join("\n");
 }
 
 async function fetchRecentDisclosures(corpCode: string): Promise<string> {
@@ -184,7 +183,7 @@ async function fetchRecentDisclosures(corpCode: string): Promise<string> {
   const lines = filtered.map(item =>
     `${item.rcept_dt.slice(0, 4)}.${item.rcept_dt.slice(4, 6)}.${item.rcept_dt.slice(6, 8)} ${item.report_nm}`
   );
-  return `[최근 주요 공시]\n${lines.join("\n")}`;
+  return lines.join("\n");
 }
 
 function formatIndutyCls(code: string): string {
@@ -224,57 +223,92 @@ function formatIndutyCls(code: string): string {
 }
 
 function formatEstDate(estDt: string): string {
-  return estDt.length >= 4 ? `${estDt.slice(0, 4)}년 설립` : "";
+  return estDt.length >= 4 ? `${estDt.slice(0, 4)}년` : "";
 }
 
 function formatCorpCls(corpCls: string, stockCode: string | null): string {
   if (!stockCode?.trim()) return "";
-  const map: Record<string, string> = { Y: "코스피", K: "코스닥", N: "코넥스" };
-  return map[corpCls] ? `${map[corpCls]} 상장` : "상장사";
+  const map: Record<string, string> = { Y: "코스피 상장", K: "코스닥 상장", N: "코넥스 상장" };
+  return map[corpCls] ?? "상장사";
 }
 
-async function fetchDartInfo(corpCode: string, stockCode: string | null): Promise<string> {
-  const isListed = !!stockCode?.trim();
-
-  const [detail, financial, disclosures] = await Promise.all([
-    fetchCompanyDetail(corpCode),
-    isListed ? fetchFinancial3Years(corpCode) : Promise.resolve(""),
-    isListed ? fetchRecentDisclosures(corpCode) : Promise.resolve(""),
-  ]);
-
-  const parts: string[] = [];
-
-  if (detail) {
-    const basicParts: string[] = [];
-    if (detail.ceo_nm) basicParts.push(`대표이사 ${detail.ceo_nm}`);
-    if (detail.est_dt) basicParts.push(formatEstDate(detail.est_dt));
-    const listingStr = formatCorpCls(detail.corp_cls, stockCode);
-    if (listingStr) basicParts.push(listingStr);
-    const indutyStr = detail.induty_code ? formatIndutyCls(detail.induty_code) : "";
-    if (indutyStr) basicParts.push(`업종 ${indutyStr}`);
-    if (basicParts.length > 0) parts.push(basicParts.join(" | "));
-  }
-
-  if (financial) parts.push(financial);
-  if (disclosures) parts.push(disclosures);
-
-  return parts.join("\n");
-}
+const CACHE_TTL_MS = 180 * 24 * 60 * 60 * 1000; // 6개월
 
 export async function collectCompanyInfo(jobPostingId: string, companyName: string): Promise<void> {
   if (!API_KEY || !companyName) return;
 
   try {
-    const corp = await findCorpCode(companyName);
-    const isListed = corp !== null && !!corp.stock_code?.trim();
-    const dartSummary = corp ? await fetchDartInfo(corp.corp_code, corp.stock_code) : null;
+    // 6개월 이내 캐시가 있으면 재사용
+    const { data: cached } = await supabase
+      .from("company_cache")
+      .select("id, collectedAt")
+      .eq("companyName", companyName)
+      .maybeSingle();
+
+    let companyCacheId: string;
+
+    if (cached && Date.now() - new Date(cached.collectedAt).getTime() < CACHE_TTL_MS) {
+      companyCacheId = cached.id;
+    } else {
+      // DART에서 새로 수집
+      const corp = await findCorpCode(companyName);
+      const isListed = corp !== null && !!corp.stock_code?.trim();
+
+      let ceoName: string | null = null;
+      let foundedYear: string | null = null;
+      let listingStatus: string | null = null;
+      let industrySector: string | null = null;
+      let financialSummary: string | null = null;
+      let recentDisclosures: string | null = null;
+
+      if (corp) {
+        const [detail, financial, disclosures] = await Promise.all([
+          fetchCompanyDetail(corp.corp_code),
+          isListed ? fetchFinancial3Years(corp.corp_code) : Promise.resolve(""),
+          isListed ? fetchRecentDisclosures(corp.corp_code) : Promise.resolve(""),
+        ]);
+
+        if (detail) {
+          if (detail.ceo_nm) ceoName = detail.ceo_nm;
+          if (detail.est_dt) foundedYear = formatEstDate(detail.est_dt);
+          const ls = formatCorpCls(detail.corp_cls, corp.stock_code);
+          if (ls) listingStatus = ls;
+          const is = detail.induty_code ? formatIndutyCls(detail.induty_code) : "";
+          if (is) industrySector = is;
+        }
+        if (financial) financialSummary = financial;
+        if (disclosures) recentDisclosures = disclosures;
+      }
+
+      const { data: upserted, error } = await supabase
+        .from("company_cache")
+        .upsert(
+          {
+            companyName,
+            ceoName,
+            foundedYear,
+            listingStatus,
+            industrySector,
+            financialSummary,
+            recentDisclosures,
+            isListed,
+            collectedAt: new Date().toISOString(),
+          },
+          { onConflict: "companyName" },
+        )
+        .select("id")
+        .single();
+
+      if (error || !upserted) throw error ?? new Error("company_cache upsert 실패");
+      companyCacheId = upserted.id;
+    }
 
     await supabase.from("company_info").upsert(
       {
         jobPostingId,
         companyName,
-        isListed,
-        dartSummary: dartSummary || null,
+        isListed: false, // company_cache에서 실제 값 읽으므로 여기선 placeholder
+        companyCacheId,
         collectedAt: new Date().toISOString(),
       },
       { onConflict: "jobPostingId" },
