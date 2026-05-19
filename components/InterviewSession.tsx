@@ -256,6 +256,9 @@ function QuestionBubble({ agentId, question, difficulty }: { agentId: AgentId; q
   const hasGeneratedRef = useRef(false);
   const isAudioOnly = difficulty === "normal" || difficulty === "hard";
 
+  const [audioReady, setAudioReady] = useState(false);
+  const [isPlaying, setIsPlaying] = useState(false);
+
   useEffect(() => {
     // 질문 입력이 완료되거나 음성 전용 모드에서 텍스트가 있으면 자동으로 음성 생성 및 재생
     if ((done || isAudioOnly) && !hasGeneratedRef.current && question) {
@@ -273,6 +276,7 @@ function QuestionBubble({ agentId, question, difficulty }: { agentId: AgentId; q
 
           if (audioRef.current) {
             audioRef.current.src = data.audioUri;
+            setAudioReady(true);
             audioRef.current.play();
           }
         } catch (error) {
@@ -281,6 +285,12 @@ function QuestionBubble({ agentId, question, difficulty }: { agentId: AgentId; q
       })();
     }
   }, [done, isAudioOnly, question, agentId]);
+
+  function replayAudio() {
+    if (!audioRef.current || !audioReady) return;
+    audioRef.current.currentTime = 0;
+    audioRef.current.play();
+  }
 
   return (
     <div className="relative mt-2">
@@ -296,14 +306,38 @@ function QuestionBubble({ agentId, question, difficulty }: { agentId: AgentId; q
           </p>
         )}
         {isAudioOnly && (
-          <p className="text-gray-400 dark:text-slate-500 text-[15px] leading-relaxed italic">
-            음성으로 질문을 들어주세요...
-          </p>
+          <div className="flex items-center justify-between gap-3">
+            <p className="text-gray-400 dark:text-slate-500 text-[15px] leading-relaxed italic">
+              {isPlaying ? "면접관이 질문 중입니다..." : "음성으로 질문을 들어주세요"}
+            </p>
+            <button
+              type="button"
+              onClick={replayAudio}
+              disabled={!audioReady || isPlaying}
+              className={`shrink-0 flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-lg border transition-colors ${
+                !audioReady
+                  ? "text-gray-300 dark:text-slate-600 border-gray-100 dark:border-slate-700 cursor-not-allowed"
+                  : isPlaying
+                    ? `${meta.color} ${meta.border} opacity-60 cursor-not-allowed`
+                    : `${meta.color} ${meta.border} hover:bg-gray-50 dark:hover:bg-slate-700/50`
+              }`}
+              title={!audioReady ? "음성을 준비 중입니다" : isPlaying ? "재생 중" : "음성 다시 듣기"}
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <polyline points="1 4 1 10 7 10" />
+                <path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10" />
+              </svg>
+              {isPlaying ? "재생 중" : "다시 듣기"}
+            </button>
+          </div>
         )}
       </div>
       <audio
         ref={audioRef}
         className="hidden"
+        onPlay={() => setIsPlaying(true)}
+        onPause={() => setIsPlaying(false)}
+        onEnded={() => setIsPlaying(false)}
       />
     </div>
   );

@@ -79,6 +79,8 @@ export interface JobPostingContext {
   techStack?: string;
   companyDescription?: string;
   companyCulture?: string;
+  newsContext?: string; // 직무별 뉴스 데이터 컨텍스트
+  jobClassification?: string; // 21개 직무 분류
 }
 
 export function buildProfileSummary(profile: ProfileContext): string {
@@ -226,9 +228,20 @@ ${DIFFICULTY_QUESTION_HINT[difficulty]}
 [채용공고]
 ${jobPosting.companyName ? `회사명: ${jobPosting.companyName}\n` : ""}${jobPosting.divisionName ? `지원 사업부: ${jobPosting.divisionName}\n` : ""}${jobPosting.companyDescription ? `회사 소개: ${jobPosting.companyDescription}\n` : ""}${jobPosting.companyCulture ? `조직 문화: ${jobPosting.companyCulture}\n` : ""}담당 업무: ${jobPosting.responsibilities || "N/A"}
 자격 요건: ${jobPosting.requirements || "N/A"}
-우대 사항: ${jobPosting.preferredQuals || "N/A"}${jobPosting.techStack ? `\n기술스택: ${jobPosting.techStack}` : ""}
+우대 사항: ${jobPosting.preferredQuals || "N/A"}${jobPosting.techStack ? `\n기술스택: ${jobPosting.techStack}` : ""}${jobPosting.jobClassification ? `\n직무분류: ${jobPosting.jobClassification}` : ""}
 
-[지원자 프로필]
+${jobPosting.newsContext ? `[최근 업계 뉴스 및 동향 — 면접 질문 생성에 적극 활용할 것]
+${jobPosting.newsContext}
+
+[뉴스 활용 필수 지침]
+- 위 "주요 이슈"와 "최근 뉴스"는 회사의 실시간 컨텍스트입니다. 면접 질문 1개 이상에 반드시 자연스럽게 녹여내세요.
+- 뉴스 내용을 그대로 읊지 말 것. 대신 지원자의 입장·판단·경험과 연결해 질문하세요.
+  좋은 예: "최근 회사에서 [이슈]를 두고 [상황]에 직면해 있다고 들었습니다. 만약 ${jobPosting.divisionName || "해당 부서"}에서 이런 문제를 만난다면 어떤 관점으로 접근하시겠어요?"
+  나쁜 예: "최근 뉴스에서 [이슈]가 있던데 알고 계신가요?" (단순 지식 확인은 금지)
+- 단, 뉴스가 직무·역할과 무관하다면 억지로 끼워넣지 말 것. 자연스러움이 우선.
+- 첫 질문(자기소개·지원동기)이 아닌 두 번째 이후 질문에서 활용하는 것을 권장합니다.
+
+` : ""}[지원자 프로필]
 ${profileSummary}
 
 [면접 가이드]
@@ -292,6 +305,15 @@ export async function generateAgentBaseQuestion(
 
   const systemPrompt = buildAgentSystemPrompt(agentId, profile, jobPosting, difficulty);
 
+  const newsHint = jobPosting.newsContext
+    ? `
+
+[뉴스 활용 우선 옵션]
+시스템 프롬프트에 [최근 업계 뉴스 및 동향]이 주입돼 있습니다. 뉴스의 "주요 이슈"가 이 직무와 연관성이 있다면,
+지금까지 다루지 않은 경우 이번 질문에서 우선적으로 활용하세요. 단, 뉴스 내용을 그대로 읊지 말고 지원자의
+입장·판단·경험과 연결한 형태로 질문하세요.`
+    : "";
+
   const baseQuestionGuide: Record<AgentId, string> = {
     organization: `이미 첫 질문(자기소개/지원동기)은 완료됐습니다.
 이제 가치관, 자기 인식, 조직 적합성을 더 깊이 파악하세요.
@@ -300,21 +322,26 @@ export async function generateAgentBaseQuestion(
 - 지원 동기가 추상적이라면: "이 회사에서 특별히 하고 싶은 일이나 이루고 싶은 목표가 있으신가요?"
 - 커리어 전환이나 공백이 있다면: "이전과 다른 방향으로 지원하셨는데, 이 변화를 결심하게 된 계기가 있으신가요?"
 - 신입이라면: "학교 생활이나 활동 중에 본인이 성장했다고 느낀 경험이 있으면 말씀해주세요."
+- 뉴스 이슈를 활용한다면: "최근 회사가 [뉴스 이슈] 상황에 있는데, 이런 환경에서 본인이 어떤 가치로 일하고 싶으신가요?" 같은 가치관·태도 연결 질문
 
-한국어로 정확히 한 가지 질문만 하세요. 이미 다룬 내용은 반복하지 마세요.`,
+한국어로 정확히 한 가지 질문만 하세요. 이미 다룬 내용은 반복하지 마세요.${newsHint}`,
     logic: `채용공고와 관련된 경험 기반 질문을 하세요.
 
 좋은 패턴:
 - "지금까지 경험 중에서 [직무 관련 도전]과 비슷한 상황이 있었나요? 그때 어떻게 대처하셨는지 구체적으로 말씀해주세요."
 - "가장 기억에 남는 실패 경험과, 그 이후 어떻게 달라졌는지 말씀해주세요."
+- 뉴스 이슈를 활용한다면: "회사가 [뉴스 이슈]를 겪고 있는데, 본인 경험 중에 비슷한 [의사결정/트레이드오프] 상황이 있었나요? 어떻게 판단하고 행동하셨는지 구체적으로 말씀해주세요."
 
-STAR, S, T, A, R 같은 영어 약어를 출력에 사용하지 마세요.`,
-    technical: `채용공고의 요건에만 근거해서 질문 하나를 하세요.
+STAR, S, T, A, R 같은 영어 약어를 출력에 사용하지 마세요.${newsHint}`,
+    technical: `채용공고의 요건에 근거해서 질문 하나를 하세요.
 
 패턴: "공고에서 [요건 X]를 요구하고 있는데, 실제로 관련 경험이 있으신가요? 어떤 상황이었고 어떤 결과를 냈는지 말씀해주세요."
+- 뉴스 이슈가 기술·실무와 직접 관련(예: 신기술 도입, 보안 사고, 데이터 인프라)이면 활용 가능:
+  "회사가 최근 [뉴스의 기술 이슈]를 추진하고 있는데, 이런 환경에서 [요건 X] 경험이 어떻게 적용될 수 있을지 구체적으로 말씀해주세요."
+- 뉴스가 비기술 이슈(투자·매출·경영)면 무시하고 채용공고 요건에 집중.
 
 신입이라면 해당 요건과 관련된 학교 프로젝트나 자기 학습 경험을 물어보세요.
-공고에 없는 요건을 만들지 마세요.`,
+공고에 없는 요건을 만들지 마세요.${newsHint}`,
   };
 
   const conversationText = messages
@@ -466,9 +493,20 @@ async function generateSingleAgentThought(
 [채용공고]
 ${jobPosting.companyName ? `회사명: ${jobPosting.companyName}\n` : ""}${jobPosting.divisionName ? `지원 사업부: ${jobPosting.divisionName}\n` : ""}${jobPosting.companyDescription ? `회사 소개: ${jobPosting.companyDescription}\n` : ""}${jobPosting.companyCulture ? `조직 문화: ${jobPosting.companyCulture}\n` : ""}담당 업무: ${jobPosting.responsibilities || "N/A"}
 자격 요건: ${jobPosting.requirements || "N/A"}
-우대 사항: ${jobPosting.preferredQuals || "N/A"}${jobPosting.techStack ? `\n기술스택: ${jobPosting.techStack}` : ""}
+우대 사항: ${jobPosting.preferredQuals || "N/A"}${jobPosting.techStack ? `\n기술스택: ${jobPosting.techStack}` : ""}${jobPosting.jobClassification ? `\n직무분류: ${jobPosting.jobClassification}` : ""}
 
-[지원자 프로필]
+${jobPosting.newsContext ? `[최근 업계 뉴스 및 동향 — 면접 질문 생성에 적극 활용할 것]
+${jobPosting.newsContext}
+
+[뉴스 활용 필수 지침]
+- 위 "주요 이슈"와 "최근 뉴스"는 회사의 실시간 컨텍스트입니다. 면접 질문 1개 이상에 반드시 자연스럽게 녹여내세요.
+- 뉴스 내용을 그대로 읊지 말 것. 대신 지원자의 입장·판단·경험과 연결해 질문하세요.
+  좋은 예: "최근 회사에서 [이슈]를 두고 [상황]에 직면해 있다고 들었습니다. 만약 ${jobPosting.divisionName || "해당 부서"}에서 이런 문제를 만난다면 어떤 관점으로 접근하시겠어요?"
+  나쁜 예: "최근 뉴스에서 [이슈]가 있던데 알고 계신가요?" (단순 지식 확인은 금지)
+- 단, 뉴스가 직무·역할과 무관하다면 억지로 끼워넣지 말 것. 자연스러움이 우선.
+- 첫 질문(자기소개·지원동기)이 아닌 두 번째 이후 질문에서 활용하는 것을 권장합니다.
+
+` : ""}[지원자 프로필]
 ${profileSummary}
 
 반드시 유효한 JSON만 응답하세요 — 다른 텍스트 없이.`;

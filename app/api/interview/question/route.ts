@@ -9,6 +9,8 @@ import {
   Difficulty,
   Message,
 } from "@/lib/interview";
+import { detectJobClassification } from "@/lib/job-classifications";
+import { fetchNewsForJobPosting, formatNewsContextForPrompt } from "@/lib/naver-news-crawler";
 
 export async function POST(request: NextRequest) {
   try {
@@ -72,6 +74,28 @@ export async function POST(request: NextRequest) {
       activities: activities ?? [],
     };
 
+    // 채용공고에서 21개 직무 분류 자동 감지
+    const jobText = `${jobPosting.responsibilities ?? ""} ${jobPosting.requirements ?? ""}`;
+    const classification = detectJobClassification(jobText);
+
+    // 직무별 네이버 뉴스 수집은 기본(normal) · 심화(hard) 난이도에서만 활용
+    // 연습(tutorial) · 입문(easy)에서는 채용공고·프로필에만 집중
+    const useNews = difficulty === "normal" || difficulty === "hard";
+    let newsContext: string | undefined = undefined;
+    if (useNews && classification && jobPosting.companyName) {
+      try {
+        const newsResult = await fetchNewsForJobPosting(
+          classification,
+          jobPosting.companyName,
+          jobPosting.responsibilities ?? "",
+          jobPosting.techStack ?? "",
+        );
+        newsContext = formatNewsContextForPrompt(newsResult);
+      } catch (error) {
+        console.warn("뉴스 수집 실패 (무시됨):", error);
+      }
+    }
+
     const jobPostingContext = {
       responsibilities: jobPosting.responsibilities ?? "",
       requirements: jobPosting.requirements ?? "",
@@ -81,6 +105,8 @@ export async function POST(request: NextRequest) {
       techStack: jobPosting.techStack ?? undefined,
       companyDescription: jobPosting.companyDescription ?? undefined,
       companyCulture: jobPosting.companyCulture ?? undefined,
+      jobClassification: classification ?? undefined,
+      newsContext: newsContext,
     };
 
     const result = await generateAgentBaseQuestion(
