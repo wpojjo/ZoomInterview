@@ -89,6 +89,12 @@ function buildConversationText(messages: Message[]): string {
 function buildContextBlock(profile: ProfileContext, jobPosting: JobPostingContext): string {
   const profileSummary = buildProfileSummary(profile);
   const jobParts = [
+    jobPosting.companyName ? `회사명: ${jobPosting.companyName}` : "",
+    jobPosting.foundedYear ? `설립: ${jobPosting.foundedYear}` : "",
+    jobPosting.listingStatus ? `상장 현황: ${jobPosting.listingStatus}` : "",
+    jobPosting.industrySector ? `업종: ${jobPosting.industrySector}` : "",
+    jobPosting.financialSummary ? `재무 현황:\n${jobPosting.financialSummary}` : "",
+    jobPosting.recentDisclosures ? `최근 주요 공시:\n${jobPosting.recentDisclosures}` : "",
     jobPosting.responsibilities ? `담당 업무: ${jobPosting.responsibilities}` : "",
     jobPosting.requirements ? `자격 요건: ${jobPosting.requirements}` : "",
     jobPosting.preferredQuals ? `우대 사항: ${jobPosting.preferredQuals}` : "",
@@ -99,36 +105,36 @@ function buildContextBlock(profile: ProfileContext, jobPosting: JobPostingContex
 // ── 에이전트별 시스템 프롬프트 ────────────────────────────────────────────
 
 const AGENT_SYSTEM_PROMPTS: Record<AgentId, string> = {
-  logic: `당신은 [논리전문가] 에이전트입니다.
-평가 철학: "이건 사실인가? 아니면 그럴듯하게 포장된 말인가?"
-칭찬은 최소화하고, 답변 품질을 3가지 기준으로 정밀 분석합니다.
+  logic: `당신은 [실무 팀장] 에이전트입니다.
+평가 철학: "이 사람, 내 팀에서 실제로 어떻게 일할 사람인가?"
+경험의 주도성과 행동 구체성을 3가지 기준으로 정밀 분석합니다.
 
 평가 기준 (0-100점):
-1. 주장-근거 일치도 (0-40): 주장마다 구체적 근거가 있는가. 근거 없이 주장만 있는 문장은 직접 인용해서 지적하세요.
-2. 검증 가능성 (0-30): "좋아졌다", "성과가 있었다" 같은 표현은 직접 인용 후 검증 불가로 분류하세요. 수치가 있어도 기간·기준·모집단이 없으면 낮게 평가하세요.
-3. 논리 구조 (0-30): "열심히 했고 결과가 좋았다"는 인과 불명확으로 판정하세요. 모순·과장 탐지 시 직접 인용하세요. 모순 없으면 "없음"으로 명시하세요.
+1. 경험 주도성 (0-40): "우리 팀이 했다"와 "내가 했다"를 구분. 본인의 직접 행동이 명확한지 확인하세요. 주어가 불분명한 문장은 직접 인용해서 지적하세요.
+2. 행동 구체성 (0-30): 어떻게 판단하고 행동했는지 과정이 있는가. "열심히 했다", "잘 해결했다" 같은 결과 선언만 있으면 직접 인용 후 낮게 평가하세요.
+3. 성과 재현 가능성 (0-30): 성과 뒤에 역량이 보이는가, 아니면 운이나 환경 덕분인가. 수치가 있어도 기간·기준·모집단이 없으면 검증 불가로 분류하세요.
 
 반드시 유효한 JSON만 응답하세요 — 다른 텍스트 없이.`,
 
-  technical: `당신은 [기술전문가] 에이전트입니다.
-평가 철학: "그래서 이 사람, 내일 당장 써먹을 수 있냐?"
-직무 수행 능력을 3가지 기준으로 정밀 분석합니다.
+  technical: `당신은 [현업 선임] 에이전트입니다.
+평가 철학: "이력서에 써놓은 것들, 실제로 아는 건가?"
+기술 역량의 실사용 여부와 직무 연결성을 3가지 기준으로 정밀 분석합니다.
 
 평가 기준 (0-100점):
-1. STAR 충족도 (0-40): 상황(S)·과제(T)·행동(A)·결과(R) 각각 있는지 확인. 빠진 항목과 이유를 명시하세요.
-2. 직무 연관성 (0-40): 툴 이름이 명시되어야 확인 가능. "데이터 분석"만 있고 툴이 없으면 낮게 평가하세요. 직무 요건과 직접 대조하세요.
-3. 경험 구체성 (0-20): "저는 분석했다" vs "팀이 결정했다"를 구분. 경험 주도성이 명확한지, 성과에 수치+기간+기준이 있는지 분석하세요.
+1. 기술 실사용 여부 (0-40): 툴·방법론 이름이 있어야 확인 가능. "데이터 분석"만 있고 툴이 없으면 낮게 평가하세요. 직무 요건과 직접 대조하세요.
+2. 기술적 선택 근거 (0-40): 왜 그 툴을, 왜 그 방법을 썼는지 설명할 수 있는가. 근거 없이 툴 이름만 나열하면 낮게 평가하세요.
+3. 경험 주도성 (0-20): "저는 구현했다" vs "팀이 결정했다"를 구분. 본인이 주도한 건지 명확한지 분석하세요.
 
 반드시 유효한 JSON만 응답하세요 — 다른 텍스트 없이.`,
 
-  organization: `당신은 [조직전문가] 에이전트입니다.
-평가 철학: "이 사람, 같이 일하면 좋은가? 오래 갈 사람인가?"
-답변의 성장 서술 품질을 3가지 기준으로 정밀 분석합니다.
+  organization: `당신은 [HR 담당자] 에이전트입니다.
+평가 철학: "왜 하필 우리 회사인가? 이 직무가 진짜 이 사람 길인가?"
+지원동기의 구체성과 조직 적합성을 3가지 기준으로 정밀 분석합니다.
 
 평가 기준 (0-100점):
-1. 성장 서술 구체성 (0-40): 성장 경험이 구체적 사례·행동·결과 중심으로 서술됐는가. "열심히 하겠다" 선언만 있으면 낮게 평가하세요. 모호한 표현은 직접 인용하세요.
-2. 협업 경험 묘사 충실도 (0-40): 협업·갈등 사례가 행동 중심으로 서술됐는가. "잘 해결했다"는 빈 표현으로 직접 인용 후 지적하세요. 사례 없으면 "사례 없음"으로 명시하세요.
-3. 기여 지향성 (0-20): "배우고 싶다" = 수혜, "기여하고 싶다" = 기여. 두 표현의 비율을 분석하세요.
+1. 지원동기 구체성 (0-40): "성장 가능성이 좋아서" 같은 보편적 표현은 직접 인용 후 낮게 평가하세요. 이 회사·직무여야 하는 구체적 이유가 있는지 확인하세요.
+2. 직무·회사 이해도 (0-30): 채용공고나 회사를 실제로 조사했다는 근거가 답변에 있는가. 준비 없이 온 흔적이 보이면 낮게 평가하세요.
+3. 조직 적합성 (0-30): 커리어 방향이 이 직무와 일치하는가. 경력자라면 이직 이유가 긍정적인지 분석하세요. "배우고 싶다" 수혜 지향과 "기여하고 싶다" 기여 지향을 구분하세요.
 
 반드시 유효한 JSON만 응답하세요 — 다른 텍스트 없이.`,
 };
@@ -161,28 +167,28 @@ export async function generateAgentEvaluation(
 
   if (agentId === "logic") {
     jsonSchema = `{
-  "argumentEval": "<주장마다 근거가 있는지 분석. 근거 없는 주장 직접 인용. 없으면 '없음'>",
-  "verifiabilityEval": "<검증 불가 표현 직접 인용 + 이유. 없으면 '없음'>",
-  "logicEval": "<논리적 모순이나 인과오류 분석. 없으면 '없음'>",
-  "score": <0-100 정수. 주장-근거 일치도(0-40) + 검증가능성(0-30) + 논리구조(0-30)>,
+  "ownershipEval": "<본인이 직접 한 행동과 팀이 한 것을 구분 분석. 주어 불분명한 문장 직접 인용. 없으면 '없음'>",
+  "actionEval": "<어떻게 판단하고 행동했는지 과정 분석. '열심히 했다' 같은 결과 선언만 있으면 직접 인용. 없으면 '없음'>",
+  "resultEval": "<성과 재현 가능성 분석. 수치가 있어도 기간·기준·모집단 없으면 검증 불가로 분류. 없으면 '없음'>",
+  "score": <0-100 정수. 경험 주도성(0-40) + 행동 구체성(0-30) + 성과 재현 가능성(0-30)>,
   "verdict": "<이 답변의 가장 중요한 개선 포인트 1문장. 구체적 인용 포함>",
   "opinion": "<전체 평가 요약 3~4문장. 답변 직접 인용 포함>"
 }`;
   } else if (agentId === "technical") {
     jsonSchema = `{
-  "starEval": "<STAR 구조 충족도 분석. 빠진 항목 명시. 없으면 '없음'>",
-  "jobRelevanceEval": "<직무 요건과의 연관성 분석>",
-  "experienceEval": "<경험 구체성 및 주도성 분석. 모호한 표현 직접 인용>",
-  "score": <0-100 정수. STAR 충족도(0-40) + 직무 연관성(0-40) + 경험 구체성(0-20)>,
+  "techUsageEval": "<이력서·답변에 나온 기술·툴 실사용 여부 분석. 툴 이름 없이 개념만 언급한 경우 직접 인용. 없으면 '없음'>",
+  "techReasonEval": "<기술적 선택 근거 분석. 왜 그 툴·방법을 썼는지 설명이 있는지. 근거 없이 나열만 하면 직접 인용. 없으면 '없음'>",
+  "ownershipEval": "<본인이 주도한 건지 팀이 한 건지 구분 분석. 모호한 표현 직접 인용. 없으면 '없음'>",
+  "score": <0-100 정수. 기술 실사용 여부(0-40) + 기술적 선택 근거(0-40) + 경험 주도성(0-20)>,
   "verdict": "<이 답변의 가장 중요한 개선 포인트 1문장. 구체적 인용 포함>",
   "opinion": "<전체 평가 요약 3~4문장. 답변 직접 인용 및 직무 요건과 대조 포함>"
 }`;
   } else {
     jsonSchema = `{
-  "growthEval": "<성장 경험의 구체성 분석. 모호한 성장 서술 직접 인용>",
-  "collaborationEval": "<협업/갈등 사례의 행동 중심 서술 여부 분석>",
-  "contributionEval": "<기여 지향성 분석. 수혜 vs 기여 표현 비율>",
-  "score": <0-100 정수. 성장 구체성(0-40) + 협업 묘사(0-40) + 기여 지향성(0-20)>,
+  "motivationEval": "<지원동기 구체성 분석. '성장 가능성이 좋아서' 같은 보편적 표현 직접 인용. 없으면 '없음'>",
+  "understandingEval": "<직무·회사 이해도 분석. 준비 없이 온 흔적이 있으면 직접 인용. 없으면 '없음'>",
+  "fitEval": "<조직 적합성 분석. 커리어 방향과 직무 일치 여부, 수혜 vs 기여 지향 구분. 없으면 '없음'>",
+  "score": <0-100 정수. 지원동기 구체성(0-40) + 직무·회사 이해도(0-30) + 조직 적합성(0-30)>,
   "verdict": "<이 답변의 가장 중요한 개선 포인트 1문장. 구체적 인용 포함>",
   "opinion": "<전체 평가 요약 3~4문장. 답변 직접 인용 포함>"
 }`;
@@ -203,18 +209,18 @@ ${jsonSchema}
 
   if (agentId === "logic") {
     const parsed = extractJSON<{
-      argumentEval: string;
-      verifiabilityEval: string;
-      logicEval: string;
+      ownershipEval: string;
+      actionEval: string;
+      resultEval: string;
       score: number;
       verdict: string;
       opinion: string;
     }>(raw);
 
     const highlights = [
-      parsed.argumentEval && parsed.argumentEval !== "없음" ? `주장-근거: ${parsed.argumentEval}` : null,
-      parsed.verifiabilityEval && parsed.verifiabilityEval !== "없음" ? `검증가능성: ${parsed.verifiabilityEval}` : null,
-      parsed.logicEval && parsed.logicEval !== "없음" ? `논리구조: ${parsed.logicEval}` : null,
+      parsed.ownershipEval && parsed.ownershipEval !== "없음" ? `경험 주도성: ${parsed.ownershipEval}` : null,
+      parsed.actionEval && parsed.actionEval !== "없음" ? `행동 구체성: ${parsed.actionEval}` : null,
+      parsed.resultEval && parsed.resultEval !== "없음" ? `성과 재현 가능성: ${parsed.resultEval}` : null,
     ].filter(Boolean) as string[];
 
     return {
@@ -231,18 +237,18 @@ ${jsonSchema}
 
   if (agentId === "technical") {
     const parsed = extractJSON<{
-      starEval: string;
-      jobRelevanceEval: string;
-      experienceEval: string;
+      techUsageEval: string;
+      techReasonEval: string;
+      ownershipEval: string;
       score: number;
       verdict: string;
       opinion: string;
     }>(raw);
 
     const highlights = [
-      parsed.starEval && parsed.starEval !== "없음" ? `STAR: ${parsed.starEval}` : null,
-      parsed.jobRelevanceEval && parsed.jobRelevanceEval !== "없음" ? `직무 연관성: ${parsed.jobRelevanceEval}` : null,
-      parsed.experienceEval && parsed.experienceEval !== "없음" ? `경험 구체성: ${parsed.experienceEval}` : null,
+      parsed.techUsageEval && parsed.techUsageEval !== "없음" ? `기술 실사용: ${parsed.techUsageEval}` : null,
+      parsed.techReasonEval && parsed.techReasonEval !== "없음" ? `기술 선택 근거: ${parsed.techReasonEval}` : null,
+      parsed.ownershipEval && parsed.ownershipEval !== "없음" ? `경험 주도성: ${parsed.ownershipEval}` : null,
     ].filter(Boolean) as string[];
 
     return {
@@ -259,18 +265,18 @@ ${jsonSchema}
 
   // organization
   const parsed = extractJSON<{
-    growthEval: string;
-    collaborationEval: string;
-    contributionEval: string;
+    motivationEval: string;
+    understandingEval: string;
+    fitEval: string;
     score: number;
     verdict: string;
     opinion: string;
   }>(raw);
 
   const highlights = [
-    parsed.growthEval && parsed.growthEval !== "없음" ? `성장 구체성: ${parsed.growthEval}` : null,
-    parsed.collaborationEval && parsed.collaborationEval !== "없음" ? `협업 묘사: ${parsed.collaborationEval}` : null,
-    parsed.contributionEval && parsed.contributionEval !== "없음" ? `기여 지향성: ${parsed.contributionEval}` : null,
+    parsed.motivationEval && parsed.motivationEval !== "없음" ? `지원동기: ${parsed.motivationEval}` : null,
+    parsed.understandingEval && parsed.understandingEval !== "없음" ? `직무·회사 이해도: ${parsed.understandingEval}` : null,
+    parsed.fitEval && parsed.fitEval !== "없음" ? `조직 적합성: ${parsed.fitEval}` : null,
   ].filter(Boolean) as string[];
 
   return {
@@ -458,28 +464,28 @@ export async function generateAgentFinalOpinion(
   let jsonSchema: string;
   if (agentId === "logic") {
     jsonSchema = `{
-  "argumentEval": "<주장마다 근거가 있는지 분석. 근거 없는 주장 직접 인용. 없으면 '없음'>",
-  "verifiabilityEval": "<검증 불가 표현 직접 인용 + 이유. 없으면 '없음'>",
-  "logicEval": "<논리적 모순이나 인과오류 분석. 없으면 '없음'>",
-  "score": <0-100 정수. 주장-근거 일치도(0-40) + 검증가능성(0-30) + 논리구조(0-30)>,
+  "ownershipEval": "<본인이 직접 한 행동과 팀이 한 것을 구분 분석. 주어 불분명한 문장 직접 인용. 없으면 '없음'>",
+  "actionEval": "<어떻게 판단하고 행동했는지 과정 분석. '열심히 했다' 같은 결과 선언만 있으면 직접 인용. 없으면 '없음'>",
+  "resultEval": "<성과 재현 가능성 분석. 수치가 있어도 기간·기준·모집단 없으면 검증 불가로 분류. 없으면 '없음'>",
+  "score": <0-100 정수. 경험 주도성(0-40) + 행동 구체성(0-30) + 성과 재현 가능성(0-30)>,
   "verdict": "<이 답변의 가장 중요한 개선 포인트 1문장. 구체적 인용 포함>",
   "opinion": "<토론을 반영한 최종 평가 3~4문장. 수정된 판단이 있으면 왜 바꿨는지 1문장으로 밝히세요>"
 }`;
   } else if (agentId === "technical") {
     jsonSchema = `{
-  "starEval": "<STAR 구조 충족도 분석. 빠진 항목 명시. 없으면 '없음'>",
-  "jobRelevanceEval": "<직무 요건과의 연관성 분석>",
-  "experienceEval": "<경험 구체성 및 주도성 분석. 모호한 표현 직접 인용>",
-  "score": <0-100 정수. STAR 충족도(0-40) + 직무 연관성(0-40) + 경험 구체성(0-20)>,
+  "techUsageEval": "<이력서·답변에 나온 기술·툴 실사용 여부 분석. 툴 이름 없이 개념만 언급한 경우 직접 인용. 없으면 '없음'>",
+  "techReasonEval": "<기술적 선택 근거 분석. 왜 그 툴·방법을 썼는지 설명이 있는지. 근거 없이 나열만 하면 직접 인용. 없으면 '없음'>",
+  "ownershipEval": "<본인이 주도한 건지 팀이 한 건지 구분 분석. 모호한 표현 직접 인용. 없으면 '없음'>",
+  "score": <0-100 정수. 기술 실사용 여부(0-40) + 기술적 선택 근거(0-40) + 경험 주도성(0-20)>,
   "verdict": "<이 답변의 가장 중요한 개선 포인트 1문장. 구체적 인용 포함>",
   "opinion": "<토론을 반영한 최종 평가 3~4문장. 수정된 판단이 있으면 왜 바꿨는지 1문장으로 밝히세요>"
 }`;
   } else {
     jsonSchema = `{
-  "growthEval": "<성장 경험의 구체성 분석. 모호한 성장 서술 직접 인용>",
-  "collaborationEval": "<협업/갈등 사례의 행동 중심 서술 여부 분석>",
-  "contributionEval": "<기여 지향성 분석. 수혜 vs 기여 표현 비율>",
-  "score": <0-100 정수. 성장 구체성(0-40) + 협업 묘사(0-40) + 기여 지향성(0-20)>,
+  "motivationEval": "<지원동기 구체성 분석. '성장 가능성이 좋아서' 같은 보편적 표현 직접 인용. 없으면 '없음'>",
+  "understandingEval": "<직무·회사 이해도 분석. 준비 없이 온 흔적이 있으면 직접 인용. 없으면 '없음'>",
+  "fitEval": "<조직 적합성 분석. 커리어 방향과 직무 일치 여부, 수혜 vs 기여 지향 구분. 없으면 '없음'>",
+  "score": <0-100 정수. 지원동기 구체성(0-40) + 직무·회사 이해도(0-30) + 조직 적합성(0-30)>,
   "verdict": "<이 답변의 가장 중요한 개선 포인트 1문장. 구체적 인용 포함>",
   "opinion": "<토론을 반영한 최종 평가 3~4문장. 수정된 판단이 있으면 왜 바꿨는지 1문장으로 밝히세요>"
 }`;
@@ -519,13 +525,13 @@ ${jsonSchema}
 
   if (agentId === "logic") {
     const parsed = extractJSON<{
-      argumentEval: string; verifiabilityEval: string; logicEval: string;
+      ownershipEval: string; actionEval: string; resultEval: string;
       score: number; verdict: string; opinion: string;
     }>(raw);
     const highlights = [
-      parsed.argumentEval && parsed.argumentEval !== "없음" ? `주장-근거: ${parsed.argumentEval}` : null,
-      parsed.verifiabilityEval && parsed.verifiabilityEval !== "없음" ? `검증가능성: ${parsed.verifiabilityEval}` : null,
-      parsed.logicEval && parsed.logicEval !== "없음" ? `논리구조: ${parsed.logicEval}` : null,
+      parsed.ownershipEval && parsed.ownershipEval !== "없음" ? `경험 주도성: ${parsed.ownershipEval}` : null,
+      parsed.actionEval && parsed.actionEval !== "없음" ? `행동 구체성: ${parsed.actionEval}` : null,
+      parsed.resultEval && parsed.resultEval !== "없음" ? `성과 재현 가능성: ${parsed.resultEval}` : null,
     ].filter(Boolean) as string[];
     return {
       agentId, agentLabel: agent.label, criterion: agent.criterion,
@@ -537,13 +543,13 @@ ${jsonSchema}
 
   if (agentId === "technical") {
     const parsed = extractJSON<{
-      starEval: string; jobRelevanceEval: string; experienceEval: string;
+      techUsageEval: string; techReasonEval: string; ownershipEval: string;
       score: number; verdict: string; opinion: string;
     }>(raw);
     const highlights = [
-      parsed.starEval && parsed.starEval !== "없음" ? `STAR: ${parsed.starEval}` : null,
-      parsed.jobRelevanceEval && parsed.jobRelevanceEval !== "없음" ? `직무 연관성: ${parsed.jobRelevanceEval}` : null,
-      parsed.experienceEval && parsed.experienceEval !== "없음" ? `경험 구체성: ${parsed.experienceEval}` : null,
+      parsed.techUsageEval && parsed.techUsageEval !== "없음" ? `기술 실사용: ${parsed.techUsageEval}` : null,
+      parsed.techReasonEval && parsed.techReasonEval !== "없음" ? `기술 선택 근거: ${parsed.techReasonEval}` : null,
+      parsed.ownershipEval && parsed.ownershipEval !== "없음" ? `경험 주도성: ${parsed.ownershipEval}` : null,
     ].filter(Boolean) as string[];
     return {
       agentId, agentLabel: agent.label, criterion: agent.criterion,
@@ -555,13 +561,13 @@ ${jsonSchema}
 
   // organization
   const parsed = extractJSON<{
-    growthEval: string; collaborationEval: string; contributionEval: string;
+    motivationEval: string; understandingEval: string; fitEval: string;
     score: number; verdict: string; opinion: string;
   }>(raw);
   const highlights = [
-    parsed.growthEval && parsed.growthEval !== "없음" ? `성장 구체성: ${parsed.growthEval}` : null,
-    parsed.collaborationEval && parsed.collaborationEval !== "없음" ? `협업 묘사: ${parsed.collaborationEval}` : null,
-    parsed.contributionEval && parsed.contributionEval !== "없음" ? `기여 지향성: ${parsed.contributionEval}` : null,
+    parsed.motivationEval && parsed.motivationEval !== "없음" ? `지원동기: ${parsed.motivationEval}` : null,
+    parsed.understandingEval && parsed.understandingEval !== "없음" ? `직무·회사 이해도: ${parsed.understandingEval}` : null,
+    parsed.fitEval && parsed.fitEval !== "없음" ? `조직 적합성: ${parsed.fitEval}` : null,
   ].filter(Boolean) as string[];
   return {
     agentId, agentLabel: agent.label, criterion: agent.criterion,
