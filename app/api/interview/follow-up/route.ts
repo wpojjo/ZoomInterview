@@ -9,6 +9,8 @@ import {
   Difficulty,
   Message,
 } from "@/lib/interview";
+import { detectJobClassification } from "@/lib/job-classifications";
+import { fetchNewsForJobPosting, formatNewsContextForPrompt } from "@/lib/naver-news-crawler";
 
 export async function POST(request: NextRequest) {
   try {
@@ -87,6 +89,25 @@ export async function POST(request: NextRequest) {
       activities: activities ?? [],
     };
 
+    // 뉴스 컨텍스트는 기본(normal) · 심화(hard) 난이도에서만 활용
+    const jobText = `${jobPosting.responsibilities ?? ""} ${jobPosting.requirements ?? ""}`;
+    const classification = detectJobClassification(jobText);
+    const useNews = difficulty === "normal" || difficulty === "hard";
+    let newsContext: string | undefined = undefined;
+    if (useNews && classification && jobPosting.companyName) {
+      try {
+        const newsResult = await fetchNewsForJobPosting(
+          classification,
+          jobPosting.companyName,
+          jobPosting.responsibilities ?? "",
+          jobPosting.techStack ?? "",
+        );
+        newsContext = formatNewsContextForPrompt(newsResult);
+      } catch (error) {
+        console.warn("뉴스 수집 실패 (무시됨):", error);
+      }
+    }
+
     const jobPostingContext = {
       responsibilities: jobPosting.responsibilities ?? "",
       requirements: jobPosting.requirements ?? "",
@@ -96,6 +117,8 @@ export async function POST(request: NextRequest) {
       techStack: jobPosting.techStack ?? undefined,
       companyDescription: jobPosting.companyDescription ?? undefined,
       companyCulture: jobPosting.companyCulture ?? undefined,
+      jobClassification: classification ?? undefined,
+      newsContext,
       foundedYear: cache?.foundedYear ?? undefined,
       listingStatus: cache?.listingStatus ?? undefined,
       industrySector: cache?.industrySector ?? undefined,

@@ -44,8 +44,6 @@ export default async function ProfileDetailPage({ searchParams }: Props) {
   const userId = await getAuthUser();
   const profile = userId ? await getProfileData(userId) : null;
 
-  if (profile) redirect("/job-posting");
-
   return (
     <main className="min-h-screen py-8 px-4">
       <div className="max-w-3xl mx-auto space-y-6">
