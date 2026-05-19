@@ -234,6 +234,40 @@ function formatCorpCls(corpCls: string, stockCode: string | null): string {
 
 const CACHE_TTL_MS = 180 * 24 * 60 * 60 * 1000; // 6개월
 
+export interface DartCompanyInfo {
+  corpCode: string | null;
+  isListed: boolean;
+  foundedYear: string | null;
+  listingStatus: string | null;
+  industrySector: string | null;
+  financialSummary: string | null;
+  recentDisclosures: string | null;
+}
+
+export async function fetchDartCompanyInfo(companyName: string): Promise<DartCompanyInfo | null> {
+  if (!API_KEY || !companyName) return null;
+
+  const corp = await findCorpCode(companyName);
+  if (!corp) return null;
+
+  const isListed = !!corp.stock_code?.trim();
+  const [detail, financial, disclosures] = await Promise.all([
+    fetchCompanyDetail(corp.corp_code),
+    fetchFinancial3Years(corp.corp_code),
+    fetchRecentDisclosures(corp.corp_code),
+  ]);
+
+  return {
+    corpCode: corp.corp_code,
+    isListed,
+    foundedYear: detail?.est_dt ? formatEstDate(detail.est_dt) : null,
+    listingStatus: detail ? formatCorpCls(detail.corp_cls, corp.stock_code) || null : null,
+    industrySector: detail?.induty_code ? formatIndutyCls(detail.induty_code) || null : null,
+    financialSummary: financial || null,
+    recentDisclosures: disclosures || null,
+  };
+}
+
 export async function collectCompanyInfo(jobPostingId: string, companyName: string): Promise<void> {
   if (!API_KEY || !companyName) return;
 
@@ -264,8 +298,8 @@ export async function collectCompanyInfo(jobPostingId: string, companyName: stri
       if (corp) {
         const [detail, financial, disclosures] = await Promise.all([
           fetchCompanyDetail(corp.corp_code),
-          isListed ? fetchFinancial3Years(corp.corp_code) : Promise.resolve(""),
-          isListed ? fetchRecentDisclosures(corp.corp_code) : Promise.resolve(""),
+          fetchFinancial3Years(corp.corp_code),
+          fetchRecentDisclosures(corp.corp_code),
         ]);
 
         if (detail) {

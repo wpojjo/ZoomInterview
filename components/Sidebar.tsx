@@ -63,6 +63,17 @@ const NAV_ITEMS: NavItem[] = [
     ),
   },
   {
+    href: "/dart-test",
+    label: "DART 기업정보 테스트",
+    icon: (
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <rect x="2" y="3" width="20" height="14" rx="2" />
+        <path d="M8 21h8M12 17v4" />
+        <path d="M7 8h2v5H7zM11 7h2v6h-2zM15 10h2v3h-2z" />
+      </svg>
+    ),
+  },
+  {
     href: "/settings",
     label: "설정",
     icon: (
