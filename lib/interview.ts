@@ -240,6 +240,7 @@ function buildAgentSystemPrompt(
       jobPosting.listingStatus ? `상장 현황: ${jobPosting.listingStatus}` : "",
       jobPosting.industrySector ? `업종: ${jobPosting.industrySector}` : "",
       jobPosting.employeeSummary ? `직원 현황: ${jobPosting.employeeSummary}` : "",
+      jobPosting.financialSummary ? `재무 현황:\n${jobPosting.financialSummary}` : "",
       jobPosting.recentDisclosures ? `최근 주요 공시:\n${jobPosting.recentDisclosures}` : "",
       jobPosting.companyDescription ? `회사 소개: ${jobPosting.companyDescription}` : "",
       jobPosting.companyCulture ? `조직 문화: ${jobPosting.companyCulture}` : "",
@@ -250,14 +251,12 @@ function buildAgentSystemPrompt(
     logic: [
       jobPosting.companyName ? `회사명: ${jobPosting.companyName}` : "",
       jobPosting.divisionName ? `지원 사업부: ${jobPosting.divisionName}` : "",
-      jobPosting.financialSummary ? `재무 현황:\n${jobPosting.financialSummary}` : "",
       jobPosting.recentDisclosures ? `최근 주요 공시:\n${jobPosting.recentDisclosures}` : "",
       commonJobBlock,
     ].filter(Boolean).join("\n"),
     technical: [
       jobPosting.techStack ? `기술스택: ${jobPosting.techStack}` : "",
       jobPosting.industrySector ? `업종: ${jobPosting.industrySector}` : "",
-      jobPosting.recentDisclosures ? `최근 주요 공시:\n${jobPosting.recentDisclosures}` : "",
       commonJobBlock,
     ].filter(Boolean).join("\n"),
   };
@@ -541,6 +540,7 @@ async function generateSingleAgentThought(
       jobPosting.listingStatus ? `상장 현황: ${jobPosting.listingStatus}` : "",
       jobPosting.industrySector ? `업종: ${jobPosting.industrySector}` : "",
       jobPosting.employeeSummary ? `직원 현황: ${jobPosting.employeeSummary}` : "",
+      jobPosting.financialSummary ? `재무 현황:\n${jobPosting.financialSummary}` : "",
       jobPosting.recentDisclosures ? `최근 주요 공시:\n${jobPosting.recentDisclosures}` : "",
       jobPosting.companyDescription ? `회사 소개: ${jobPosting.companyDescription}` : "",
       jobPosting.companyCulture ? `조직 문화: ${jobPosting.companyCulture}` : "",
@@ -549,14 +549,12 @@ async function generateSingleAgentThought(
     logic: [
       jobPosting.companyName ? `회사명: ${jobPosting.companyName}` : "",
       jobPosting.divisionName ? `지원 사업부: ${jobPosting.divisionName}` : "",
-      jobPosting.financialSummary ? `재무 현황:\n${jobPosting.financialSummary}` : "",
       jobPosting.recentDisclosures ? `최근 주요 공시:\n${jobPosting.recentDisclosures}` : "",
       thoughtCommonJobBlock,
     ].filter(Boolean).join("\n"),
     technical: [
       jobPosting.techStack ? `기술스택: ${jobPosting.techStack}` : "",
       jobPosting.industrySector ? `업종: ${jobPosting.industrySector}` : "",
-      jobPosting.recentDisclosures ? `최근 주요 공시:\n${jobPosting.recentDisclosures}` : "",
       thoughtCommonJobBlock,
     ].filter(Boolean).join("\n"),
   };
