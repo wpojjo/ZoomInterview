@@ -162,6 +162,26 @@ function buildContextualHints(
   return hints.join("\n");
 }
 
+type FinancialPhase = "확장기" | "위기" | "생존모드";
+
+function classifyFinancialPhase(financialSummary: string | undefined): FinancialPhase | null {
+  if (!financialSummary) return null;
+  const firstLine = financialSummary.split("\n")[0];
+  if (/영업이익\s*-/.test(firstLine)) return "생존모드";
+  const growthMatch = firstLine.match(/전년비\s*([+-]?\d+)%/);
+  if (!growthMatch) return null;
+  const growth = parseInt(growthMatch[1]);
+  if (growth >= 10) return "확장기";
+  if (growth < 0) return "위기";
+  return null;
+}
+
+const FINANCIAL_PHASE_HINTS: Record<FinancialPhase, string> = {
+  확장기: "현재 회사는 매출 성장세(확장기)입니다. 지원자의 적극성, 빠른 환경 변화 적응력, 도전 경험 위주로 파악하세요.",
+  위기: "현재 회사는 매출 감소세(위기 국면)입니다. 문제 해결, 비용 절감·효율화 경험, 어려운 환경에서의 성과 위주로 파악하세요.",
+  생존모드: "현재 회사는 영업 적자(생존 모드)입니다. 빠른 실행력, 우선순위 판단력, 제한된 자원에서의 성과 경험 위주로 파악하세요.",
+};
+
 export function getFirstQuestion(name: string) {
   return `안녕하세요, ${name}님. 간단한 자기소개와 지원동기를 말씀해주세요.`;
 }
@@ -189,6 +209,10 @@ function buildAgentSystemPrompt(
 ): string {
   const profileSummary = buildProfileSummary(profile);
   const contextualHints = buildContextualHints(profile, jobPosting);
+  const financialPhase = classifyFinancialPhase(jobPosting.financialSummary);
+  const financialPhaseHint = financialPhase
+    ? `\n\n[재무 국면 — 질문 방향 참고]\n${FINANCIAL_PHASE_HINTS[financialPhase]}`
+    : "";
 
   const agentRole: Record<AgentId, string> = {
     organization: `당신은 [HR 담당자] 면접관입니다.
@@ -202,7 +226,7 @@ function buildAgentSystemPrompt(
 - 경력자라면 이직 이유가 긍정적인지 (전 직장 도피 여부)
 - 오래 다닐 것 같은지
 
-질문은 하나만 하세요. 열린 질문으로 시작해 지원자가 충분히 말하도록 유도하세요.`,
+질문은 하나만 하세요. 열린 질문으로 시작해 지원자가 충분히 말하도록 유도하세요.${financialPhaseHint}`,
     logic: `당신은 [실무 팀장] 면접관입니다.
 판단 철학: "이 사람, 내 팀에서 실제로 어떻게 일할 사람인가?"
 성향: 친절하지도 불친절하지도 않은 건조한 실무형. 답변을 끝까지 들은 뒤 핵심을 찌르는 질문을 하나 던진다. 칭찬은 거의 없고, 모호한 답변엔 범위를 좁혀서 다시 묻는다.
@@ -559,7 +583,12 @@ async function generateSingleAgentThought(
     ].filter(Boolean).join("\n"),
   };
 
-  const systemPrompt = `${AGENT_THOUGHT_PERSONA[agentId]}
+  const thoughtFinancialPhase = classifyFinancialPhase(jobPosting.financialSummary);
+  const thoughtPersona = agentId === "organization" && thoughtFinancialPhase
+    ? AGENT_THOUGHT_PERSONA.organization + `\n\n[재무 국면]\n${FINANCIAL_PHASE_HINTS[thoughtFinancialPhase]}`
+    : AGENT_THOUGHT_PERSONA[agentId];
+
+  const systemPrompt = `${thoughtPersona}
 
 [채용공고]
 ${thoughtAgentJobBlock[agentId]}
