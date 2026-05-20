@@ -39,3 +39,7 @@ next-env.d.ts
 # python cache
 server/__pycache__/
 **/*.pyc
+
+# experiment data (generated files)
+/data/
+scripts/analyze.ipynb
