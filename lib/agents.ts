@@ -86,20 +86,54 @@ function buildConversationText(messages: Message[]): string {
     .join("\n\n");
 }
 
-function buildContextBlock(profile: ProfileContext, jobPosting: JobPostingContext): string {
+function buildContextBlock(profile: ProfileContext, jobPosting: JobPostingContext, agentId?: AgentId): string {
   const profileSummary = buildProfileSummary(profile);
-  const jobParts = [
-    jobPosting.companyName ? `회사명: ${jobPosting.companyName}` : "",
-    jobPosting.foundedYear ? `설립: ${jobPosting.foundedYear}` : "",
-    jobPosting.listingStatus ? `상장 현황: ${jobPosting.listingStatus}` : "",
-    jobPosting.industrySector ? `업종: ${jobPosting.industrySector}` : "",
-    jobPosting.financialSummary ? `재무 현황:\n${jobPosting.financialSummary}` : "",
-    jobPosting.recentDisclosures ? `최근 주요 공시:\n${jobPosting.recentDisclosures}` : "",
-    jobPosting.employeeSummary ? `직원 현황: ${jobPosting.employeeSummary}` : "",
+  const commonParts = [
     jobPosting.responsibilities ? `담당 업무: ${jobPosting.responsibilities}` : "",
     jobPosting.requirements ? `자격 요건: ${jobPosting.requirements}` : "",
     jobPosting.preferredQuals ? `우대 사항: ${jobPosting.preferredQuals}` : "",
-  ].filter(Boolean);
+  ];
+
+  let agentParts: string[];
+  if (agentId === "organization") {
+    agentParts = [
+      jobPosting.companyName ? `회사명: ${jobPosting.companyName}` : "",
+      jobPosting.foundedYear ? `설립: ${jobPosting.foundedYear}` : "",
+      jobPosting.listingStatus ? `상장 현황: ${jobPosting.listingStatus}` : "",
+      jobPosting.industrySector ? `업종: ${jobPosting.industrySector}` : "",
+      jobPosting.employeeSummary ? `직원 현황: ${jobPosting.employeeSummary}` : "",
+      jobPosting.financialSummary ? `재무 현황:\n${jobPosting.financialSummary}` : "",
+      jobPosting.recentDisclosures ? `최근 주요 공시:\n${jobPosting.recentDisclosures}` : "",
+      jobPosting.companyDescription ? `회사 소개: ${jobPosting.companyDescription}` : "",
+      jobPosting.companyCulture ? `조직 문화: ${jobPosting.companyCulture}` : "",
+      jobPosting.businessOverview ? `사업 개요:\n${jobPosting.businessOverview.slice(0, 3000)}` : "",
+      jobPosting.mainProducts ? `주요 제품·서비스:\n${jobPosting.mainProducts.slice(0, 3000)}` : "",
+    ];
+  } else if (agentId === "logic") {
+    agentParts = [
+      jobPosting.companyName ? `회사명: ${jobPosting.companyName}` : "",
+      jobPosting.divisionName ? `지원 사업부: ${jobPosting.divisionName}` : "",
+      jobPosting.recentDisclosures ? `최근 주요 공시:\n${jobPosting.recentDisclosures}` : "",
+    ];
+  } else if (agentId === "technical") {
+    agentParts = [
+      jobPosting.techStack ? `기술스택: ${jobPosting.techStack}` : "",
+      jobPosting.industrySector ? `업종: ${jobPosting.industrySector}` : "",
+    ];
+  } else {
+    // 중재자: 핵심 회사 정보만
+    agentParts = [
+      jobPosting.companyName ? `회사명: ${jobPosting.companyName}` : "",
+      jobPosting.foundedYear ? `설립: ${jobPosting.foundedYear}` : "",
+      jobPosting.listingStatus ? `상장 현황: ${jobPosting.listingStatus}` : "",
+      jobPosting.industrySector ? `업종: ${jobPosting.industrySector}` : "",
+      jobPosting.financialSummary ? `재무 현황:\n${jobPosting.financialSummary}` : "",
+      jobPosting.recentDisclosures ? `최근 주요 공시:\n${jobPosting.recentDisclosures}` : "",
+      jobPosting.employeeSummary ? `직원 현황: ${jobPosting.employeeSummary}` : "",
+    ];
+  }
+
+  const jobParts = [...agentParts, ...commonParts].filter(Boolean);
   return `[지원자 배경]\n${profileSummary}\n\n[채용 직무]\n${jobParts.join("\n")}\n\n지원자를 이름으로 부를 때는 반드시 "~님" 형식을 사용하세요. "~씨" 사용 금지.`;
 }
 
@@ -162,7 +196,7 @@ export async function generateAgentEvaluation(
 ): Promise<AgentEvaluation> {
   const agent = AGENTS[agentId];
   const conversationText = buildConversationText(messages);
-  const contextBlock = buildContextBlock(profile, jobPosting);
+  const contextBlock = buildContextBlock(profile, jobPosting, agentId);
 
   let jsonSchema: string;
 
@@ -304,7 +338,7 @@ export async function generateAgentReply(
 ): Promise<AgentReply> {
   const agent = AGENTS[agentId];
   const conversationText = buildConversationText(messages);
-  const contextBlock = buildContextBlock(profile, jobPosting);
+  const contextBlock = buildContextBlock(profile, jobPosting, agentId);
 
   const othersText = otherEvaluations
     .map(
@@ -377,7 +411,7 @@ export async function generateAgentRebuttal(
 ): Promise<AgentRebuttal> {
   const agent = AGENTS[agentId];
   const conversationText = buildConversationText(messages);
-  const contextBlock = buildContextBlock(profile, jobPosting);
+  const contextBlock = buildContextBlock(profile, jobPosting, agentId);
 
   const feedbackText = repliesAboutMe
     .map((r) => `[${r.fromAgentLabel}] [${r.stance}]: ${r.comment}`)
@@ -448,7 +482,7 @@ export async function generateAgentFinalOpinion(
 ): Promise<AgentFinalOpinion> {
   const agent = AGENTS[agentId];
   const conversationText = buildConversationText(messages);
-  const contextBlock = buildContextBlock(profile, jobPosting);
+  const contextBlock = buildContextBlock(profile, jobPosting, agentId);
 
   const feedbackText = repliesAboutMe
     .map((r) => `[${r.fromAgentLabel}] [${r.stance}]: ${r.comment}`)

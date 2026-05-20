@@ -58,7 +58,6 @@ async function extractJobInfo(text: string): Promise<{
   companyName: string;
   divisionName: string;
   techStack: string;
-  isITCompany: boolean;
   companyDescription: string;
   companyCulture: string;
 }> {
@@ -72,7 +71,6 @@ async function extractJobInfo(text: string): Promise<{
 - "회사명": 공고를 올린 회사/기관명 (텍스트에 없으면 빈 문자열)
 - "사업부": 지원 팀·사업부·부서명 (텍스트에 없으면 빈 문자열)
 - "기술스택": 공고에 언급된 기술·툴·언어 목록을 쉼표로 연결 (텍스트에 없으면 빈 문자열)
-- "IT기업": 소프트웨어·인터넷·테크 기업이면 true, 아니면 false
 - "회사 소개": 텍스트에 있는 회사 소개·미션·비전 문장을 원문 그대로 발췌 (텍스트에 없으면 빈 문자열)
 - "조직 문화": 텍스트에 명시된 문화·가치관·일하는 방식 키워드만 쉼표로 연결 (텍스트에 없으면 빈 문자열)
 
@@ -86,7 +84,6 @@ async function extractJobInfo(text: string): Promise<{
   "회사명": "",
   "사업부": "",
   "기술스택": "",
-  "IT기업": false,
   "회사 소개": "",
   "조직 문화": ""
 }
@@ -143,7 +140,6 @@ ${text}`;
     companyName:        typeof parsed["회사명"] === "string" ? parsed["회사명"] : "",
     divisionName:       typeof parsed["사업부"] === "string" ? parsed["사업부"] : "",
     techStack:          typeof parsed["기술스택"] === "string" ? parsed["기술스택"] : (Array.isArray(parsed["기술스택"]) ? (parsed["기술스택"] as string[]).join(", ") : ""),
-    isITCompany:        parsed["IT기업"] === true,
     companyDescription: typeof parsed["회사 소개"] === "string" ? parsed["회사 소개"] : "",
     companyCulture:     typeof parsed["조직 문화"] === "string" ? parsed["조직 문화"] : "",
   };
@@ -161,7 +157,6 @@ function mergeExtracted(
     companyName:        longer(a.companyName, b.companyName),
     divisionName:       longer(a.divisionName, b.divisionName),
     techStack:          longer(a.techStack, b.techStack),
-    isITCompany:        a.isITCompany || b.isITCompany,
     companyDescription: longer(a.companyDescription, b.companyDescription),
     companyCulture:     longer(a.companyCulture, b.companyCulture),
   };

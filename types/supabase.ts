@@ -336,7 +336,6 @@ export type Database = {
           createdAt: string
           divisionName: string | null
           id: string
-          isITCompany: boolean
           preferredQuals: string | null
           requirements: string | null
           responsibilities: string | null
@@ -353,7 +352,6 @@ export type Database = {
           createdAt?: string
           divisionName?: string | null
           id: string
-          isITCompany?: boolean
           preferredQuals?: string | null
           requirements?: string | null
           responsibilities?: string | null
@@ -370,7 +368,6 @@ export type Database = {
           createdAt?: string
           divisionName?: string | null
           id?: string
-          isITCompany?: boolean
           preferredQuals?: string | null
           requirements?: string | null
           responsibilities?: string | null
