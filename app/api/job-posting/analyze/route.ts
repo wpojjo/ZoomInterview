@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { waitUntil } from "@vercel/functions";
 
 export const maxDuration = 300;
 import { supabaseAdmin as supabase } from "@/lib/supabase-admin";
@@ -260,7 +261,11 @@ export async function POST(request: NextRequest) {
       .single();
 
     if (extracted.companyName) {
-      collectCompanyInfo(posting.id, extracted.companyName).catch(() => {});
+      if (process.env.VERCEL) {
+        waitUntil(collectCompanyInfo(posting.id, extracted.companyName));
+      } else {
+        collectCompanyInfo(posting.id, extracted.companyName).catch(() => {});
+      }
     }
 
     return NextResponse.json({ jobPosting: updated });
