@@ -254,6 +254,100 @@ async function fetchEmployeeSummary(corpCode: string): Promise<string | null> {
   return null;
 }
 
+async function fetchLatestAnnualReportRcptNo(corpCode: string): Promise<string | null> {
+  const bgn_de = new Date(Date.now() - 2 * 365 * 24 * 60 * 60 * 1000)
+    .toISOString().slice(0, 10).replace(/-/g, "");
+
+  const url = new URL(`${DART_BASE}/list.json`);
+  url.searchParams.set("crtfc_key", API_KEY);
+  url.searchParams.set("corp_code", corpCode);
+  url.searchParams.set("pblntf_detail_ty", "A001");
+  url.searchParams.set("bgn_de", bgn_de);
+  url.searchParams.set("last_reprt_at", "Y");
+  url.searchParams.set("page_count", "1");
+
+  const res = await fetch(url.toString(), { signal: AbortSignal.timeout(10_000) }).catch(() => null);
+  if (!res?.ok) return null;
+  const data = await res.json().catch(() => null) as { status: string; list?: { rcept_no: string }[] };
+  if (data?.status !== "000" || !data.list?.length) return null;
+  return data.list[0].rcept_no;
+}
+
+function htmlToText(html: string): string {
+  return html
+    .replace(/<[^>]+>/g, " ")
+    .replace(/&nbsp;/gi, " ")
+    .replace(/&amp;/gi, "&")
+    .replace(/&lt;/gi, "<")
+    .replace(/&gt;/gi, ">")
+    .replace(/&quot;/gi, '"')
+    .replace(/&#\d+;/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+interface DartSectionInfo {
+  dcmNo: string;
+  eleId: string;
+  offset: string;
+  length: string;
+  dtd: string;
+}
+
+function parseSectionInfo(html: string, keyword: string): DartSectionInfo | null {
+  const escaped = keyword.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const re = new RegExp(`\\['text'\\]\\s*=\\s*"[^"]*${escaped}[^"]*"([\\s\\S]{1,400}?)cnt\\+\\+`);
+  const match = html.match(re);
+  if (!match) return null;
+
+  const block = match[0];
+  const dcmNo = block.match(/\['dcmNo'\]\s*=\s*"(\d+)"/)?.[1];
+  const eleId = block.match(/\['eleId'\]\s*=\s*"(\d+)"/)?.[1];
+  const offset = block.match(/\['offset'\]\s*=\s*"(\d+)"/)?.[1];
+  const length = block.match(/\['length'\]\s*=\s*"(\d+)"/)?.[1];
+  const dtd = block.match(/\['dtd'\]\s*=\s*"([^"]+)"/)?.[1];
+
+  if (!dcmNo || !eleId || !offset || !length) return null;
+  return { dcmNo, eleId, offset, length, dtd: dtd ?? "dart4.xsd" };
+}
+
+async function fetchSectionText(rcptNo: string, section: DartSectionInfo): Promise<string | null> {
+  const url = `https://dart.fss.or.kr/report/viewer.do?rcpNo=${rcptNo}&dcmNo=${section.dcmNo}&eleId=${section.eleId}&offset=${section.offset}&length=${section.length}&dtd=${section.dtd}`;
+  const res = await fetch(url, { signal: AbortSignal.timeout(15_000) }).catch(() => null);
+  if (!res?.ok) return null;
+  const html = await res.text().catch(() => null);
+  if (!html) return null;
+  return htmlToText(html) || null;
+}
+
+async function fetchBusinessReportSections(corpCode: string): Promise<{ businessOverview: string | null; mainProducts: string | null }> {
+  const empty = { businessOverview: null, mainProducts: null };
+
+  const rcptNo = await fetchLatestAnnualReportRcptNo(corpCode);
+  if (!rcptNo) return empty;
+
+  const mainRes = await fetch(
+    `https://dart.fss.or.kr/dsaf001/main.do?rcpNo=${rcptNo}`,
+    { signal: AbortSignal.timeout(10_000) },
+  ).catch(() => null);
+  if (!mainRes?.ok) return empty;
+
+  const mainHtml = await mainRes.text().catch(() => null);
+  if (!mainHtml) return empty;
+
+  const overviewInfo = parseSectionInfo(mainHtml, "사업의 개요");
+  const productsInfo =
+    parseSectionInfo(mainHtml, "주요 제품 및 서비스") ??
+    parseSectionInfo(mainHtml, "주요제품 및 서비스");
+
+  const [businessOverview, mainProducts] = await Promise.all([
+    overviewInfo ? fetchSectionText(rcptNo, overviewInfo) : Promise.resolve(null),
+    productsInfo ? fetchSectionText(rcptNo, productsInfo) : Promise.resolve(null),
+  ]);
+
+  return { businessOverview, mainProducts };
+}
+
 async function fetchRecentDisclosures(corpCode: string): Promise<string> {
   const bgn_de = new Date(Date.now() - 180 * 24 * 60 * 60 * 1000)
     .toISOString().slice(0, 10).replace(/-/g, "");
@@ -345,6 +439,8 @@ export interface DartCompanyInfo {
   financialSummary: string | null;
   recentDisclosures: string | null;
   employeeSummary: string | null;
+  businessOverview: string | null;
+  mainProducts: string | null;
 }
 
 export async function fetchDartCompanyInfo(companyName: string): Promise<DartCompanyInfo | null> {
@@ -354,11 +450,12 @@ export async function fetchDartCompanyInfo(companyName: string): Promise<DartCom
   if (!corp) return null;
 
   const isListed = !!corp.stock_code?.trim();
-  const [detail, financial, disclosures, employees] = await Promise.all([
+  const [detail, financial, disclosures, employees, bizReport] = await Promise.all([
     fetchCompanyDetail(corp.corp_code),
     fetchFinancial3Years(corp.corp_code),
     fetchRecentDisclosures(corp.corp_code),
     fetchEmployeeSummary(corp.corp_code),
+    fetchBusinessReportSections(corp.corp_code),
   ]);
 
   return {
@@ -370,6 +467,8 @@ export async function fetchDartCompanyInfo(companyName: string): Promise<DartCom
     financialSummary: financial || null,
     recentDisclosures: disclosures || null,
     employeeSummary: employees || null,
+    businessOverview: bizReport.businessOverview,
+    mainProducts: bizReport.mainProducts,
   };
 }
 
@@ -400,13 +499,16 @@ export async function collectCompanyInfo(jobPostingId: string, companyName: stri
       let financialSummary: string | null = null;
       let recentDisclosures: string | null = null;
       let employeeSummary: string | null = null;
+      let businessOverview: string | null = null;
+      let mainProducts: string | null = null;
 
       if (corp) {
-        const [detail, financial, disclosures, employees] = await Promise.all([
+        const [detail, financial, disclosures, employees, bizReport] = await Promise.all([
           fetchCompanyDetail(corp.corp_code),
           fetchFinancial3Years(corp.corp_code),
           fetchRecentDisclosures(corp.corp_code),
           fetchEmployeeSummary(corp.corp_code),
+          fetchBusinessReportSections(corp.corp_code),
         ]);
 
         if (detail) {
@@ -420,6 +522,8 @@ export async function collectCompanyInfo(jobPostingId: string, companyName: stri
         if (financial) financialSummary = financial;
         if (disclosures) recentDisclosures = disclosures;
         if (employees) employeeSummary = employees;
+        businessOverview = bizReport.businessOverview;
+        mainProducts = bizReport.mainProducts;
       }
 
       const { data: upserted, error } = await supabase
@@ -434,6 +538,8 @@ export async function collectCompanyInfo(jobPostingId: string, companyName: stri
             financialSummary,
             recentDisclosures,
             employeeSummary,
+            businessOverview,
+            mainProducts,
             isListed,
             collectedAt: new Date().toISOString(),
           },

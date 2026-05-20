@@ -88,6 +88,8 @@ export interface JobPostingContext {
   financialSummary?: string;
   recentDisclosures?: string;
   employeeSummary?: string;
+  businessOverview?: string;
+  mainProducts?: string;
 }
 
 export function buildProfileSummary(profile: ProfileContext): string {
@@ -239,6 +241,8 @@ function buildAgentSystemPrompt(
       jobPosting.industrySector ? `업종: ${jobPosting.industrySector}` : "",
       jobPosting.companyDescription ? `회사 소개: ${jobPosting.companyDescription}` : "",
       jobPosting.companyCulture ? `조직 문화: ${jobPosting.companyCulture}` : "",
+      jobPosting.businessOverview ? `사업 개요 (사업보고서 원문):\n${jobPosting.businessOverview.slice(0, 3000)}` : "",
+      jobPosting.mainProducts ? `주요 제품·서비스 (사업보고서 원문):\n${jobPosting.mainProducts.slice(0, 3000)}` : "",
       commonJobBlock,
     ].filter(Boolean).join("\n"),
     logic: [

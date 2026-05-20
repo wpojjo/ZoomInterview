@@ -121,6 +121,7 @@ export type Database = {
       }
       company_cache: {
         Row: {
+          businessOverview: string | null
           ceoName: string | null
           collectedAt: string
           companyName: string
@@ -131,9 +132,11 @@ export type Database = {
           industrySector: string | null
           isListed: boolean
           listingStatus: string | null
+          mainProducts: string | null
           recentDisclosures: string | null
         }
         Insert: {
+          businessOverview?: string | null
           ceoName?: string | null
           collectedAt?: string
           companyName: string
@@ -144,9 +147,11 @@ export type Database = {
           industrySector?: string | null
           isListed?: boolean
           listingStatus?: string | null
+          mainProducts?: string | null
           recentDisclosures?: string | null
         }
         Update: {
+          businessOverview?: string | null
           ceoName?: string | null
           collectedAt?: string
           companyName?: string
@@ -157,6 +162,7 @@ export type Database = {
           industrySector?: string | null
           isListed?: boolean
           listingStatus?: string | null
+          mainProducts?: string | null
           recentDisclosures?: string | null
         }
         Relationships: []

@@ -14,6 +14,8 @@ interface DartResult {
   financialSummary?: string | null;
   recentDisclosures?: string | null;
   employeeSummary?: string | null;
+  businessOverview?: string | null;
+  mainProducts?: string | null;
 }
 
 export default function DartTestPage() {
@@ -49,7 +51,7 @@ export default function DartTestPage() {
             기업 정보 수집 미리보기
           </h1>
           <p className="text-sm text-gray-500 dark:text-slate-400">
-            회사명을 입력하면 DART에서 설립연도·상장 여부·업종·재무 요약·직원 현황·최근 공시를 수집합니다.
+            회사명을 입력하면 DART에서 설립연도·상장 여부·업종·재무 요약·직원 현황·최근 공시·사업보고서 원문을 수집합니다.
           </p>
         </div>
 
@@ -115,6 +117,30 @@ export default function DartTestPage() {
               <div className="bg-white dark:bg-slate-900 rounded-xl border border-gray-200 dark:border-slate-700 p-5">
                 <div className="text-xs font-semibold text-gray-400 dark:text-slate-500 mb-1">최근 공시</div>
                 <p className="text-sm text-gray-400 dark:text-slate-500">최근 6개월 내 인수·합병·투자·신사업 공시가 없습니다.</p>
+              </div>
+            )}
+
+            {result.businessOverview ? (
+              <div className="bg-white dark:bg-slate-900 rounded-xl border border-gray-200 dark:border-slate-700 p-5">
+                <div className="text-xs font-semibold text-gray-400 dark:text-slate-500 mb-2">사업의 개요 (사업보고서 원문)</div>
+                <p className="text-sm text-gray-700 dark:text-slate-300 whitespace-pre-wrap leading-relaxed">{result.businessOverview}</p>
+              </div>
+            ) : (
+              <div className="bg-white dark:bg-slate-900 rounded-xl border border-gray-200 dark:border-slate-700 p-5">
+                <div className="text-xs font-semibold text-gray-400 dark:text-slate-500 mb-1">사업의 개요</div>
+                <p className="text-sm text-gray-400 dark:text-slate-500">사업보고서에서 사업 개요를 찾을 수 없습니다.</p>
+              </div>
+            )}
+
+            {result.mainProducts ? (
+              <div className="bg-white dark:bg-slate-900 rounded-xl border border-gray-200 dark:border-slate-700 p-5">
+                <div className="text-xs font-semibold text-gray-400 dark:text-slate-500 mb-2">주요 제품·서비스 (사업보고서 원문)</div>
+                <p className="text-sm text-gray-700 dark:text-slate-300 whitespace-pre-wrap leading-relaxed">{result.mainProducts}</p>
+              </div>
+            ) : (
+              <div className="bg-white dark:bg-slate-900 rounded-xl border border-gray-200 dark:border-slate-700 p-5">
+                <div className="text-xs font-semibold text-gray-400 dark:text-slate-500 mb-1">주요 제품·서비스</div>
+                <p className="text-sm text-gray-400 dark:text-slate-500">사업보고서에서 주요 제품·서비스를 찾을 수 없습니다.</p>
               </div>
             )}
           </div>
