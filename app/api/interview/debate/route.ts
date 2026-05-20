@@ -6,6 +6,7 @@ import { supabaseAdmin as supabase } from "@/lib/supabase-admin";
 import { getAuthUser } from "@/lib/auth";
 import type { Json } from "@/types/supabase";
 import { Message, Difficulty, AGENT_ORDER, ProfileContext, JobPostingContext } from "@/lib/interview";
+import { loadProfileContext, loadJobPostingWithContext } from "@/lib/interview-context";
 import {
   generateAgentEvaluation,
   generateAgentReply,
@@ -187,84 +188,19 @@ export async function POST(request: NextRequest) {
       difficulty: Difficulty;
     };
 
-    const { data: profile } = await supabase
-      .from("profiles")
-      .select("*")
-      .eq("userId", userId)
-      .maybeSingle();
-    if (!profile) return NextResponse.json({ error: "프로필이 없습니다" }, { status: 404 });
+    const profileContext = await loadProfileContext(userId);
+    if (!profileContext) return NextResponse.json({ error: "프로필이 없습니다" }, { status: 404 });
 
-    const [
-      { data: educations },
-      { data: careers },
-      { data: certifications },
-      { data: activities },
-    ] = await Promise.all([
-      supabase.from("educations").select("*").eq("profileId", profile.id),
-      supabase.from("careers").select("*").eq("profileId", profile.id),
-      supabase.from("certifications").select("*").eq("profileId", profile.id),
-      supabase.from("activities").select("*").eq("profileId", profile.id),
-    ]);
+    const jobPostingData = await loadJobPostingWithContext(userId);
+    if (!jobPostingData) return NextResponse.json({ error: "채용공고가 없습니다" }, { status: 404 });
 
-    const { data: jobPosting } = await supabase
-      .from("job_postings")
-      .select("id, responsibilities, requirements, preferredQuals, companyName, divisionName, techStack, companyDescription, companyCulture")
-      .eq("userId", userId)
-      .order("updatedAt", { ascending: false })
-      .limit(1)
-      .maybeSingle();
-    if (!jobPosting) return NextResponse.json({ error: "채용공고가 없습니다" }, { status: 404 });
-
-    const { data: companyInfo } = await supabase
-      .from("company_info")
-      .select("company_cache(foundedYear, listingStatus, industrySector, financialSummary, recentDisclosures, employeeSummary, businessOverview, mainProducts)")
-      .eq("jobPostingId", jobPosting.id)
-      .maybeSingle();
-
-    const cache = companyInfo?.company_cache as {
-      foundedYear: string | null;
-      listingStatus: string | null;
-      industrySector: string | null;
-      financialSummary: string | null;
-      recentDisclosures: string | null;
-      employeeSummary: string | null;
-      businessOverview: string | null;
-      mainProducts: string | null;
-    } | null;
-
-    const profileContext: ProfileContext = {
-      name: profile.name,
-      educations: educations ?? [],
-      careers: careers ?? [],
-      certifications: certifications ?? [],
-      activities: activities ?? [],
-    };
-
-    const jobPostingContext: JobPostingContext = {
-      responsibilities: jobPosting.responsibilities ?? "",
-      requirements: jobPosting.requirements ?? "",
-      preferredQuals: jobPosting.preferredQuals ?? "",
-      companyName: jobPosting.companyName ?? undefined,
-      divisionName: jobPosting.divisionName ?? undefined,
-      techStack: jobPosting.techStack ?? undefined,
-      companyDescription: jobPosting.companyDescription ?? undefined,
-      companyCulture: jobPosting.companyCulture ?? undefined,
-      foundedYear: cache?.foundedYear ?? undefined,
-      listingStatus: cache?.listingStatus ?? undefined,
-      industrySector: cache?.industrySector ?? undefined,
-      financialSummary: cache?.financialSummary ?? undefined,
-      recentDisclosures: cache?.recentDisclosures ?? undefined,
-      employeeSummary: cache?.employeeSummary ?? undefined,
-      businessOverview: cache?.businessOverview ?? undefined,
-      mainProducts: cache?.mainProducts ?? undefined,
-    };
-
+    const { jobPostingId, jobPostingContext } = jobPostingData;
     const sessionId = crypto.randomUUID();
 
     await supabase.from("interview_sessions").insert({
       id: sessionId,
       userId,
-      jobPostingId: jobPosting.id,
+      jobPostingId,
       difficulty,
       messages: messages as unknown as Json,
       status: "evaluating",
