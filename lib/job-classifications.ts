@@ -79,7 +79,7 @@ export const JOB_CLASSIFICATIONS: Record<JobClassification, JobClassificationGui
   },
   "인사·노무·HRD": {
     name: "인사·노무·HRD",
-    keywords: ["인사", "노무", "HR", "HRD", "인력", "교육", "채용"],
+    keywords: ["인사", "노무", "HR", "HRD", "인력"],
     newsFields: [
       "채용 규모·정책 변화 (대규모 채용, 채용 중단)",
       "임금협상·노사 이슈, 노조 동향",
