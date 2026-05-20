@@ -1,4 +1,5 @@
 import { supabaseAdmin as supabase } from "@/lib/supabase-admin";
+import { callLLM } from "@/lib/runpod-client";
 
 const DART_BASE = "https://opendart.fss.or.kr/api";
 const API_KEY = process.env.DART_API_KEY ?? "";
@@ -320,6 +321,47 @@ async function fetchSectionText(rcptNo: string, section: DartSectionInfo): Promi
   return htmlToText(html) || null;
 }
 
+async function summarizeBusinessReport(
+  rawOverview: string | null,
+  rawProducts: string | null,
+): Promise<{ businessOverview: string | null; mainProducts: string | null }> {
+  if (!rawOverview && !rawProducts) return { businessOverview: null, mainProducts: null };
+
+  const prompt = `다음은 기업 사업보고서에서 추출한 원문 텍스트입니다.
+면접관이 "왜 이 회사인가?"를 검증하는 데 필요한 핵심 내용만 각각 3문장 이내로 요약하세요.
+수치·지표보다 회사의 사업 방향과 특징 위주로 요약하세요.
+해당 항목이 없으면 null을 반환하세요.
+
+[사업의 개요 원문]
+${rawOverview ? rawOverview.slice(0, 4000) : "없음"}
+
+[주요 제품·서비스 원문]
+${rawProducts ? rawProducts.slice(0, 4000) : "없음"}
+
+반드시 아래 JSON 형식만 출력하세요:
+{"businessOverview":"<요약 또는 null>","mainProducts":"<요약 또는 null>"}`;
+
+  try {
+    const raw = await callLLM({
+      messages: [{ role: "user", content: prompt }],
+      max_tokens: 600,
+    });
+    const match = raw.match(/\{[\s\S]*\}/);
+    if (!match) throw new Error("JSON 파싱 실패");
+    const parsed = JSON.parse(match[0]) as { businessOverview: string | null; mainProducts: string | null };
+    return {
+      businessOverview: typeof parsed.businessOverview === "string" && parsed.businessOverview !== "null" ? parsed.businessOverview : null,
+      mainProducts: typeof parsed.mainProducts === "string" && parsed.mainProducts !== "null" ? parsed.mainProducts : null,
+    };
+  } catch {
+    // 요약 실패 시 원문 앞부분으로 대체
+    return {
+      businessOverview: rawOverview ? rawOverview.slice(0, 500) : null,
+      mainProducts: rawProducts ? rawProducts.slice(0, 500) : null,
+    };
+  }
+}
+
 async function fetchBusinessReportSections(corpCode: string): Promise<{ businessOverview: string | null; mainProducts: string | null }> {
   const empty = { businessOverview: null, mainProducts: null };
 
@@ -340,12 +382,12 @@ async function fetchBusinessReportSections(corpCode: string): Promise<{ business
     parseSectionInfo(mainHtml, "주요 제품 및 서비스") ??
     parseSectionInfo(mainHtml, "주요제품 및 서비스");
 
-  const [businessOverview, mainProducts] = await Promise.all([
+  const [rawOverview, rawProducts] = await Promise.all([
     overviewInfo ? fetchSectionText(rcptNo, overviewInfo) : Promise.resolve(null),
     productsInfo ? fetchSectionText(rcptNo, productsInfo) : Promise.resolve(null),
   ]);
 
-  return { businessOverview, mainProducts };
+  return summarizeBusinessReport(rawOverview, rawProducts);
 }
 
 async function fetchRecentDisclosures(corpCode: string): Promise<string> {
