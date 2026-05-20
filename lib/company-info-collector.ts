@@ -492,7 +492,6 @@ export async function collectCompanyInfo(jobPostingId: string, companyName: stri
       const corp = await findCorpCode(companyName);
       const isListed = corp !== null && !!corp.stock_code?.trim();
 
-      let ceoName: string | null = null;
       let foundedYear: string | null = null;
       let listingStatus: string | null = null;
       let industrySector: string | null = null;
@@ -512,7 +511,6 @@ export async function collectCompanyInfo(jobPostingId: string, companyName: stri
         ]);
 
         if (detail) {
-          if (detail.ceo_nm) ceoName = detail.ceo_nm;
           if (detail.est_dt) foundedYear = formatEstDate(detail.est_dt);
           const ls = formatCorpCls(detail.corp_cls, corp.stock_code);
           if (ls) listingStatus = ls;
@@ -531,7 +529,6 @@ export async function collectCompanyInfo(jobPostingId: string, companyName: stri
         .upsert(
           {
             companyName,
-            ceoName,
             foundedYear,
             listingStatus,
             industrySector,

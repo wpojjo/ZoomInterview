@@ -122,7 +122,6 @@ export type Database = {
       company_cache: {
         Row: {
           businessOverview: string | null
-          ceoName: string | null
           collectedAt: string
           companyName: string
           employeeSummary: string | null
@@ -137,7 +136,6 @@ export type Database = {
         }
         Insert: {
           businessOverview?: string | null
-          ceoName?: string | null
           collectedAt?: string
           companyName: string
           employeeSummary?: string | null
@@ -152,7 +150,6 @@ export type Database = {
         }
         Update: {
           businessOverview?: string | null
-          ceoName?: string | null
           collectedAt?: string
           companyName?: string
           employeeSummary?: string | null
