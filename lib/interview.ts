@@ -84,7 +84,6 @@ export interface JobPostingContext {
   // DART 수집 데이터
   foundedYear?: string;
   listingStatus?: string;
-  industrySector?: string;
   financialSummary?: string;
   recentDisclosures?: string;
   employeeSummary?: string;
@@ -247,6 +246,8 @@ function buildAgentSystemPrompt(
 - 직무 요건과 연결되는 구체적 역량이 있는지
 - 본인이 주도한 건지 팀이 한 건지
 
+직무 분류가 명시된 경우, 해당 직무의 현업 선임 입장에서 질문하세요.
+
 이력서나 지금까지 답변에 나온 특정 기술·경험을 직접 짚어서 검증하는 질문을 하나 하세요. 채용공고에 없는 요건을 만들지 마세요.`,
   };
 
@@ -259,9 +260,9 @@ function buildAgentSystemPrompt(
   const agentJobBlock: Record<AgentId, string> = {
     organization: [
       jobPosting.companyName ? `회사명: ${jobPosting.companyName}` : "",
+      jobPosting.divisionName ? `지원 사업부: ${jobPosting.divisionName}` : "",
       jobPosting.foundedYear ? `설립: ${jobPosting.foundedYear}` : "",
       jobPosting.listingStatus ? `상장 현황: ${jobPosting.listingStatus}` : "",
-      jobPosting.industrySector ? `업종: ${jobPosting.industrySector}` : "",
       jobPosting.employeeSummary ? `직원 현황: ${jobPosting.employeeSummary}` : "",
       jobPosting.financialSummary ? `재무 현황:\n${jobPosting.financialSummary}` : "",
       jobPosting.recentDisclosures ? `최근 주요 공시:\n${jobPosting.recentDisclosures}` : "",
@@ -273,12 +274,14 @@ function buildAgentSystemPrompt(
     logic: [
       jobPosting.companyName ? `회사명: ${jobPosting.companyName}` : "",
       jobPosting.divisionName ? `지원 사업부: ${jobPosting.divisionName}` : "",
-      jobPosting.recentDisclosures ? `최근 주요 공시:\n${jobPosting.recentDisclosures}` : "",
+      jobPosting.jobClassification ? `직무 분류: ${jobPosting.jobClassification}` : "",
       commonJobBlock,
     ].filter(Boolean).join("\n"),
     technical: [
+      jobPosting.companyName ? `회사명: ${jobPosting.companyName}` : "",
+      jobPosting.divisionName ? `지원 사업부: ${jobPosting.divisionName}` : "",
+      jobPosting.jobClassification ? `직무 분류: ${jobPosting.jobClassification}` : "",
       jobPosting.techStack ? `기술스택: ${jobPosting.techStack}` : "",
-      jobPosting.industrySector ? `업종: ${jobPosting.industrySector}` : "",
       commonJobBlock,
     ].filter(Boolean).join("\n"),
   };
@@ -558,25 +561,28 @@ async function generateSingleAgentThought(
   const thoughtAgentJobBlock: Record<AgentId, string> = {
     organization: [
       jobPosting.companyName ? `회사명: ${jobPosting.companyName}` : "",
+      jobPosting.divisionName ? `지원 사업부: ${jobPosting.divisionName}` : "",
       jobPosting.foundedYear ? `설립: ${jobPosting.foundedYear}` : "",
       jobPosting.listingStatus ? `상장 현황: ${jobPosting.listingStatus}` : "",
-      jobPosting.industrySector ? `업종: ${jobPosting.industrySector}` : "",
       jobPosting.employeeSummary ? `직원 현황: ${jobPosting.employeeSummary}` : "",
       jobPosting.financialSummary ? `재무 현황:\n${jobPosting.financialSummary}` : "",
       jobPosting.recentDisclosures ? `최근 주요 공시:\n${jobPosting.recentDisclosures}` : "",
       jobPosting.companyDescription ? `회사 소개: ${jobPosting.companyDescription}` : "",
       jobPosting.companyCulture ? `조직 문화: ${jobPosting.companyCulture}` : "",
+      jobPosting.businessSummary ? `사업 요약:\n${jobPosting.businessSummary}` : "",
       thoughtCommonJobBlock,
     ].filter(Boolean).join("\n"),
     logic: [
       jobPosting.companyName ? `회사명: ${jobPosting.companyName}` : "",
       jobPosting.divisionName ? `지원 사업부: ${jobPosting.divisionName}` : "",
-      jobPosting.recentDisclosures ? `최근 주요 공시:\n${jobPosting.recentDisclosures}` : "",
+      jobPosting.jobClassification ? `직무 분류: ${jobPosting.jobClassification}` : "",
       thoughtCommonJobBlock,
     ].filter(Boolean).join("\n"),
     technical: [
+      jobPosting.companyName ? `회사명: ${jobPosting.companyName}` : "",
+      jobPosting.divisionName ? `지원 사업부: ${jobPosting.divisionName}` : "",
+      jobPosting.jobClassification ? `직무 분류: ${jobPosting.jobClassification}` : "",
       jobPosting.techStack ? `기술스택: ${jobPosting.techStack}` : "",
-      jobPosting.industrySector ? `업종: ${jobPosting.industrySector}` : "",
       thoughtCommonJobBlock,
     ].filter(Boolean).join("\n"),
   };

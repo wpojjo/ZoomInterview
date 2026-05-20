@@ -10,7 +10,6 @@ interface DartResult {
   isListed?: boolean;
   foundedYear?: string | null;
   listingStatus?: string | null;
-  industrySector?: string | null;
   financialSummary?: string | null;
   recentDisclosures?: string | null;
   employeeSummary?: string | null;
@@ -76,7 +75,7 @@ export default function DartTestPage() {
             기업 정보 수집 미리보기
           </h1>
           <p className="text-sm text-gray-500 dark:text-slate-400">
-            회사명을 입력하면 DART에서 설립연도·상장 여부·업종·재무 요약·직원 현황·최근 공시·사업보고서 원문을 수집합니다.
+            회사명을 입력하면 DART에서 설립연도·상장 여부·재무 요약·직원 현황·최근 공시·사업보고서를 수집합니다.
           </p>
         </div>
 
@@ -128,7 +127,6 @@ export default function DartTestPage() {
               <Row label="DART 코드" value={result.corpCode} mono />
               <Row label="상장 여부" value={result.isListed ? result.listingStatus ?? "상장사" : "비상장"} />
               <Row label="설립연도" value={result.foundedYear} />
-              <Row label="업종" value={result.industrySector} />
             </div>
 
             {result.financialSummary && (
