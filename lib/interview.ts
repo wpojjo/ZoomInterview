@@ -87,6 +87,7 @@ export interface JobPostingContext {
   industrySector?: string;
   financialSummary?: string;
   recentDisclosures?: string;
+  employeeSummary?: string;
 }
 
 export function buildProfileSummary(profile: ProfileContext): string {

@@ -95,6 +95,7 @@ function buildContextBlock(profile: ProfileContext, jobPosting: JobPostingContex
     jobPosting.industrySector ? `업종: ${jobPosting.industrySector}` : "",
     jobPosting.financialSummary ? `재무 현황:\n${jobPosting.financialSummary}` : "",
     jobPosting.recentDisclosures ? `최근 주요 공시:\n${jobPosting.recentDisclosures}` : "",
+    jobPosting.employeeSummary ? `직원 현황: ${jobPosting.employeeSummary}` : "",
     jobPosting.responsibilities ? `담당 업무: ${jobPosting.responsibilities}` : "",
     jobPosting.requirements ? `자격 요건: ${jobPosting.requirements}` : "",
     jobPosting.preferredQuals ? `우대 사항: ${jobPosting.preferredQuals}` : "",

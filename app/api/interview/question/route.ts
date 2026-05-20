@@ -68,7 +68,7 @@ export async function POST(request: NextRequest) {
 
     const { data: companyInfo } = await supabase
       .from("company_info")
-      .select("company_cache(foundedYear, listingStatus, industrySector, financialSummary, recentDisclosures)")
+      .select("company_cache(foundedYear, listingStatus, industrySector, financialSummary, recentDisclosures, employeeSummary)")
       .eq("jobPostingId", jobPosting.id)
       .maybeSingle();
 
@@ -78,6 +78,7 @@ export async function POST(request: NextRequest) {
       industrySector: string | null;
       financialSummary: string | null;
       recentDisclosures: string | null;
+      employeeSummary: string | null;
     } | null;
 
     const profileContext = {
@@ -126,6 +127,7 @@ export async function POST(request: NextRequest) {
       industrySector: cache?.industrySector ?? undefined,
       financialSummary: cache?.financialSummary ?? undefined,
       recentDisclosures: cache?.recentDisclosures ?? undefined,
+      employeeSummary: cache?.employeeSummary ?? undefined,
     };
 
     const result = await generateAgentBaseQuestion(

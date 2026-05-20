@@ -13,6 +13,7 @@ interface DartResult {
   industrySector?: string | null;
   financialSummary?: string | null;
   recentDisclosures?: string | null;
+  employeeSummary?: string | null;
 }
 
 export default function DartTestPage() {
@@ -48,7 +49,7 @@ export default function DartTestPage() {
             기업 정보 수집 미리보기
           </h1>
           <p className="text-sm text-gray-500 dark:text-slate-400">
-            회사명을 입력하면 DART에서 설립연도·상장 여부·업종·재무 요약·최근 공시를 수집합니다.
+            회사명을 입력하면 DART에서 설립연도·상장 여부·업종·재무 요약·직원 현황·최근 공시를 수집합니다.
           </p>
         </div>
 
@@ -95,6 +96,13 @@ export default function DartTestPage() {
               <div className="bg-white dark:bg-slate-900 rounded-xl border border-gray-200 dark:border-slate-700 p-5">
                 <div className="text-xs font-semibold text-gray-400 dark:text-slate-500 mb-2">재무 요약</div>
                 <pre className="text-sm text-gray-700 dark:text-slate-300 whitespace-pre-wrap">{result.financialSummary}</pre>
+              </div>
+            )}
+
+            {result.employeeSummary && (
+              <div className="bg-white dark:bg-slate-900 rounded-xl border border-gray-200 dark:border-slate-700 p-5">
+                <div className="text-xs font-semibold text-gray-400 dark:text-slate-500 mb-2">직원 현황</div>
+                <p className="text-sm text-gray-700 dark:text-slate-300">{result.employeeSummary}</p>
               </div>
             )}
 

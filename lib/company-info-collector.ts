@@ -152,6 +152,108 @@ async function fetchFinancial3Years(corpCode: string): Promise<string> {
   return lines.join("\n");
 }
 
+interface EmpSttusItem {
+  fo_bbm: string;
+  sexdstn: string;
+  sm: string;
+  fyer_salary_totamt: string;
+  jan_salary_am: string;
+  avrg_cnwk_sdytrn: string;
+}
+
+function parseNum(s: string): number {
+  return parseInt(s?.replace(/,/g, "") ?? "0") || 0;
+}
+
+function parseTenure(raw: string): number | null {
+  const s = raw?.trim();
+  if (!s || s === "-") return null;
+  const ym = s.match(/(\d+)년\s*(\d+)개월/);
+  if (ym) return parseInt(ym[1]) + parseInt(ym[2]) / 12;
+  const yu = s.match(/^([\d.]+)년/);
+  if (yu) return parseFloat(yu[1]);
+  if (/^[\d.]+$/.test(s)) return parseFloat(s);
+  return null;
+}
+
+function formatHeadcount(n: number): string {
+  const unit = n >= 10_000 ? 1_000 : 100;
+  return (Math.round(n / unit) * unit).toLocaleString("ko-KR");
+}
+
+function formatSalaryWon(won: number): string {
+  const rounded = Math.round(won / 1_000_000) * 1_000_000;
+  const eok = Math.floor(rounded / 100_000_000);
+  const man = Math.round((rounded % 100_000_000) / 10_000);
+  if (eok > 0 && man > 0) return `${eok}억 ${man.toLocaleString("ko-KR")}만원`;
+  if (eok > 0) return `${eok}억원`;
+  return `${man.toLocaleString("ko-KR")}만원`;
+}
+
+function buildEmployeeSummary(list: EmpSttusItem[]): string | null {
+  const PRIORITY_DIVS = ["전사", "성별합계"];
+  let rows = list.filter(r => PRIORITY_DIVS.includes(r.fo_bbm));
+  if (rows.length === 0) rows = list;
+
+  let totalEmp = 0;
+  let tenureWeightedSum = 0;
+  let tenureWeightTotal = 0;
+
+  for (const r of rows) {
+    const emp = parseNum(r.sm);
+    totalEmp += emp;
+    const tenure = parseTenure(r.avrg_cnwk_sdytrn);
+    if (tenure !== null && emp > 0) {
+      tenureWeightedSum += tenure * emp;
+      tenureWeightTotal += emp;
+    }
+  }
+
+  if (totalEmp === 0) return null;
+
+  const parts: string[] = [`임직원 약 ${formatHeadcount(totalEmp)}명`];
+
+  if (tenureWeightTotal > 0) {
+    const avg = Math.round((tenureWeightedSum / tenureWeightTotal) * 10) / 10;
+    parts.push(`평균 근속 ${avg}년`);
+  }
+
+  const fyerSalaries = rows.map(r => parseNum(r.fyer_salary_totamt));
+  if (fyerSalaries.every(s => s > 0)) {
+    const avg = Math.round(fyerSalaries.reduce((a, b) => a + b, 0) / totalEmp);
+    parts.push(`평균 연봉 ${formatSalaryWon(avg)}`);
+  } else {
+    const janSalaries = rows.map(r => parseNum(r.jan_salary_am)).filter(s => s > 0);
+    if (janSalaries.length > 0) {
+      const avg = Math.round(janSalaries.reduce((a, b) => a + b, 0) / janSalaries.length);
+      parts.push(`평균 연봉 ${formatSalaryWon(avg)}`);
+    }
+  }
+
+  return parts.join(", ");
+}
+
+async function fetchEmployeeSummary(corpCode: string): Promise<string | null> {
+  const currentYear = new Date().getFullYear();
+  for (const year of [currentYear - 1, currentYear - 2]) {
+    const url = new URL(`${DART_BASE}/empSttus.json`);
+    url.searchParams.set("crtfc_key", API_KEY);
+    url.searchParams.set("corp_code", corpCode);
+    url.searchParams.set("bsns_year", String(year));
+    url.searchParams.set("reprt_code", "11011");
+
+    const res = await fetch(url.toString(), { signal: AbortSignal.timeout(10_000) }).catch(() => null);
+    if (!res?.ok) continue;
+
+    const data = await res.json() as { status: string; list?: EmpSttusItem[] };
+    if (data.status !== "000" || !data.list?.length) continue;
+
+    const summary = buildEmployeeSummary(data.list);
+    if (summary) return summary;
+  }
+  return null;
+}
+
 async function fetchRecentDisclosures(corpCode: string): Promise<string> {
   const bgn_de = new Date(Date.now() - 180 * 24 * 60 * 60 * 1000)
     .toISOString().slice(0, 10).replace(/-/g, "");
@@ -242,6 +344,7 @@ export interface DartCompanyInfo {
   industrySector: string | null;
   financialSummary: string | null;
   recentDisclosures: string | null;
+  employeeSummary: string | null;
 }
 
 export async function fetchDartCompanyInfo(companyName: string): Promise<DartCompanyInfo | null> {
@@ -251,10 +354,11 @@ export async function fetchDartCompanyInfo(companyName: string): Promise<DartCom
   if (!corp) return null;
 
   const isListed = !!corp.stock_code?.trim();
-  const [detail, financial, disclosures] = await Promise.all([
+  const [detail, financial, disclosures, employees] = await Promise.all([
     fetchCompanyDetail(corp.corp_code),
     fetchFinancial3Years(corp.corp_code),
     fetchRecentDisclosures(corp.corp_code),
+    fetchEmployeeSummary(corp.corp_code),
   ]);
 
   return {
@@ -265,6 +369,7 @@ export async function fetchDartCompanyInfo(companyName: string): Promise<DartCom
     industrySector: detail?.induty_code ? formatIndutyCls(detail.induty_code) || null : null,
     financialSummary: financial || null,
     recentDisclosures: disclosures || null,
+    employeeSummary: employees || null,
   };
 }
 
@@ -294,12 +399,14 @@ export async function collectCompanyInfo(jobPostingId: string, companyName: stri
       let industrySector: string | null = null;
       let financialSummary: string | null = null;
       let recentDisclosures: string | null = null;
+      let employeeSummary: string | null = null;
 
       if (corp) {
-        const [detail, financial, disclosures] = await Promise.all([
+        const [detail, financial, disclosures, employees] = await Promise.all([
           fetchCompanyDetail(corp.corp_code),
           fetchFinancial3Years(corp.corp_code),
           fetchRecentDisclosures(corp.corp_code),
+          fetchEmployeeSummary(corp.corp_code),
         ]);
 
         if (detail) {
@@ -312,6 +419,7 @@ export async function collectCompanyInfo(jobPostingId: string, companyName: stri
         }
         if (financial) financialSummary = financial;
         if (disclosures) recentDisclosures = disclosures;
+        if (employees) employeeSummary = employees;
       }
 
       const { data: upserted, error } = await supabase
@@ -325,6 +433,7 @@ export async function collectCompanyInfo(jobPostingId: string, companyName: stri
             industrySector,
             financialSummary,
             recentDisclosures,
+            employeeSummary,
             isListed,
             collectedAt: new Date().toISOString(),
           },
