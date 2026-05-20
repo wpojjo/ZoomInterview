@@ -9,7 +9,7 @@
 
 ### 🛠️ 기여하기
 
-브랜치 전략, 커밋 컨벤션 등 협업 규칙은 [CONTRIBUTING.md](./CONTRIBUTING.md)를 참고해주세요.
+브랜치 전략, 커밋 컨벤션 등 협업 규칙은 [CONTRIBUTING.md](./docs/CONTRIBUTING.md)를 참고해주세요.
 
 
 ## ⭐️ 핵심 기능
@@ -102,6 +102,7 @@
 
 ## 🏛️ 시스템 아키텍쳐
 
+[서비스 아키텍처 및 데이터 흐름](./docs/architecture.md)
 
 
 ## 📡 배포 전략
