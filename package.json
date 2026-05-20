@@ -6,7 +6,8 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "collect-experiment": "node --env-file=.env scripts/collect-experiment.mjs"
   },
   "dependencies": {
     "@supabase/ssr": "^0.10.0",
