@@ -463,7 +463,6 @@ export interface DartCompanyInfo {
   isListed: boolean;
   foundedYear: string | null;
   listingStatus: string | null;
-  industrySector: string | null;
   financialSummary: string | null;
   recentDisclosures: string | null;
   employeeSummary: string | null;
@@ -490,7 +489,6 @@ export async function fetchDartCompanyInfo(companyName: string): Promise<DartCom
     isListed,
     foundedYear: detail?.est_dt ? formatEstDate(detail.est_dt) : null,
     listingStatus: detail ? formatCorpCls(detail.corp_cls, corp.stock_code) || null : null,
-    industrySector: detail?.induty_code ? formatIndutyCls(detail.induty_code) || null : null,
     financialSummary: financial || null,
     recentDisclosures: disclosures || null,
     employeeSummary: employees || null,
@@ -520,7 +518,6 @@ export async function collectCompanyInfo(jobPostingId: string, companyName: stri
 
       let foundedYear: string | null = null;
       let listingStatus: string | null = null;
-      let industrySector: string | null = null;
       let financialSummary: string | null = null;
       let recentDisclosures: string | null = null;
       let employeeSummary: string | null = null;
@@ -539,8 +536,6 @@ export async function collectCompanyInfo(jobPostingId: string, companyName: stri
           if (detail.est_dt) foundedYear = formatEstDate(detail.est_dt);
           const ls = formatCorpCls(detail.corp_cls, corp.stock_code);
           if (ls) listingStatus = ls;
-          const is = detail.induty_code ? formatIndutyCls(detail.induty_code) : "";
-          if (is) industrySector = is;
         }
         if (financial) financialSummary = financial;
         if (disclosures) recentDisclosures = disclosures;
@@ -555,7 +550,6 @@ export async function collectCompanyInfo(jobPostingId: string, companyName: stri
             companyName,
             foundedYear,
             listingStatus,
-            industrySector,
             financialSummary,
             recentDisclosures,
             employeeSummary,

@@ -98,9 +98,9 @@ function buildContextBlock(profile: ProfileContext, jobPosting: JobPostingContex
   if (agentId === "organization") {
     agentParts = [
       jobPosting.companyName ? `회사명: ${jobPosting.companyName}` : "",
+      jobPosting.divisionName ? `지원 사업부: ${jobPosting.divisionName}` : "",
       jobPosting.foundedYear ? `설립: ${jobPosting.foundedYear}` : "",
       jobPosting.listingStatus ? `상장 현황: ${jobPosting.listingStatus}` : "",
-      jobPosting.industrySector ? `업종: ${jobPosting.industrySector}` : "",
       jobPosting.employeeSummary ? `직원 현황: ${jobPosting.employeeSummary}` : "",
       jobPosting.financialSummary ? `재무 현황:\n${jobPosting.financialSummary}` : "",
       jobPosting.recentDisclosures ? `최근 주요 공시:\n${jobPosting.recentDisclosures}` : "",
@@ -112,12 +112,14 @@ function buildContextBlock(profile: ProfileContext, jobPosting: JobPostingContex
     agentParts = [
       jobPosting.companyName ? `회사명: ${jobPosting.companyName}` : "",
       jobPosting.divisionName ? `지원 사업부: ${jobPosting.divisionName}` : "",
-      jobPosting.recentDisclosures ? `최근 주요 공시:\n${jobPosting.recentDisclosures}` : "",
+      jobPosting.jobClassification ? `직무 분류: ${jobPosting.jobClassification}` : "",
     ];
   } else if (agentId === "technical") {
     agentParts = [
+      jobPosting.companyName ? `회사명: ${jobPosting.companyName}` : "",
+      jobPosting.divisionName ? `지원 사업부: ${jobPosting.divisionName}` : "",
+      jobPosting.jobClassification ? `직무 분류: ${jobPosting.jobClassification}` : "",
       jobPosting.techStack ? `기술스택: ${jobPosting.techStack}` : "",
-      jobPosting.industrySector ? `업종: ${jobPosting.industrySector}` : "",
     ];
   } else {
     // 중재자: 핵심 회사 정보만
@@ -125,7 +127,6 @@ function buildContextBlock(profile: ProfileContext, jobPosting: JobPostingContex
       jobPosting.companyName ? `회사명: ${jobPosting.companyName}` : "",
       jobPosting.foundedYear ? `설립: ${jobPosting.foundedYear}` : "",
       jobPosting.listingStatus ? `상장 현황: ${jobPosting.listingStatus}` : "",
-      jobPosting.industrySector ? `업종: ${jobPosting.industrySector}` : "",
       jobPosting.financialSummary ? `재무 현황:\n${jobPosting.financialSummary}` : "",
       jobPosting.recentDisclosures ? `최근 주요 공시:\n${jobPosting.recentDisclosures}` : "",
       jobPosting.employeeSummary ? `직원 현황: ${jobPosting.employeeSummary}` : "",
@@ -158,6 +159,8 @@ const AGENT_SYSTEM_PROMPTS: Record<AgentId, string> = {
 1. 기술 실사용 여부 (0-40): 툴·방법론 이름이 있어야 확인 가능. "데이터 분석"만 있고 툴이 없으면 낮게 평가하세요. 직무 요건과 직접 대조하세요.
 2. 기술적 선택 근거 (0-40): 왜 그 툴을, 왜 그 방법을 썼는지 설명할 수 있는가. 근거 없이 툴 이름만 나열하면 낮게 평가하세요.
 3. 경험 주도성 (0-20): "저는 구현했다" vs "팀이 결정했다"를 구분. 본인이 주도한 건지 명확한지 분석하세요.
+
+직무 분류가 명시된 경우, 해당 직무의 현업 선임 입장에서 평가하세요.
 
 반드시 유효한 JSON만 응답하세요 — 다른 텍스트 없이.`,
 

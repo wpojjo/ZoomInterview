@@ -53,16 +53,16 @@ DART 기업정보 수집                    뉴스 크롤링
 
 추출 필드:
 
-| 필드 | 설명 | 사용처 |
-|------|------|--------|
-| `responsibilities` | 담당업무 | 면접 프롬프트 (전 에이전트), 수동 편집 폼, 직무 분류 |
-| `requirements` | 자격요건 | 면접 프롬프트 (전 에이전트), 수동 편집 폼 |
-| `preferredQuals` | 우대사항 | 면접 프롬프트 (전 에이전트), 수동 편집 폼 |
-| `companyName` | 회사명 | DART 수집 트리거, 면접 프롬프트 (전 에이전트) |
-| `divisionName` | 사업부/팀명 | 면접 Logic 에이전트 프롬프트 |
-| `techStack` | 기술스택 | 면접 Technical 에이전트, 뉴스 키워드 추출 |
-| `companyDescription` | 회사 소개 | 면접 Organization 에이전트 |
-| `companyCulture` | 조직 문화 | 면접 Organization 에이전트 |
+| 필드 | 설명 | 사용 에이전트 |
+|------|------|-------------|
+| `responsibilities` | 담당업무 | 전체 |
+| `requirements` | 자격요건 | 전체 |
+| `preferredQuals` | 우대사항 | 전체 |
+| `companyName` | 회사명 | 전체 |
+| `divisionName` | 사업부/팀명 | 전체 |
+| `techStack` | 기술스택 | Technical |
+| `companyDescription` | 회사 소개 | Organization |
+| `companyCulture` | 조직 문화 | Organization |
 
 분석 완료 후 `collectCompanyInfo(jobPostingId, companyName)`를 비동기로 호출해 DART 수집을 시작합니다.
 
@@ -88,12 +88,10 @@ DART 기업정보 수집                    뉴스 크롤링
 |------|------|------|-------------|
 | `foundedYear` | `/company.json` | 설립연도 | Organization |
 | `listingStatus` | `/company.json` | 코스피/코스닥/코넥스/비상장 | Organization |
-| `industrySector` | `/company.json` | 업종 분류 (22개) | Organization, Technical |
 | `financialSummary` | `/fnlttSinglAcnt.json` | 3년 매출·영업이익 및 전년비 | Organization |
 | `employeeSummary` | `/empSttus.json` | 임직원 수·평균근속·평균연봉 | Organization |
-| `recentDisclosures` | `/list.json` | 최근 180일 인수·합병·투자·신사업 공시 (최대 5건) | Organization, Logic |
-| `businessOverview` | 사업보고서 HTML | 사업의 개요 LLM 요약 (3문장 이내, 수집 시 변환) | Organization |
-| `mainProducts` | 사업보고서 HTML | 주요 제품·서비스 LLM 요약 (3문장 이내, 수집 시 변환) | Organization |
+| `recentDisclosures` | `/list.json` | 최근 180일 인수·합병·투자·신사업 공시 (최대 5건) | Organization |
+| `businessSummary` | 사업보고서 HTML | 사업 개요·주요 제품·서비스 LLM 요약 (수집 시 변환) | Organization |
 
 수집 후 `company_cache` upsert → `company_info`로 `job_postings`와 연결합니다.
 
@@ -144,11 +142,11 @@ DART 기업정보 수집                    뉴스 크롤링
 
 3명의 AI 면접관이 순차적으로 질문합니다.
 
-| 에이전트 | 역할 | 판단 기준 | 주입 데이터 |
-|--------|------|---------|-----------|
-| **Organization** (HR 담당자) | 지원동기, 조직 적합성, 장기 재직 가능성 | "왜 하필 우리 회사인가?" | 설립·상장·업종·직원현황·재무현황·공시·회사소개·조직문화·사업보고서 |
-| **Logic** (실무 팀장) | 경험 주도성, 행동 구체성, 성과 재현 가능성 | "내 팀에서 실제로 어떻게 일할 사람인가?" | 사업부명·공시 |
-| **Technical** (현업 선임) | 기술 실사용, 선택 근거, 직무 요건 연결 | "이력서에 써놓은 것들, 실제로 아는 건가?" | 기술스택·업종 |
+| 에이전트 | 역할 | 판단 기준 |
+|--------|------|---------|
+| **Organization** (HR 담당자) | 지원동기, 조직 적합성, 장기 재직 가능성 | "왜 하필 우리 회사인가?" |
+| **Logic** (실무 팀장) | 경험 주도성, 행동 구체성, 성과 재현 가능성 | "내 팀에서 실제로 어떻게 일할 사람인가?" |
+| **Technical** (현업 선임) | 기술 실사용, 선택 근거, 직무 요건 연결 | "이력서에 써놓은 것들, 실제로 아는 건가?" |
 
 ### 질문 생성
 
@@ -231,7 +229,7 @@ finalScore = baseScore + adjustment (-5 ~ +5)
 뉴스를 "알고 있냐"고 직접 묻지 않고, 지원자의 경험·판단과 연결하도록 LLM에 지시합니다.
 
 **에이전트별 데이터 비대칭**
-각 에이전트의 역할에 맞는 컨텍스트만 주입합니다. Organization은 "왜 이 회사인가"를 검증해야 하므로 회사 전반 정보(재무·문화·사업보고서 포함)를 받습니다. Logic은 행동 패턴 검증이 목적이므로 사업부명과 최근 공시만 받습니다. Technical은 기술 검증이 목적이므로 기술스택과 업종만 받습니다. 질문 생성·속마음·토론 전 단계에 동일한 분리 원칙을 적용합니다.
+각 에이전트의 역할에 맞는 컨텍스트만 주입합니다. Organization은 "왜 이 회사인가"를 검증해야 하므로 회사 전반 정보(재무·문화·사업보고서 포함)를 받습니다. Logic은 실무 경험 검증이 목적이므로 회사명·사업부명·직무 분류만 받습니다(재무·공시 등은 평가 기준과 무관). Technical은 기술 검증이 목적이므로 회사명·사업부명·직무 분류·기술스택을 받습니다. 직무 분류(`jobClassification`)는 채용공고 텍스트에서 감지한 21개 분류로, Logic·Technical 에이전트가 해당 직무의 현업 입장에서 평가하도록 유도합니다. 질문 생성·속마음·토론 전 단계에 동일한 분리 원칙을 적용합니다.
 
 **사업보고서 LLM 요약**
 DART에서 사업보고서 HTML 수집 시 즉시 LLM 요약(3문장 이내)으로 변환 후 DB에 저장합니다. 원문은 최대 6,000자였으나 요약 후 ~600자로 축소되어 Organization 에이전트 컨텍스트 크기를 줄입니다. 요약 실패 시 원문 500자 슬라이스로 폴백합니다.

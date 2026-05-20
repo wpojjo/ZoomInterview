@@ -36,7 +36,6 @@ export async function loadProfileContext(userId: string): Promise<ProfileContext
 type CompanyCache = {
   foundedYear: string | null;
   listingStatus: string | null;
-  industrySector: string | null;
   financialSummary: string | null;
   recentDisclosures: string | null;
   employeeSummary: string | null;
@@ -61,7 +60,7 @@ export async function loadJobPostingWithContext(
 
   const { data: companyInfo } = await supabase
     .from("company_info")
-    .select("company_cache(foundedYear, listingStatus, industrySector, financialSummary, recentDisclosures, employeeSummary, businessSummary)")
+    .select("company_cache(foundedYear, listingStatus, financialSummary, recentDisclosures, employeeSummary, businessSummary)")
     .eq("jobPostingId", jobPosting.id)
     .maybeSingle();
 
@@ -104,7 +103,6 @@ export async function loadJobPostingWithContext(
     newsContext,
     foundedYear: cache?.foundedYear ?? undefined,
     listingStatus: cache?.listingStatus ?? undefined,
-    industrySector: cache?.industrySector ?? undefined,
     financialSummary: cache?.financialSummary ?? undefined,
     recentDisclosures: cache?.recentDisclosures ?? undefined,
     employeeSummary: cache?.employeeSummary ?? undefined,
