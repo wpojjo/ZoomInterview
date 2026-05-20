@@ -92,8 +92,8 @@ DART 기업정보 수집                    뉴스 크롤링
 | `financialSummary` | `/fnlttSinglAcnt.json` | 3년 매출·영업이익 및 전년비 | Organization |
 | `employeeSummary` | `/empSttus.json` | 임직원 수·평균근속·평균연봉 | Organization |
 | `recentDisclosures` | `/list.json` | 최근 180일 인수·합병·투자·신사업 공시 (최대 5건) | Organization, Logic |
-| `businessOverview` | 사업보고서 HTML | 사업의 개요 원문 | Organization |
-| `mainProducts` | 사업보고서 HTML | 주요 제품·서비스 원문 | Organization |
+| `businessOverview` | 사업보고서 HTML | 사업의 개요 LLM 요약 (3문장 이내, 수집 시 변환) | Organization |
+| `mainProducts` | 사업보고서 HTML | 주요 제품·서비스 LLM 요약 (3문장 이내, 수집 시 변환) | Organization |
 
 수집 후 `company_cache` upsert → `company_info`로 `job_postings`와 연결합니다.
 
@@ -232,3 +232,15 @@ finalScore = baseScore + adjustment (-5 ~ +5)
 
 **에이전트별 데이터 비대칭**
 각 에이전트의 역할에 맞는 컨텍스트만 주입합니다. Organization은 "왜 이 회사인가"를 검증해야 하므로 회사 전반 정보(재무·문화·사업보고서 포함)를 받습니다. Logic은 행동 패턴 검증이 목적이므로 사업부명과 최근 공시만 받습니다. Technical은 기술 검증이 목적이므로 기술스택과 업종만 받습니다. 질문 생성·속마음·토론 전 단계에 동일한 분리 원칙을 적용합니다.
+
+**사업보고서 LLM 요약**
+DART에서 사업보고서 HTML 수집 시 즉시 LLM 요약(3문장 이내)으로 변환 후 DB에 저장합니다. 원문은 최대 6,000자였으나 요약 후 ~600자로 축소되어 Organization 에이전트 컨텍스트 크기를 줄입니다. 요약 실패 시 원문 500자 슬라이스로 폴백합니다.
+
+**재무 국면 기반 질문 방향**
+`financialSummary` 텍스트를 런타임에 파싱해 재무 국면을 분류하고, Organization 에이전트 프롬프트에 질문 방향 힌트를 조건부 주입합니다. 추가 LLM 호출 없이 정규식으로 처리합니다.
+
+| 국면 | 조건 | 질문 방향 |
+|------|------|-----------|
+| 확장기 | 전년비 +10% 이상 | 도전 경험, 적극성, 변화 적응력 |
+| 위기 | 전년비 음수 | 문제 해결, 비용 절감·효율화 경험 |
+| 생존모드 | 영업이익 적자 | 빠른 실행력, 우선순위 판단, 제한 자원 성과 |
