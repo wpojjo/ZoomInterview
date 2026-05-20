@@ -40,8 +40,7 @@ type CompanyCache = {
   financialSummary: string | null;
   recentDisclosures: string | null;
   employeeSummary: string | null;
-  businessOverview: string | null;
-  mainProducts: string | null;
+  businessSummary: string | null;
 } | null;
 
 // difficulty가 있으면 직무 분류 감지 + normal/hard일 때 뉴스 수집
@@ -62,7 +61,7 @@ export async function loadJobPostingWithContext(
 
   const { data: companyInfo } = await supabase
     .from("company_info")
-    .select("company_cache(foundedYear, listingStatus, industrySector, financialSummary, recentDisclosures, employeeSummary, businessOverview, mainProducts)")
+    .select("company_cache(foundedYear, listingStatus, industrySector, financialSummary, recentDisclosures, employeeSummary, businessSummary)")
     .eq("jobPostingId", jobPosting.id)
     .maybeSingle();
 
@@ -109,8 +108,7 @@ export async function loadJobPostingWithContext(
     financialSummary: cache?.financialSummary ?? undefined,
     recentDisclosures: cache?.recentDisclosures ?? undefined,
     employeeSummary: cache?.employeeSummary ?? undefined,
-    businessOverview: cache?.businessOverview ?? undefined,
-    mainProducts: cache?.mainProducts ?? undefined,
+    businessSummary: cache?.businessSummary ?? undefined,
   };
 
   return { jobPostingId: jobPosting.id, jobPostingContext };

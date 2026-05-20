@@ -106,8 +106,7 @@ function buildContextBlock(profile: ProfileContext, jobPosting: JobPostingContex
       jobPosting.recentDisclosures ? `최근 주요 공시:\n${jobPosting.recentDisclosures}` : "",
       jobPosting.companyDescription ? `회사 소개: ${jobPosting.companyDescription}` : "",
       jobPosting.companyCulture ? `조직 문화: ${jobPosting.companyCulture}` : "",
-      jobPosting.businessOverview ? `사업 개요:\n${jobPosting.businessOverview}` : "",
-      jobPosting.mainProducts ? `주요 제품·서비스:\n${jobPosting.mainProducts}` : "",
+      jobPosting.businessSummary ? `사업 요약:\n${jobPosting.businessSummary}` : "",
     ];
   } else if (agentId === "logic") {
     agentParts = [

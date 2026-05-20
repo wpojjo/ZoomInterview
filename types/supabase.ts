@@ -121,7 +121,7 @@ export type Database = {
       }
       company_cache: {
         Row: {
-          businessOverview: string | null
+          businessSummary: string | null
           collectedAt: string
           companyName: string
           employeeSummary: string | null
@@ -131,11 +131,10 @@ export type Database = {
           industrySector: string | null
           isListed: boolean
           listingStatus: string | null
-          mainProducts: string | null
           recentDisclosures: string | null
         }
         Insert: {
-          businessOverview?: string | null
+          businessSummary?: string | null
           collectedAt?: string
           companyName: string
           employeeSummary?: string | null
@@ -145,11 +144,10 @@ export type Database = {
           industrySector?: string | null
           isListed?: boolean
           listingStatus?: string | null
-          mainProducts?: string | null
           recentDisclosures?: string | null
         }
         Update: {
-          businessOverview?: string | null
+          businessSummary?: string | null
           collectedAt?: string
           companyName?: string
           employeeSummary?: string | null
@@ -159,7 +157,6 @@ export type Database = {
           industrySector?: string | null
           isListed?: boolean
           listingStatus?: string | null
-          mainProducts?: string | null
           recentDisclosures?: string | null
         }
         Relationships: []
@@ -170,7 +167,6 @@ export type Database = {
           companyCacheId: string | null
           companyName: string
           id: string
-          isListed: boolean
           jobPostingId: string
         }
         Insert: {
@@ -178,7 +174,6 @@ export type Database = {
           companyCacheId?: string | null
           companyName: string
           id?: string
-          isListed?: boolean
           jobPostingId: string
         }
         Update: {
@@ -186,7 +181,6 @@ export type Database = {
           companyCacheId?: string | null
           companyName?: string
           id?: string
-          isListed?: boolean
           jobPostingId?: string
         }
         Relationships: [
