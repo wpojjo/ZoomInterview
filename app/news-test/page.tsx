@@ -138,7 +138,7 @@ export default function NewsTestPage() {
             <textarea
               value={jobText}
               onChange={(e) => setJobText(e.target.value)}
-              rows={5}
+              rows={15}
               placeholder="예: 백엔드 개발, 서버 인프라 운영, 데이터 파이프라인 구축..."
               className="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-slate-600 bg-white dark:bg-slate-800 text-gray-900 dark:text-slate-100 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
             />

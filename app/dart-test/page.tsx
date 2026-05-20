@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 interface DartResult {
   ok: boolean;
@@ -21,7 +21,33 @@ interface DartResult {
 export default function DartTestPage() {
   const [companyName, setCompanyName] = useState("");
   const [loading, setLoading] = useState(false);
+  const [loadingPosting, setLoadingPosting] = useState(false);
+  const [postingStatus, setPostingStatus] = useState("");
   const [result, setResult] = useState<DartResult | null>(null);
+
+  async function loadLatestJobPosting(showStatus = true) {
+    setLoadingPosting(true);
+    if (showStatus) setPostingStatus("");
+    try {
+      const res = await fetch("/api/job-posting");
+      const data = await res.json();
+      const p = data?.jobPosting;
+      if (!p) {
+        if (showStatus) setPostingStatus("분석된 채용공고가 없습니다. 채용공고 페이지에서 먼저 분석을 실행해주세요.");
+        return;
+      }
+      setCompanyName(p.companyName ?? "");
+      if (showStatus) setPostingStatus(`최근 분석 결과를 불러왔습니다 — ${p.companyName ?? "(회사명 없음)"} · ${p.divisionName ?? ""}`);
+    } catch {
+      if (showStatus) setPostingStatus("채용공고를 불러오는 중 오류가 발생했습니다.");
+    } finally {
+      setLoadingPosting(false);
+    }
+  }
+
+  useEffect(() => {
+    loadLatestJobPosting(false);
+  }, []);
 
   async function handleRun() {
     setLoading(true);
@@ -56,6 +82,18 @@ export default function DartTestPage() {
         </div>
 
         <div className="bg-white dark:bg-slate-900 rounded-xl border border-gray-200 dark:border-slate-700 p-5 space-y-4">
+          <div className="flex items-center justify-between gap-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-100 dark:border-blue-800 rounded-lg px-3 py-2">
+            <div className="text-xs text-blue-700 dark:text-blue-300">
+              {postingStatus || "채용공고 페이지에서 분석한 결과를 불러올 수 있습니다"}
+            </div>
+            <button
+              onClick={() => loadLatestJobPosting(true)}
+              disabled={loadingPosting}
+              className="shrink-0 text-xs font-semibold text-blue-700 dark:text-blue-300 hover:text-blue-900 dark:hover:text-blue-100 px-2.5 py-1.5 rounded-md bg-white dark:bg-slate-800 border border-blue-200 dark:border-blue-700 disabled:opacity-50"
+            >
+              {loadingPosting ? "불러오는 중..." : "최근 채용공고 불러오기"}
+            </button>
+          </div>
           <div>
             <label className="block text-sm font-semibold text-gray-700 dark:text-slate-200 mb-1.5">
               회사명
