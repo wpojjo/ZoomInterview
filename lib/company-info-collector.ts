@@ -324,13 +324,12 @@ async function fetchSectionText(rcptNo: string, section: DartSectionInfo): Promi
 async function summarizeBusinessReport(
   rawOverview: string | null,
   rawProducts: string | null,
-): Promise<{ businessOverview: string | null; mainProducts: string | null }> {
-  if (!rawOverview && !rawProducts) return { businessOverview: null, mainProducts: null };
+): Promise<string | null> {
+  if (!rawOverview && !rawProducts) return null;
 
   const prompt = `다음은 기업 사업보고서에서 추출한 원문 텍스트입니다.
-면접관이 "왜 이 회사인가?"를 검증하는 데 필요한 핵심 내용만 각각 3문장 이내로 요약하세요.
+면접관이 "왜 이 회사인가?"를 검증하는 데 필요한 핵심 내용을 5문장 이내로 요약하세요.
 수치·지표보다 회사의 사업 방향과 특징 위주로 요약하세요.
-해당 항목이 없으면 null을 반환하세요.
 
 [사업의 개요 원문]
 ${rawOverview ? rawOverview.slice(0, 4000) : "없음"}
@@ -338,44 +337,31 @@ ${rawOverview ? rawOverview.slice(0, 4000) : "없음"}
 [주요 제품·서비스 원문]
 ${rawProducts ? rawProducts.slice(0, 4000) : "없음"}
 
-반드시 아래 JSON 형식만 출력하세요:
-{"businessOverview":"<요약 또는 null>","mainProducts":"<요약 또는 null>"}`;
+요약문만 출력하세요.`;
 
   try {
-    const raw = await callLLM({
+    const result = await callLLM({
       messages: [{ role: "user", content: prompt }],
-      max_tokens: 600,
+      max_tokens: 400,
     });
-    const match = raw.match(/\{[\s\S]*\}/);
-    if (!match) throw new Error("JSON 파싱 실패");
-    const parsed = JSON.parse(match[0]) as { businessOverview: string | null; mainProducts: string | null };
-    return {
-      businessOverview: typeof parsed.businessOverview === "string" && parsed.businessOverview !== "null" ? parsed.businessOverview : null,
-      mainProducts: typeof parsed.mainProducts === "string" && parsed.mainProducts !== "null" ? parsed.mainProducts : null,
-    };
+    return result.trim() || null;
   } catch {
-    // 요약 실패 시 원문 앞부분으로 대체
-    return {
-      businessOverview: rawOverview ? rawOverview.slice(0, 500) : null,
-      mainProducts: rawProducts ? rawProducts.slice(0, 500) : null,
-    };
+    return rawOverview ? rawOverview.slice(0, 500) : null;
   }
 }
 
-async function fetchBusinessReportSections(corpCode: string): Promise<{ businessOverview: string | null; mainProducts: string | null }> {
-  const empty = { businessOverview: null, mainProducts: null };
-
+async function fetchBusinessReportSections(corpCode: string): Promise<string | null> {
   const rcptNo = await fetchLatestAnnualReportRcptNo(corpCode);
-  if (!rcptNo) return empty;
+  if (!rcptNo) return null;
 
   const mainRes = await fetch(
     `https://dart.fss.or.kr/dsaf001/main.do?rcpNo=${rcptNo}`,
     { signal: AbortSignal.timeout(10_000) },
   ).catch(() => null);
-  if (!mainRes?.ok) return empty;
+  if (!mainRes?.ok) return null;
 
   const mainHtml = await mainRes.text().catch(() => null);
-  if (!mainHtml) return empty;
+  if (!mainHtml) return null;
 
   const overviewInfo = parseSectionInfo(mainHtml, "사업의 개요");
   const productsInfo =
@@ -481,8 +467,7 @@ export interface DartCompanyInfo {
   financialSummary: string | null;
   recentDisclosures: string | null;
   employeeSummary: string | null;
-  businessOverview: string | null;
-  mainProducts: string | null;
+  businessSummary: string | null;
 }
 
 export async function fetchDartCompanyInfo(companyName: string): Promise<DartCompanyInfo | null> {
@@ -509,8 +494,7 @@ export async function fetchDartCompanyInfo(companyName: string): Promise<DartCom
     financialSummary: financial || null,
     recentDisclosures: disclosures || null,
     employeeSummary: employees || null,
-    businessOverview: bizReport.businessOverview,
-    mainProducts: bizReport.mainProducts,
+    businessSummary: bizReport,
   };
 }
 
@@ -540,8 +524,7 @@ export async function collectCompanyInfo(jobPostingId: string, companyName: stri
       let financialSummary: string | null = null;
       let recentDisclosures: string | null = null;
       let employeeSummary: string | null = null;
-      let businessOverview: string | null = null;
-      let mainProducts: string | null = null;
+      let businessSummary: string | null = null;
 
       if (corp) {
         const [detail, financial, disclosures, employees, bizReport] = await Promise.all([
@@ -562,8 +545,7 @@ export async function collectCompanyInfo(jobPostingId: string, companyName: stri
         if (financial) financialSummary = financial;
         if (disclosures) recentDisclosures = disclosures;
         if (employees) employeeSummary = employees;
-        businessOverview = bizReport.businessOverview;
-        mainProducts = bizReport.mainProducts;
+        businessSummary = bizReport;
       }
 
       const { data: upserted, error } = await supabase
@@ -577,8 +559,7 @@ export async function collectCompanyInfo(jobPostingId: string, companyName: stri
             financialSummary,
             recentDisclosures,
             employeeSummary,
-            businessOverview,
-            mainProducts,
+            businessSummary,
             isListed,
             collectedAt: new Date().toISOString(),
           },
@@ -595,7 +576,6 @@ export async function collectCompanyInfo(jobPostingId: string, companyName: stri
       {
         jobPostingId,
         companyName,
-        isListed: false, // company_cache에서 실제 값 읽으므로 여기선 placeholder
         companyCacheId,
         collectedAt: new Date().toISOString(),
       },

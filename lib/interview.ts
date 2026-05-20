@@ -88,8 +88,7 @@ export interface JobPostingContext {
   financialSummary?: string;
   recentDisclosures?: string;
   employeeSummary?: string;
-  businessOverview?: string;
-  mainProducts?: string;
+  businessSummary?: string;
 }
 
 export function buildProfileSummary(profile: ProfileContext): string {
@@ -268,8 +267,7 @@ function buildAgentSystemPrompt(
       jobPosting.recentDisclosures ? `최근 주요 공시:\n${jobPosting.recentDisclosures}` : "",
       jobPosting.companyDescription ? `회사 소개: ${jobPosting.companyDescription}` : "",
       jobPosting.companyCulture ? `조직 문화: ${jobPosting.companyCulture}` : "",
-      jobPosting.businessOverview ? `사업 개요:\n${jobPosting.businessOverview}` : "",
-      jobPosting.mainProducts ? `주요 제품·서비스:\n${jobPosting.mainProducts}` : "",
+      jobPosting.businessSummary ? `사업 요약:\n${jobPosting.businessSummary}` : "",
       commonJobBlock,
     ].filter(Boolean).join("\n"),
     logic: [
