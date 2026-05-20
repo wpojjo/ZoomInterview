@@ -124,6 +124,7 @@ export type Database = {
           ceoName: string | null
           collectedAt: string
           companyName: string
+          employeeSummary: string | null
           financialSummary: string | null
           foundedYear: string | null
           id: string
@@ -136,6 +137,7 @@ export type Database = {
           ceoName?: string | null
           collectedAt?: string
           companyName: string
+          employeeSummary?: string | null
           financialSummary?: string | null
           foundedYear?: string | null
           id?: string
@@ -148,6 +150,7 @@ export type Database = {
           ceoName?: string | null
           collectedAt?: string
           companyName?: string
+          employeeSummary?: string | null
           financialSummary?: string | null
           foundedYear?: string | null
           id?: string
