@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { waitUntil } from "@vercel/functions";
 
 export const maxDuration = 300;
 import { supabaseAdmin as supabase } from "@/lib/supabase-admin";
@@ -271,8 +272,11 @@ export async function POST(request: NextRequest) {
       updatedAt: new Date().toISOString(),
     });
 
-    // fire-and-forget
-    runDebate(sessionId, messages, profileContext, jobPostingContext).catch(() => {});
+    if (process.env.VERCEL) {
+      waitUntil(runDebate(sessionId, messages, profileContext, jobPostingContext));
+    } else {
+      runDebate(sessionId, messages, profileContext, jobPostingContext).catch(() => {});
+    }
 
     return NextResponse.json({ sessionId });
   } catch (error) {
