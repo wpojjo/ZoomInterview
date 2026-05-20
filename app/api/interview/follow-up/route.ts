@@ -69,7 +69,7 @@ export async function POST(request: NextRequest) {
 
     const { data: companyInfo } = await supabase
       .from("company_info")
-      .select("company_cache(foundedYear, listingStatus, industrySector, financialSummary, recentDisclosures, employeeSummary)")
+      .select("company_cache(foundedYear, listingStatus, industrySector, financialSummary, recentDisclosures, employeeSummary, businessOverview, mainProducts)")
       .eq("jobPostingId", jobPosting.id)
       .maybeSingle();
 
@@ -80,6 +80,8 @@ export async function POST(request: NextRequest) {
       financialSummary: string | null;
       recentDisclosures: string | null;
       employeeSummary: string | null;
+      businessOverview: string | null;
+      mainProducts: string | null;
     } | null;
 
     const profileContext = {
@@ -126,6 +128,8 @@ export async function POST(request: NextRequest) {
       financialSummary: cache?.financialSummary ?? undefined,
       recentDisclosures: cache?.recentDisclosures ?? undefined,
       employeeSummary: cache?.employeeSummary ?? undefined,
+      businessOverview: cache?.businessOverview ?? undefined,
+      mainProducts: cache?.mainProducts ?? undefined,
     };
 
     const { thought, selectedAgentId } = await findFollowUpAgent(
