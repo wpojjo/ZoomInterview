@@ -58,8 +58,8 @@ function normalizeName(name: string): string {
 async function findCorpCode(companyName: string): Promise<{ corp_code: string; stock_code: string | null } | null> {
   const normalized = normalizeName(companyName);
   const queries = [
-    supabase.from("dart_corps").select("corp_code, stock_code").eq("corp_name", normalized).order("stock_code", { ascending: false, nullsFirst: false }).limit(1).maybeSingle(),
-    supabase.from("dart_corps").select("corp_code, stock_code").ilike("corp_name", `${normalized}%`).order("stock_code", { ascending: false, nullsFirst: false }).limit(1).maybeSingle(),
+    supabase.from("dart_corps").select("corp_code, stock_code").eq("corp_name", normalized).order("modify_date", { ascending: false, nullsFirst: false }).order("stock_code", { ascending: false, nullsFirst: false }).limit(1).maybeSingle(),
+    supabase.from("dart_corps").select("corp_code, stock_code").ilike("corp_name", `${normalized}%`).order("modify_date", { ascending: false, nullsFirst: false }).order("stock_code", { ascending: false, nullsFirst: false }).limit(1).maybeSingle(),
   ];
   for (const query of queries) {
     const { data } = await query;
