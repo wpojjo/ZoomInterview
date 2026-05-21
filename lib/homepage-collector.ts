@@ -12,6 +12,11 @@ const EXCLUDED_DOMAINS = [
 ];
 
 async function getHomepageUrl(companyName: string): Promise<string | null> {
+  const result = await getHomepageUrlWithSource(companyName);
+  return result?.url ?? null;
+}
+
+async function getHomepageUrlWithSource(companyName: string): Promise<{ url: string; source: "DART" | "검색" } | null> {
   const corp = await findCorpCode(companyName);
   if (corp && DART_API_KEY) {
     const url = new URL(`${DART_BASE}/company.json`);
@@ -22,7 +27,7 @@ async function getHomepageUrl(companyName: string): Promise<string | null> {
       const data = await res.json() as Record<string, string>;
       if (data.status === "000") {
         const hm = data.hm_url?.trim();
-        if (hm?.startsWith("http")) return hm;
+        if (hm?.startsWith("http")) return { url: hm, source: "DART" };
       }
     }
   }
@@ -39,7 +44,7 @@ async function getHomepageUrl(companyName: string): Promise<string | null> {
       let match: RegExpExecArray | null;
       while ((match = urlPattern.exec(text)) !== null) {
         const u = match[0].replace(/[.,;:!?]+$/, "");
-        if (!EXCLUDED_DOMAINS.some(d => u.includes(d))) return u;
+        if (!EXCLUDED_DOMAINS.some(d => u.includes(d))) return { url: u, source: "검색" };
       }
     }
   } catch {
@@ -47,6 +52,63 @@ async function getHomepageUrl(companyName: string): Promise<string | null> {
   }
 
   return null;
+}
+
+export interface HomepageInfo {
+  homepageUrl: string;
+  urlSource: "DART" | "검색";
+  pagesCollected: number;
+  collectedUrls: string[];
+  businessArea: string;
+  mainServices: string[];
+  visionMission: string;
+  coreProduct: string;
+  targetCustomer: string;
+  competitivePosition: string;
+}
+
+export async function fetchHomepageInfo(companyName: string): Promise<HomepageInfo | null> {
+  const urlResult = await getHomepageUrlWithSource(companyName);
+  if (!urlResult) return null;
+
+  const candidateUrls = buildCandidateUrls(urlResult.url);
+  const pages = await Promise.all(candidateUrls.map(fetchPage));
+
+  const collectedUrls = candidateUrls.filter((_, i) => pages[i] !== null);
+  const combinedText = pages.filter(Boolean).join("\n\n---\n\n").slice(0, 20_000);
+
+  if (!combinedText) {
+    return {
+      homepageUrl: urlResult.url,
+      urlSource: urlResult.source,
+      pagesCollected: 0,
+      collectedUrls: [],
+      businessArea: "",
+      mainServices: [],
+      visionMission: "",
+      coreProduct: "",
+      targetCustomer: "",
+      competitivePosition: "",
+    };
+  }
+
+  const extracted = await extractInfo(companyName, combinedText);
+  const mainServices = (() => {
+    try { return JSON.parse(extracted.mainServices) as string[]; } catch { return []; }
+  })();
+
+  return {
+    homepageUrl: urlResult.url,
+    urlSource: urlResult.source,
+    pagesCollected: collectedUrls.length,
+    collectedUrls,
+    businessArea: extracted.businessArea,
+    mainServices,
+    visionMission: extracted.visionMission,
+    coreProduct: extracted.coreProduct,
+    targetCustomer: extracted.targetCustomer,
+    competitivePosition: extracted.competitivePosition,
+  };
 }
 
 async function fetchPage(url: string): Promise<string | null> {
