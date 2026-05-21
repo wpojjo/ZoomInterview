@@ -75,7 +75,7 @@ export async function fetchHomepageInfo(companyName: string): Promise<HomepageIn
   const pages = await Promise.all(candidateUrls.map(fetchPage));
 
   const collectedUrls = candidateUrls.filter((_, i) => pages[i] !== null);
-  const combinedText = pages.filter(Boolean).join("\n\n---\n\n").slice(0, 20_000);
+  const combinedText = pages.filter(Boolean).join("\n\n---\n\n").slice(0, 8_000);
 
   if (!combinedText) {
     return {
@@ -221,7 +221,7 @@ export async function collectHomepageInfo(_jobPostingId: string, companyName: st
 
     const candidateUrls = buildCandidateUrls(homepageUrl);
     const pages = await Promise.all(candidateUrls.map(fetchPage));
-    const combinedText = pages.filter(Boolean).join("\n\n---\n\n").slice(0, 20_000);
+    const combinedText = pages.filter(Boolean).join("\n\n---\n\n").slice(0, 8_000);
 
     if (!combinedText) {
       await supabase.from("company_cache").upsert(
