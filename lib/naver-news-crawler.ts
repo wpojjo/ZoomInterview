@@ -98,13 +98,13 @@ export function extractRelevantFields(
     const text = `${article.title} ${article.description}`.toLowerCase();
 
     classGuide.newsFields.forEach((field) => {
-      const fieldKeywords = extractKeywordsFromField(field);
+      const fieldKeywords = extractKeywordsFromField(field.topic);
       const matchCount = fieldKeywords.filter((keyword) =>
         text.includes(keyword.toLowerCase()),
       ).length;
 
-      if (matchCount > 0 && !extractedFields.includes(field)) {
-        extractedFields.push(field);
+      if (matchCount > 0 && !extractedFields.includes(field.topic)) {
+        extractedFields.push(field.topic);
       }
     });
   });
@@ -151,7 +151,7 @@ function isArticleRelevant(
   const classGuide = JOB_CLASSIFICATIONS[classification];
 
   return classGuide.newsFields.some((field) =>
-    extractKeywordsFromField(field).some((keyword) =>
+    extractKeywordsFromField(field.topic).some((keyword) =>
       text.includes(keyword.toLowerCase()),
     ),
   );
@@ -171,7 +171,7 @@ async function filterArticlesByLLM(
 
   const classGuide = JOB_CLASSIFICATIONS[classification];
   const issueList = classGuide.newsFields
-    .map((f, i) => `${i + 1}. ${f}`)
+    .map((f, i) => `${i + 1}. ${f.topic}`)
     .join("\n");
   const articleList = articles
     .map((a, i) => `[${i + 1}] ${a.title} :: ${a.description}`)

@@ -1,3 +1,5 @@
+import { getNewsQuestionGuide } from "./job-classifications";
+
 const LLM_BASE_URL = process.env.LLM_BASE_URL ?? "http://localhost:11434";
 const LLM_MODEL = process.env.LLM_MODEL ?? "exaone3.5:2.4b";
 
@@ -304,7 +306,11 @@ ${jobPosting.newsContext}
   나쁜 예: "최근 뉴스에서 [이슈]가 있던데 알고 계신가요?" (단순 지식 확인은 금지)
 - 단, 뉴스가 직무·역할과 무관하다면 억지로 끼워넣지 말 것. 자연스러움이 우선.
 - 첫 질문(자기소개·지원동기)이 아닌 두 번째 이후 질문에서 활용하는 것을 권장합니다.
-
+${jobPosting.jobClassification && getNewsQuestionGuide(jobPosting.jobClassification) ? `
+[${jobPosting.jobClassification} 직무 — 뉴스 주제별 질문 가이드]
+위 "주요 이슈"가 아래 주제에 해당하면, 그 주제의 가이드대로 질문을 구성하세요. 해당 주제가 없으면 이 가이드는 무시하세요.
+${getNewsQuestionGuide(jobPosting.jobClassification)}
+` : ""}
 ` : ""}[지원자 프로필]
 ${profileSummary}
 
@@ -607,7 +613,11 @@ ${jobPosting.newsContext}
   나쁜 예: "최근 뉴스에서 [이슈]가 있던데 알고 계신가요?" (단순 지식 확인은 금지)
 - 단, 뉴스가 직무·역할과 무관하다면 억지로 끼워넣지 말 것. 자연스러움이 우선.
 - 첫 질문(자기소개·지원동기)이 아닌 두 번째 이후 질문에서 활용하는 것을 권장합니다.
-
+${jobPosting.jobClassification && getNewsQuestionGuide(jobPosting.jobClassification) ? `
+[${jobPosting.jobClassification} 직무 — 뉴스 주제별 질문 가이드]
+위 "주요 이슈"가 아래 주제에 해당하면, 그 주제의 가이드대로 질문을 구성하세요. 해당 주제가 없으면 이 가이드는 무시하세요.
+${getNewsQuestionGuide(jobPosting.jobClassification)}
+` : ""}
 ` : ""}[지원자 프로필]
 ${profileSummary}
 
