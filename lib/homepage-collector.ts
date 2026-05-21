@@ -33,18 +33,25 @@ async function getHomepageUrlWithSource(companyName: string): Promise<{ url: str
   }
 
   try {
-    const query = encodeURIComponent(`${companyName} 공식 홈페이지`);
-    const res = await fetch(`https://r.jina.ai/https://html.duckduckgo.com/html/?q=${query}`, {
-      headers: { Accept: "text/plain" },
-      signal: AbortSignal.timeout(15_000),
-    });
-    if (res.ok) {
-      const text = await res.text();
-      const urlPattern = /https?:\/\/[^\s)>\]"',]+/g;
-      let match: RegExpExecArray | null;
-      while ((match = urlPattern.exec(text)) !== null) {
-        const u = match[0].replace(/[.,;:!?]+$/, "");
-        if (!EXCLUDED_DOMAINS.some(d => u.includes(d))) return { url: u, source: "검색" };
+    const clientId = process.env.NAVER_CLIENT_ID ?? "";
+    const clientSecret = process.env.NAVER_CLIENT_SECRET ?? "";
+    if (clientId && clientSecret) {
+      const query = encodeURIComponent(`${companyName} 공식 홈페이지`);
+      const res = await fetch(`https://openapi.naver.com/v1/search/webkr.json?query=${query}&display=5`, {
+        headers: {
+          "X-Naver-Client-Id": clientId,
+          "X-Naver-Client-Secret": clientSecret,
+        },
+        signal: AbortSignal.timeout(10_000),
+      });
+      if (res.ok) {
+        const data = await res.json() as { items?: { link: string }[] };
+        for (const item of data.items ?? []) {
+          const u = item.link;
+          if (u?.startsWith("http") && !EXCLUDED_DOMAINS.some(d => u.includes(d))) {
+            return { url: u, source: "검색" };
+          }
+        }
       }
     }
   } catch {
