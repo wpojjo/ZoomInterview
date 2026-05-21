@@ -11,10 +11,14 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ ok: false, error: "회사명을 입력해주세요." }, { status: 400 });
   }
 
-  const info = await fetchHomepageInfo(companyName);
-  if (!info) {
-    return NextResponse.json({ ok: false, error: `"${companyName}"의 홈페이지 URL을 찾을 수 없습니다.` });
+  try {
+    const info = await fetchHomepageInfo(companyName);
+    if (!info) {
+      return NextResponse.json({ ok: false, error: `"${companyName}"의 홈페이지 URL을 찾을 수 없습니다.` });
+    }
+    return NextResponse.json({ ok: true, companyName, ...info });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "수집 중 오류가 발생했습니다.";
+    return NextResponse.json({ ok: false, error: message }, { status: 500 });
   }
-
-  return NextResponse.json({ ok: true, companyName, ...info });
 }
