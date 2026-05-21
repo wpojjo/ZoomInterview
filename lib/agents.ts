@@ -122,14 +122,9 @@ function buildContextBlock(profile: ProfileContext, jobPosting: JobPostingContex
       jobPosting.techStack ? `기술스택: ${jobPosting.techStack}` : "",
     ];
   } else {
-    // 중재자: 핵심 회사 정보만
+    // 중재자: 회사명만. 회사 맥락은 3개 에이전트 opinion에 이미 녹아있음.
     agentParts = [
       jobPosting.companyName ? `회사명: ${jobPosting.companyName}` : "",
-      jobPosting.foundedYear ? `설립: ${jobPosting.foundedYear}` : "",
-      jobPosting.listingStatus ? `상장 현황: ${jobPosting.listingStatus}` : "",
-      jobPosting.financialSummary ? `재무 현황:\n${jobPosting.financialSummary}` : "",
-      jobPosting.recentDisclosures ? `최근 주요 공시:\n${jobPosting.recentDisclosures}` : "",
-      jobPosting.employeeSummary ? `직원 현황: ${jobPosting.employeeSummary}` : "",
     ];
   }
 

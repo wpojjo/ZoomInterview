@@ -182,20 +182,87 @@ type FinancialPhase = "확장기" | "위기" | "생존모드";
 function classifyFinancialPhase(financialSummary: string | undefined): FinancialPhase | null {
   if (!financialSummary) return null;
   const firstLine = financialSummary.split("\n")[0];
-  if (/영업이익\s*-/.test(firstLine)) return "생존모드";
   const growthMatch = firstLine.match(/전년비\s*([+-]?\d+)%/);
   if (!growthMatch) return null;
   const growth = parseInt(growthMatch[1]);
+  const isOperatingLoss = /영업이익\s*-/.test(firstLine);
+
+  // 적자라도 매출 고성장이면 스케일업(확장기)으로 본다.
+  // 매출 감소 + 적자만 진짜 생존모드.
+  if (growth >= 20 && isOperatingLoss) return "확장기";
+  if (growth < 0 && isOperatingLoss) return "생존모드";
+  if (isOperatingLoss) return "생존모드";
   if (growth >= 10) return "확장기";
   if (growth < 0) return "위기";
   return null;
 }
 
 const FINANCIAL_PHASE_HINTS: Record<FinancialPhase, string> = {
-  확장기: "현재 회사는 매출 성장세(확장기)입니다. 지원자의 적극성, 빠른 환경 변화 적응력, 도전 경험 위주로 파악하세요.",
-  위기: "현재 회사는 매출 감소세(위기 국면)입니다. 문제 해결, 비용 절감·효율화 경험, 어려운 환경에서의 성과 위주로 파악하세요.",
-  생존모드: "현재 회사는 영업 적자(생존 모드)입니다. 빠른 실행력, 우선순위 판단력, 제한된 자원에서의 성과 경험 위주로 파악하세요.",
+  확장기: "현재 회사는 매출 성장세(확장기)입니다. 지원자가 변화·확장 환경을 선호하는지, 빠른 성장 속도에 적응할 준비가 됐는지 위주로 파악하세요. 안정 지향 답변이 나오면 직접 인용하며 정합성을 검증하세요.",
+  위기: "현재 회사는 매출 감소세(위기 국면)입니다. 지원자가 회사의 도전 과제를 인지하고 있는지, '왜 이 시점에 이 회사인가'에 대한 답이 명확한지 위주로 파악하세요. 안정성·복지만 기대한 답변이 나오면 파고드세요.",
+  생존모드: "현재 회사는 영업 적자(생존 모드)입니다. 지원자가 회사 상황을 인지하고도 합류하려는 이유가 무엇인지, 단기 성과 압박 환경에 대한 준비가 있는지 위주로 파악하세요.",
 };
+
+type CompanyMaturity = "초기" | "성숙기";
+
+// foundedYear + listingStatus + employeeSummary(임직원 수) 조합으로 양 극단만 분류.
+// 셋 중 하나라도 결측이면 분류 포기 (애매한 영역은 힌트 주입 안 함).
+function classifyCompanyMaturity(
+  foundedYear: string | undefined,
+  listingStatus: string | undefined,
+  employeeSummary: string | undefined,
+): CompanyMaturity | null {
+  if (!foundedYear || !employeeSummary) return null;
+  const yearMatch = foundedYear.match(/(\d{4})/);
+  const headcountMatch = employeeSummary.match(/약\s*([\d,]+)명/);
+  if (!yearMatch || !headcountMatch) return null;
+
+  const age = new Date().getFullYear() - parseInt(yearMatch[1]);
+  const headcount = parseInt(headcountMatch[1].replace(/,/g, ""));
+  const isListed = !!listingStatus;
+
+  if (age <= 8 && !isListed && headcount <= 300) return "초기";
+  if (age >= 15 && isListed && headcount >= 2000) return "성숙기";
+  return null;
+}
+
+const COMPANY_MATURITY_HINTS: Record<CompanyMaturity, string> = {
+  초기: "현재 회사는 초기 단계 기업입니다. 지원자가 방향 없이도 스스로 움직이는 자기주도성, 역할 경계를 넘나드는 유연성, 리소스 부족 속에서도 성과를 낸 경험을 갖췄는지 위주로 파악하세요.",
+  성숙기: "현재 회사는 성숙 단계 대기업입니다. 지원자가 대규모 조직 내 협업 구조에서 일한 경험, 절차·문서 기반 실행 역량, 전문성의 깊이를 갖췄는지 위주로 파악하세요.",
+};
+
+function detectDisclosureSignal(disclosures: string | undefined): string | null {
+  if (!disclosures) return null;
+  const hasMA = /인수|합병/.test(disclosures);
+  const hasNew = /신사업|투자/.test(disclosures);
+  if (!hasMA && !hasNew) return null;
+
+  const parts: string[] = [];
+  if (hasMA) parts.push("최근 인수·합병이 진행된 회사입니다. 지원자가 조직 변화·통합 과정에서 실행력을 유지한 경험, 불확실한 상황에서 우선순위를 판단한 경험을 갖췄는지 파악하세요.");
+  if (hasNew) parts.push("최근 신사업·신규 투자가 활발한 회사입니다. 지원자가 검증되지 않은 영역에서 빠르게 학습·실행한 경험, 명확한 정답이 없는 문제를 다룬 경험을 갖췄는지 파악하세요.");
+  return parts.join("\n");
+}
+
+const BUSINESS_SUMMARY_HINT = `사업 요약이 컨텍스트에 포함된 경우, 지원자가 "왜 이 회사인가"를 답할 때 사업 방향·고객군·서비스를 실제로 참조하는지 검증하세요. "성장 가능성이 좋아서", "비전에 공감해서" 같은 보편 답변만 하고 사업 특성을 한 번도 언급하지 않으면, 사업 요약의 특정 문구를 인용하며 "이 부분에 대해 어떻게 생각하시는지" 파고드세요.`;
+
+// organization 페르소나 전용: 다트 데이터 기반 4종 힌트를 묶어서 반환.
+function buildOrganizationDartHints(jobPosting: JobPostingContext): string {
+  const financialPhase = classifyFinancialPhase(jobPosting.financialSummary);
+  const maturity = classifyCompanyMaturity(
+    jobPosting.foundedYear,
+    jobPosting.listingStatus,
+    jobPosting.employeeSummary,
+  );
+  const disclosureSignal = detectDisclosureSignal(jobPosting.recentDisclosures);
+
+  const sections: string[] = [];
+  if (financialPhase) sections.push(`[재무 국면 — 질문 방향 참고]\n${FINANCIAL_PHASE_HINTS[financialPhase]}`);
+  if (maturity) sections.push(`[기업 성숙도 — 질문 방향 참고]\n${COMPANY_MATURITY_HINTS[maturity]}`);
+  if (disclosureSignal) sections.push(`[최근 공시 시그널 — 질문 방향 참고]\n${disclosureSignal}`);
+  if (jobPosting.businessSummary) sections.push(`[사업 요약 활용 지침]\n${BUSINESS_SUMMARY_HINT}`);
+
+  return sections.length > 0 ? `\n\n${sections.join("\n\n")}` : "";
+}
 
 export function getFirstQuestion(name: string) {
   return `안녕하세요, ${name}님. 간단한 자기소개와 지원동기를 말씀해주세요.`;
@@ -224,10 +291,7 @@ function buildAgentSystemPrompt(
 ): string {
   const profileSummary = buildProfileSummary(profile);
   const contextualHints = buildContextualHints(profile, jobPosting);
-  const financialPhase = classifyFinancialPhase(jobPosting.financialSummary);
-  const financialPhaseHint = financialPhase
-    ? `\n\n[재무 국면 — 질문 방향 참고]\n${FINANCIAL_PHASE_HINTS[financialPhase]}`
-    : "";
+  const dartHints = buildOrganizationDartHints(jobPosting);
 
   const agentRole: Record<AgentId, string> = {
     organization: `당신은 [HR 담당자] 면접관입니다.
@@ -241,7 +305,7 @@ function buildAgentSystemPrompt(
 - 경력자라면 이직 이유가 긍정적인지 (전 직장 도피 여부)
 - 오래 다닐 것 같은지
 
-질문은 하나만 하세요. 열린 질문으로 시작해 지원자가 충분히 말하도록 유도하세요.${financialPhaseHint}`,
+질문은 하나만 하세요. 열린 질문으로 시작해 지원자가 충분히 말하도록 유도하세요.${dartHints}`,
     logic: `당신은 [실무 팀장] 면접관입니다.
 판단 철학: "이 사람, 내 팀에서 실제로 어떻게 일할 사람인가?"
 성향: 친절하지도 불친절하지도 않은 건조한 실무형. 답변을 끝까지 들은 뒤 핵심을 찌르는 질문을 하나 던진다. 칭찬은 거의 없고, 모호한 답변엔 범위를 좁혀서 다시 묻는다.
@@ -296,8 +360,6 @@ function buildAgentSystemPrompt(
       jobPosting.companyName ? `회사명: ${jobPosting.companyName}` : "",
       jobPosting.divisionName ? `지원 사업부: ${jobPosting.divisionName}` : "",
       jobPosting.jobClassification ? `직무 분류: ${jobPosting.jobClassification}` : "",
-      jobPosting.financialSummary ? `재무 현황:\n${jobPosting.financialSummary}` : "",
-      jobPosting.recentDisclosures ? `최근 주요 공시:\n${jobPosting.recentDisclosures}` : "",
       commonJobBlock,
     ].filter(Boolean).join("\n"),
     technical: [
@@ -307,7 +369,6 @@ function buildAgentSystemPrompt(
       jobPosting.techStack ? `기술스택: ${jobPosting.techStack}` : "",
       jobPosting.industrySector ? `업종: ${jobPosting.industrySector}` : "",
       jobPosting.mainServices ? `주요 서비스: ${parseMainServices(jobPosting.mainServices)}` : "",
-      jobPosting.recentDisclosures ? `최근 주요 공시:\n${jobPosting.recentDisclosures}` : "",
       commonJobBlock,
     ].filter(Boolean).join("\n"),
   };
@@ -610,8 +671,6 @@ async function generateSingleAgentThought(
       jobPosting.companyName ? `회사명: ${jobPosting.companyName}` : "",
       jobPosting.divisionName ? `지원 사업부: ${jobPosting.divisionName}` : "",
       jobPosting.jobClassification ? `직무 분류: ${jobPosting.jobClassification}` : "",
-      jobPosting.financialSummary ? `재무 현황:\n${jobPosting.financialSummary}` : "",
-      jobPosting.recentDisclosures ? `최근 주요 공시:\n${jobPosting.recentDisclosures}` : "",
       thoughtCommonJobBlock,
     ].filter(Boolean).join("\n"),
     technical: [
@@ -621,15 +680,12 @@ async function generateSingleAgentThought(
       jobPosting.techStack ? `기술스택: ${jobPosting.techStack}` : "",
       jobPosting.industrySector ? `업종: ${jobPosting.industrySector}` : "",
       jobPosting.mainServices ? `주요 서비스: ${parseMainServices(jobPosting.mainServices)}` : "",
-      jobPosting.recentDisclosures ? `최근 주요 공시:\n${jobPosting.recentDisclosures}` : "",
       thoughtCommonJobBlock,
     ].filter(Boolean).join("\n"),
   };
 
-  const thoughtFinancialPhase = classifyFinancialPhase(jobPosting.financialSummary);
-  const thoughtPersona = agentId === "organization" && thoughtFinancialPhase
-    ? AGENT_THOUGHT_PERSONA.organization + `\n\n[재무 국면]\n${FINANCIAL_PHASE_HINTS[thoughtFinancialPhase]}`
-    : AGENT_THOUGHT_PERSONA[agentId];
+  const thoughtDartHints = agentId === "organization" ? buildOrganizationDartHints(jobPosting) : "";
+  const thoughtPersona = AGENT_THOUGHT_PERSONA[agentId] + thoughtDartHints;
 
   const systemPrompt = `${thoughtPersona}
 
