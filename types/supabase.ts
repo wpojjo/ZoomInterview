@@ -123,41 +123,59 @@ export type Database = {
         Row: {
           businessSummary: string | null
           collectedAt: string
+          competitivePosition: string | null
           companyName: string
           employeeSummary: string | null
           financialSummary: string | null
           foundedYear: string | null
+          homepageCollectedAt: string | null
+          homepageUrl: string | null
           id: string
           industrySector: string | null
           isListed: boolean
           listingStatus: string | null
+          mainServices: string | null
           recentDisclosures: string | null
+          targetCustomer: string | null
+          visionMission: string | null
         }
         Insert: {
           businessSummary?: string | null
           collectedAt?: string
+          competitivePosition?: string | null
           companyName: string
           employeeSummary?: string | null
           financialSummary?: string | null
           foundedYear?: string | null
+          homepageCollectedAt?: string | null
+          homepageUrl?: string | null
           id?: string
           industrySector?: string | null
           isListed?: boolean
           listingStatus?: string | null
+          mainServices?: string | null
           recentDisclosures?: string | null
+          targetCustomer?: string | null
+          visionMission?: string | null
         }
         Update: {
           businessSummary?: string | null
           collectedAt?: string
+          competitivePosition?: string | null
           companyName?: string
           employeeSummary?: string | null
           financialSummary?: string | null
           foundedYear?: string | null
+          homepageCollectedAt?: string | null
+          homepageUrl?: string | null
           id?: string
           industrySector?: string | null
           isListed?: boolean
           listingStatus?: string | null
+          mainServices?: string | null
           recentDisclosures?: string | null
+          targetCustomer?: string | null
+          visionMission?: string | null
         }
         Relationships: []
       }

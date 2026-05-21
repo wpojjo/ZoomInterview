@@ -36,6 +36,8 @@ export async function POST(request: NextRequest) {
       );
     }
 
+
+
     const { thought, selectedAgentId } = await findFollowUpAgent(
       profileContext,
       jobPostingData.jobPostingContext,
