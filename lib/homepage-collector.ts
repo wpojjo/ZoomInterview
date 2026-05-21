@@ -33,8 +33,8 @@ async function getHomepageUrlWithSource(companyName: string): Promise<{ url: str
   }
 
   try {
-    const query = encodeURIComponent(`"${companyName}" 공식 홈페이지`);
-    const res = await fetch(`https://s.jina.ai/${query}`, {
+    const query = encodeURIComponent(`${companyName} 공식 홈페이지`);
+    const res = await fetch(`https://r.jina.ai/https://html.duckduckgo.com/html/?q=${query}`, {
       headers: { Accept: "text/plain" },
       signal: AbortSignal.timeout(15_000),
     });
