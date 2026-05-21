@@ -55,7 +55,7 @@ function normalizeName(name: string): string {
   return BRAND_MAP[stripped] ?? BRAND_MAP[name] ?? stripped;
 }
 
-async function findCorpCode(companyName: string): Promise<{ corp_code: string; stock_code: string | null } | null> {
+export async function findCorpCode(companyName: string): Promise<{ corp_code: string; stock_code: string | null } | null> {
   const normalized = normalizeName(companyName);
   const queries = [
     supabase.from("dart_corps").select("corp_code, stock_code").eq("corp_name", normalized).order("modify_date", { ascending: false, nullsFirst: false }).order("stock_code", { ascending: false, nullsFirst: false }).limit(1).maybeSingle(),

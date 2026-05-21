@@ -7,6 +7,7 @@ import { getAuthUser } from "@/lib/auth";
 import { callLLM } from "@/lib/runpod-client";
 import { extractTextFromImageUrl } from "@/lib/ocr";
 import { collectCompanyInfo } from "@/lib/company-info-collector";
+import { collectHomepageInfo } from "@/lib/homepage-collector";
 
 async function fetchPageText(url: string): Promise<{ text: string; markdown: string }> {
   const res = await fetch(`https://r.jina.ai/${url}`, {
@@ -258,8 +259,10 @@ export async function POST(request: NextRequest) {
     if (extracted.companyName) {
       if (process.env.VERCEL) {
         waitUntil(collectCompanyInfo(posting.id, extracted.companyName));
+        waitUntil(collectHomepageInfo(posting.id, extracted.companyName));
       } else {
         collectCompanyInfo(posting.id, extracted.companyName).catch(() => {});
+        collectHomepageInfo(posting.id, extracted.companyName).catch(() => {});
       }
     }
 
