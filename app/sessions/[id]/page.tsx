@@ -1,0 +1,149 @@
+import { notFound, redirect } from "next/navigation";
+import Link from "next/link";
+import { supabaseAdmin as supabase } from "@/lib/supabase-admin";
+import { getAuthUser } from "@/lib/auth";
+import SessionDetailResult from "@/components/SessionDetailResult";
+import type { DebateResultData } from "@/components/DebateLoading";
+import type { AgentEvaluation, AgentFinalOpinion } from "@/lib/agents";
+
+const DIFFICULTY_LABEL: Record<string, string> = {
+  easy: "입문",
+  normal: "기본",
+  hard: "심화",
+};
+
+function formatDate(iso: string | null): string {
+  if (!iso) return "날짜 정보 없음";
+  const d = new Date(iso);
+  return new Intl.DateTimeFormat("ko-KR", {
+    year: "numeric",
+    month: "long",
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  }).format(d);
+}
+
+export default async function SessionDetailPage({
+  params,
+}: {
+  params: Promise<{ id: string }>;
+}) {
+  const userId = await getAuthUser();
+  if (!userId) redirect("/login");
+
+  const { id } = await params;
+
+  const { data: session } = await supabase
+    .from("interview_sessions")
+    .select("*")
+    .eq("id", id)
+    .eq("userId", userId)
+    .neq("difficulty", "tutorial")
+    .maybeSingle();
+
+  if (!session) notFound();
+
+  let companyName: string | null = null;
+  let divisionName: string | null = null;
+  if (session.jobPostingId) {
+    const { data: posting } = await supabase
+      .from("job_postings")
+      .select("companyName, divisionName")
+      .eq("id", session.jobPostingId)
+      .maybeSingle();
+    companyName = posting?.companyName ?? null;
+    divisionName = posting?.divisionName ?? null;
+  }
+
+  return (
+    <main className="min-h-screen py-8 px-4">
+      <div className="max-w-2xl mx-auto space-y-6">
+        {/* 헤더 */}
+        <header className="space-y-2">
+          <div className="flex items-center gap-2 text-xs text-gray-500 dark:text-slate-400">
+            <span>{formatDate(session.createdAt)}</span>
+            <span className="text-gray-300 dark:text-slate-600">·</span>
+            <span>{DIFFICULTY_LABEL[session.difficulty] ?? session.difficulty}</span>
+          </div>
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-slate-50">
+            {companyName ?? "정보 없음"}
+          </h1>
+          <p className="text-sm text-gray-500 dark:text-slate-400">
+            {divisionName ?? "직무 정보 없음"}
+          </p>
+        </header>
+
+        {/* 상태별 본문 */}
+        {session.status === "done" ? (
+          <SessionDetailResult
+            data={{
+              finalScore: session.finalScore ?? 0,
+              agentEvaluations: (session.agentEvaluations ?? []) as unknown as AgentEvaluation[],
+              agentFinalOpinions: (session.agentFinalOpinions ?? []) as unknown as AgentFinalOpinion[],
+              finalFeedback: (session.finalFeedback ?? {
+                strengths: "",
+                weaknesses: "",
+                advice: "",
+              }) as DebateResultData["finalFeedback"],
+              debateSummary: session.debateSummary ?? "",
+              improvementTips: (session.improvementTips ?? []) as unknown as string[],
+            }}
+          />
+        ) : session.status === "error" ? (
+          <StatusCard
+            title="평가 중 오류가 발생했습니다"
+            description={session.errorMessage ?? "알 수 없는 오류"}
+            tone="error"
+          />
+        ) : session.status === "in_progress" ? (
+          <StatusCard
+            title="이전 면접이 중단되었습니다"
+            description="새로고침이나 이탈로 면접이 끝까지 진행되지 않았습니다. 새 면접을 시작해보세요."
+            cta={{ label: "새 면접 시작", href: "/interview" }}
+          />
+        ) : (
+          <StatusCard
+            title="평가가 진행 중입니다"
+            description="잠시 후 다시 확인해주세요."
+          />
+        )}
+
+        <Link
+          href="/history"
+          className="block text-center text-sm text-gray-400 dark:text-slate-500 hover:text-gray-600 dark:hover:text-slate-300"
+        >
+          ← 히스토리로 돌아가기
+        </Link>
+      </div>
+    </main>
+  );
+}
+
+function StatusCard({
+  title,
+  description,
+  cta,
+  tone = "neutral",
+}: {
+  title: string;
+  description: string;
+  cta?: { label: string; href: string };
+  tone?: "neutral" | "error";
+}) {
+  const titleColor =
+    tone === "error"
+      ? "text-red-600 dark:text-red-300"
+      : "text-gray-900 dark:text-slate-50";
+  return (
+    <div className="card p-6 space-y-3 text-center">
+      <h2 className={`text-lg font-bold ${titleColor}`}>{title}</h2>
+      <p className="text-sm text-gray-600 dark:text-slate-300">{description}</p>
+      {cta && (
+        <Link href={cta.href} className="btn-primary inline-block mt-2">
+          {cta.label}
+        </Link>
+      )}
+    </div>
+  );
+}
