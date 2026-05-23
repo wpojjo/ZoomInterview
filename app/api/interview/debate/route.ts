@@ -183,9 +183,10 @@ export async function POST(request: NextRequest) {
     const userId = await getAuthUser();
     if (!userId) return NextResponse.json({ error: "로그인이 필요합니다" }, { status: 401 });
 
-    const { messages, difficulty } = (await request.json()) as {
+    const { messages, difficulty, sessionId: existingSessionId } = (await request.json()) as {
       messages: Message[];
       difficulty: Difficulty;
+      sessionId?: string;
     };
 
     const profileContext = await loadProfileContext(userId);
@@ -195,18 +196,19 @@ export async function POST(request: NextRequest) {
     if (!jobPostingData) return NextResponse.json({ error: "채용공고가 없습니다" }, { status: 404 });
 
     const { jobPostingId, jobPostingContext } = jobPostingData;
-    const sessionId = crypto.randomUUID();
+    const sessionId = existingSessionId ?? crypto.randomUUID();
+    const now = new Date().toISOString();
 
-    await supabase.from("interview_sessions").insert({
+    await supabase.from("interview_sessions").upsert({
       id: sessionId,
       userId,
       jobPostingId,
       difficulty,
       messages: messages as unknown as Json,
       status: "evaluating",
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-    });
+      createdAt: now,
+      updatedAt: now,
+    }, { onConflict: "id" });
 
     if (process.env.VERCEL) {
       waitUntil(runDebate(sessionId, messages, profileContext, jobPostingContext));
