@@ -52,14 +52,34 @@ async function fetchFollowUp(
   return data;
 }
 
+async function createSession(messages: Message[], difficulty: Difficulty): Promise<string> {
+  const res = await fetch("/api/interview/sessions", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ messages, difficulty }),
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error ?? "세션을 생성할 수 없습니다");
+  return data.sessionId as string;
+}
+
+async function syncMessages(sessionId: string, messages: Message[]): Promise<void> {
+  await fetch(`/api/interview/sessions/${sessionId}/messages`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ messages }),
+  });
+}
+
 async function startDebate(
   messages: Message[],
   difficulty: Difficulty,
+  sessionId: string | null,
 ): Promise<string> {
   const res = await fetch("/api/interview/debate", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ messages, difficulty }),
+    body: JSON.stringify({ messages, difficulty, sessionId }),
   });
   const data = await res.json();
   if (!res.ok) throw new Error(data.error ?? "토론을 시작할 수 없습니다");
@@ -433,6 +453,8 @@ export default function InterviewSession({ name }: { name: string }) {
   const [debateResult, setDebateResult] = useState<DebateResultData | null>(null);
   const [debateError, setDebateError] = useState("");
   const proceededRef = useRef(false);
+  const inProgressSessionIdRef = useRef<string | null>(null);
+  const sessionCreatingRef = useRef(false);
 
   const [interimTranscript, setInterimTranscript] = useState("");
   const finalTranscriptRef = useRef("");
@@ -483,11 +505,27 @@ export default function InterviewSession({ name }: { name: string }) {
       done: "debating",
     };
     function handlePopState() {
+      if (phase === "interviewing") {
+        const confirmed = window.confirm("면접을 중단하시겠습니까? 진행 중인 답변은 저장되지 않습니다.");
+        if (!confirmed) {
+          history.pushState({ interviewPhase: phase }, "");
+          return;
+        }
+      }
       const prev = PREV[phase];
       if (prev) setPhase(prev);
     }
     window.addEventListener("popstate", handlePopState);
     return () => window.removeEventListener("popstate", handlePopState);
+  }, [phase]);
+
+  useEffect(() => {
+    if (phase !== "interviewing") return;
+    function handleBeforeUnload(e: BeforeUnloadEvent) {
+      e.preventDefault();
+    }
+    window.addEventListener("beforeunload", handleBeforeUnload);
+    return () => window.removeEventListener("beforeunload", handleBeforeUnload);
   }, [phase]);
 
   useEffect(() => {
@@ -519,6 +557,23 @@ export default function InterviewSession({ name }: { name: string }) {
     setError("");
     setCurrentThought(null);
     setQuestionReady(true);
+
+    // 점진적 DB 저장 (tutorial 제외)
+    if (difficulty !== "tutorial") {
+      if (!inProgressSessionIdRef.current && !sessionCreatingRef.current) {
+        // 첫 답변: 세션 생성
+        sessionCreatingRef.current = true;
+        createSession(updatedMessages, difficulty)
+          .then((sid) => {
+            inProgressSessionIdRef.current = sid;
+          })
+          .catch(() => {})
+          .finally(() => { sessionCreatingRef.current = false; });
+      } else if (inProgressSessionIdRef.current) {
+        // 이후 답변: messages 동기화 (생성 완료된 경우에만)
+        syncMessages(inProgressSessionIdRef.current, updatedMessages).catch(() => {});
+      }
+    }
 
     try {
       const canFollowUp = difficulty !== "tutorial" && followUpRound < MAX_FOLLOWUP_ROUNDS[difficulty];
@@ -608,6 +663,8 @@ export default function InterviewSession({ name }: { name: string }) {
     setQuestionReady(true);
     setIsThinkingPhase(false);
     setSessionId(null);
+    inProgressSessionIdRef.current = null;
+    sessionCreatingRef.current = false;
     setDebateResult(null);
     setDebateError("");
     setFinishedMessages([]);
@@ -641,7 +698,7 @@ export default function InterviewSession({ name }: { name: string }) {
           onClick={async () => {
             goToPhase("debating");
             try {
-              const sid = await startDebate(finishedMessages, difficulty);
+              const sid = await startDebate(finishedMessages, difficulty, inProgressSessionIdRef.current);
               setSessionId(sid);
             } catch (e: unknown) {
               setDebateError(e instanceof Error ? e.message : "토론을 시작할 수 없습니다");
