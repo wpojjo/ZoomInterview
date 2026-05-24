@@ -1,41 +1,11 @@
 import { redirect } from "next/navigation";
-import { supabaseAdmin as supabase } from "@/lib/supabase-admin";
 import { getAuthUser } from "@/lib/auth";
+import { getFullProfile } from "@/lib/profile";
 import SettingsForm from "@/components/SettingsForm";
-
-async function getProfileData(userId: string) {
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("*")
-    .eq("userId", userId)
-    .maybeSingle();
-
-  if (!profile) return null;
-
-  const [
-    { data: educations },
-    { data: careers },
-    { data: certifications },
-    { data: activities },
-  ] = await Promise.all([
-    supabase.from("educations").select("*").eq("profileId", profile.id),
-    supabase.from("careers").select("*").eq("profileId", profile.id),
-    supabase.from("certifications").select("*").eq("profileId", profile.id),
-    supabase.from("activities").select("*").eq("profileId", profile.id),
-  ]);
-
-  return {
-    ...profile,
-    educations: educations ?? [],
-    careers: careers ?? [],
-    certifications: certifications ?? [],
-    activities: activities ?? [],
-  };
-}
 
 export default async function SettingsPage() {
   const userId = await getAuthUser();
-  const profile = userId ? await getProfileData(userId) : null;
+  const profile = userId ? await getFullProfile(userId) : null;
 
   if (!profile) redirect("/profile");
 
