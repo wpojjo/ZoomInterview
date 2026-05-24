@@ -53,6 +53,18 @@ const NAV_ITEMS: NavItem[] = [
     ),
   },
   {
+    href: "/dashboard",
+    label: "대시보드",
+    icon: (
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <rect x="2" y="2" width="8" height="8" rx="1" />
+        <rect x="14" y="2" width="8" height="8" rx="1" />
+        <rect x="2" y="14" width="8" height="8" rx="1" />
+        <path d="M14 17h2m0 0h2m-2 0v-2m0 2v2" />
+      </svg>
+    ),
+  },
+  {
     href: "/history",
     label: "히스토리",
     icon: (
