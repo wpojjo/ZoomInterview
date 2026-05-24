@@ -26,7 +26,7 @@ type Session = {
 };
 
 const DIFFS = ["easy", "normal", "hard"] as const;
-const DIFF_LABEL: Record<string, string> = { easy: "쉬움", normal: "보통", hard: "어려움" };
+const DIFF_LABEL: Record<string, string> = { easy: "입문", normal: "기본", hard: "심화" };
 const GRIDS = [100, 75, 50, 25, 0];
 
 function polyPoints(scores: (number | null)[], count: number): string {
@@ -91,6 +91,13 @@ export default async function DashboardPage() {
       : Math.round(g.reduce((a, s) => a + s.finalScore!, 0) / g.length);
   });
 
+  // 사용 전/후 비교: 겹치지 않는 초기 k회 vs 최근 k회 (k = min(3, ⌊n/2⌋))
+  const k = Math.min(3, Math.floor(n / 2));
+  const avgOf = (arr: number[]) => Math.round(arr.reduce((a, v) => a + v, 0) / arr.length);
+  const beforeAvg = k === 0 ? null : avgOf(trendScores.slice(0, k));
+  const afterAvg = k === 0 ? null : avgOf(trendScores.slice(n - k));
+  const delta = beforeAvg != null && afterAvg != null ? afterAvg - beforeAvg : null;
+
   const isEmpty = doneCount === 0;
 
   return (
@@ -125,6 +132,37 @@ export default async function DashboardPage() {
           </div>
         ) : (
           <>
+            {/* 사용 전/후 비교 */}
+            {k >= 1 && beforeAvg != null && afterAvg != null && (
+              <section className="card p-5 space-y-3">
+                <h2 className="text-sm font-semibold text-gray-700 dark:text-slate-300">사용 전 / 후 비교</h2>
+                <div className="flex items-center justify-center gap-5 sm:gap-8">
+                  <div className="text-center">
+                    <p className="text-xs text-gray-500 dark:text-slate-400">사용 전 (초기 {k}회 평균)</p>
+                    <p className="text-2xl font-bold text-gray-900 dark:text-slate-50 mt-1">{beforeAvg}점</p>
+                  </div>
+                  <span className="text-gray-300 dark:text-slate-600 text-xl">→</span>
+                  <div className="text-center">
+                    <p className="text-xs text-gray-500 dark:text-slate-400">사용 후 (최근 {k}회 평균)</p>
+                    <p className="text-2xl font-bold text-gray-900 dark:text-slate-50 mt-1">{afterAvg}점</p>
+                  </div>
+                  {delta != null && (
+                    <span
+                      className={`text-sm font-semibold ${
+                        delta > 0
+                          ? "text-green-600 dark:text-green-400"
+                          : delta < 0
+                            ? "text-red-600 dark:text-red-400"
+                            : "text-gray-400 dark:text-slate-500"
+                      }`}
+                    >
+                      {delta > 0 ? `▲ +${delta}` : delta < 0 ? `▼ ${delta}` : "±0"}점
+                    </span>
+                  )}
+                </div>
+              </section>
+            )}
+
             {/* 점수 추이 */}
             <section className="card p-5 space-y-2">
               <h2 className="text-sm font-semibold text-gray-700 dark:text-slate-300">점수 추이</h2>
