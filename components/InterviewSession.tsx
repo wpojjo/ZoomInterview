@@ -21,6 +21,44 @@ const ANSWER_TIME_LIMIT = 80;
 
 type Phase = "selecting" | "interviewing" | "finished" | "debating" | "done";
 
+type ResumeSnapshot = {
+  phase: "interviewing" | "finished";
+  difficulty: Difficulty;
+  messages: Message[];
+  agentIndex: number;
+  followUpRound: number;
+  avatarSeeds: Record<AgentId, string>;
+  inProgressSessionId: string | null;
+};
+
+const STORAGE_KEY = "zoom-interview:in-progress";
+
+function loadSnapshot(): ResumeSnapshot | null {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    return raw ? (JSON.parse(raw) as ResumeSnapshot) : null;
+  } catch {
+    return null;
+  }
+}
+
+function saveSnapshot(snap: ResumeSnapshot) {
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(snap));
+  } catch {}
+}
+
+function clearSnapshot() {
+  try {
+    localStorage.removeItem(STORAGE_KEY);
+  } catch {}
+}
+
+function updateStoredSessionId(sid: string) {
+  const snap = loadSnapshot();
+  if (snap) saveSnapshot({ ...snap, inProgressSessionId: sid });
+}
+
 async function fetchQuestion(
   messages: Message[],
   agentId: AgentId,
@@ -449,6 +487,9 @@ export default function InterviewSession({ name }: { name: string }) {
   const [currentThought, setCurrentThought] = useState<AgentThoughtResult | null>(null);
   const [questionReady, setQuestionReady] = useState(true);
 
+  const [restored, setRestored] = useState(false);
+  const [pendingContinue, setPendingContinue] = useState(false);
+
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [debateResult, setDebateResult] = useState<DebateResultData | null>(null);
   const [debateError, setDebateError] = useState("");
@@ -538,6 +579,60 @@ export default function InterviewSession({ name }: { name: string }) {
     return () => clearTimeout(timer);
   }, [timeLeft, isLoading, isThinkingPhase, phase]);
 
+  // 새로고침/이탈 후 복귀 시 진행 중이던 면접 복구
+  useEffect(() => {
+    const snap = loadSnapshot();
+    if (snap && (snap.phase === "interviewing" || snap.phase === "finished")) {
+      setDifficulty(snap.difficulty);
+      setMessages(snap.messages);
+      setAgentIndex(snap.agentIndex);
+      setFollowUpRound(snap.followUpRound);
+      setAvatarSeeds(snap.avatarSeeds);
+      inProgressSessionIdRef.current = snap.inProgressSessionId;
+
+      if (snap.phase === "finished") {
+        setFinishedMessages(snap.messages);
+        setPhase("finished");
+        history.pushState({ interviewPhase: "finished" }, "");
+      } else {
+        setPhase("interviewing");
+        history.pushState({ interviewPhase: "interviewing" }, "");
+        // 마지막 메시지가 답변이면 다음 질문 생성 중에 이탈한 것 → 이어서 생성
+        if (snap.messages[snap.messages.length - 1]?.role === "candidate") {
+          setPendingContinue(true);
+        }
+      }
+    }
+    setRestored(true);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // 복구 시 중단된 질문 생성 이어가기 (복원된 state가 적용된 다음 렌더에서 실행)
+  useEffect(() => {
+    if (!pendingContinue) return;
+    setPendingContinue(false);
+    proceedAfterAnswer(messages);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pendingContinue]);
+
+  // 진행 상태를 localStorage에 저장 (복구 완료 이후에만)
+  useEffect(() => {
+    if (!restored) return;
+    if (phase === "interviewing" || phase === "finished") {
+      saveSnapshot({
+        phase,
+        difficulty,
+        messages,
+        agentIndex,
+        followUpRound,
+        avatarSeeds,
+        inProgressSessionId: inProgressSessionIdRef.current,
+      });
+    } else {
+      clearSnapshot();
+    }
+  }, [restored, phase, difficulty, messages, agentIndex, followUpRound, avatarSeeds]);
+
   async function handleSubmit() {
     if (isRecording) {
       stop();
@@ -546,13 +641,16 @@ export default function InterviewSession({ name }: { name: string }) {
     const trimmed = answer.trim();
     if (!trimmed || isLoading || isThinkingPhase) return;
 
-    const currentAgentId = AGENT_ORDER[agentIndex];
     const updatedMessages: Message[] = [
       ...messages,
       { role: "candidate", content: trimmed },
     ];
     setMessages(updatedMessages);
     setAnswer("");
+    await proceedAfterAnswer(updatedMessages);
+  }
+
+  async function proceedAfterAnswer(updatedMessages: Message[]) {
     setIsLoading(true);
     setError("");
     setCurrentThought(null);
@@ -566,6 +664,7 @@ export default function InterviewSession({ name }: { name: string }) {
         createSession(updatedMessages, difficulty)
           .then((sid) => {
             inProgressSessionIdRef.current = sid;
+            updateStoredSessionId(sid);
           })
           .catch(() => {})
           .finally(() => { sessionCreatingRef.current = false; });
@@ -579,6 +678,7 @@ export default function InterviewSession({ name }: { name: string }) {
       const canFollowUp = difficulty !== "tutorial" && followUpRound < MAX_FOLLOWUP_ROUNDS[difficulty];
 
       if (canFollowUp) {
+        const currentAgentId = AGENT_ORDER[agentIndex];
         setIsLoading(false);
         setIsThinkingPhase(true);
 
@@ -668,6 +768,19 @@ export default function InterviewSession({ name }: { name: string }) {
     setDebateResult(null);
     setDebateError("");
     setFinishedMessages([]);
+  }
+
+  // 복구 확인 전 잠깐 로딩 (저장된 진행 상태가 있으면 복원)
+  if (!restored) {
+    return (
+      <div className="card flex items-center justify-center py-20">
+        <div className="flex gap-1.5">
+          <span className="w-2 h-2 bg-blue-500 rounded-full animate-bounce [animation-delay:0ms]" />
+          <span className="w-2 h-2 bg-blue-500 rounded-full animate-bounce [animation-delay:150ms]" />
+          <span className="w-2 h-2 bg-blue-500 rounded-full animate-bounce [animation-delay:300ms]" />
+        </div>
+      </div>
+    );
   }
 
   // 난이도 선택
