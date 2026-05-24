@@ -1,7 +1,5 @@
 import { getNewsQuestionGuide } from "./job-classifications";
-
-const LLM_BASE_URL = process.env.LLM_BASE_URL ?? "http://localhost:11434";
-const LLM_MODEL = process.env.LLM_MODEL ?? "exaone3.5:2.4b";
+import { callLLM } from "@/lib/runpod-client";
 
 export type AgentId = "organization" | "logic" | "technical";
 export type Difficulty = "tutorial" | "easy" | "normal" | "hard";
@@ -415,7 +413,6 @@ function stripMarkdown(text: string): string {
 }
 
 async function callOllama(systemPrompt: string, userContent: string, _json = false): Promise<string> {
-  const { callLLM } = await import("@/lib/runpod-client");
   const raw = await callLLM({
     messages: [
       { role: "system", content: systemPrompt },

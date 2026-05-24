@@ -1,9 +1,6 @@
 import { AgentId, AGENTS, Message, ProfileContext, JobPostingContext, buildProfileSummary } from "@/lib/interview";
 import { callLLM } from "@/lib/runpod-client";
 
-const LLM_BASE_URL = process.env.LLM_BASE_URL ?? "http://localhost:11434";
-const LLM_MODEL = process.env.LLM_MODEL ?? "exaone3.5:2.4b";
-
 export interface AgentEvaluation {
   agentId: AgentId;
   agentLabel: string;

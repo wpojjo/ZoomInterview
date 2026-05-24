@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
-
-export const maxDuration = 300;
 import { getAuthUser } from "@/lib/auth";
 import { findFollowUpAgent, AgentId, Difficulty, Message } from "@/lib/interview";
 import { loadProfileContext, loadJobPostingWithContext } from "@/lib/interview-context";
+
+export const maxDuration = 300;
 
 export async function POST(request: NextRequest) {
   try {
