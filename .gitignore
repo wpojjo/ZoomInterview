@@ -1,10 +1,5 @@
 # dependencies
 /node_modules
-/.pnp
-.pnp.js
-
-# testing
-/coverage
 
 # next.js
 /.next/
@@ -35,11 +30,3 @@ next-env.d.ts
 
 # local notes
 /notes/
-
-# python cache
-server/__pycache__/
-**/*.pyc
-
-# experiment data (generated files)
-/data/
-scripts/analyze.ipynb
