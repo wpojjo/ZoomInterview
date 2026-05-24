@@ -1,4 +1,8 @@
+"use client";
+
 import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { useState } from "react";
 
 const DIFFICULTY_LABEL: Record<string, string> = {
   easy: "입문",
@@ -70,10 +74,28 @@ export default function SessionHistoryCard({
   const badge = statusBadge(status);
   const isDone = status === "done";
 
+  const router = useRouter();
+  const [deleting, setDeleting] = useState(false);
+
+  async function handleDelete() {
+    if (deleting) return;
+    if (!window.confirm("이 면접 기록을 삭제할까요? 삭제하면 복구할 수 없습니다.")) return;
+    setDeleting(true);
+    try {
+      const res = await fetch(`/api/interview/sessions/${id}`, { method: "DELETE" });
+      if (!res.ok) throw new Error();
+      router.refresh();
+    } catch {
+      setDeleting(false);
+      window.alert("삭제에 실패했습니다. 잠시 후 다시 시도해주세요.");
+    }
+  }
+
   return (
+    <div className="relative">
     <Link
       href={`/sessions/${id}`}
-      className="card p-5 block hover:border-blue-200 dark:hover:border-blue-700 transition-colors"
+      className={`card p-5 block hover:border-blue-200 dark:hover:border-blue-700 transition-colors ${deleting ? "opacity-50 pointer-events-none" : ""}`}
     >
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0 flex-1 space-y-1">
@@ -117,5 +139,20 @@ export default function SessionHistoryCard({
         </div>
       </div>
     </Link>
+      <button
+        type="button"
+        onClick={handleDelete}
+        disabled={deleting}
+        aria-label="기록 삭제"
+        className="absolute bottom-3 right-3 z-10 p-1.5 rounded-lg text-gray-300 dark:text-slate-600 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/30 transition-colors disabled:opacity-50"
+      >
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <polyline points="3 6 5 6 21 6" />
+          <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+          <line x1="10" y1="11" x2="10" y2="17" />
+          <line x1="14" y1="11" x2="14" y2="17" />
+        </svg>
+      </button>
+    </div>
   );
 }
