@@ -993,7 +993,7 @@ export default function InterviewSession({ name }: { name: string }) {
         <div className="bg-red-50 dark:bg-red-900/30 border border-red-100 dark:border-red-800 rounded-xl px-4 py-3 flex items-center justify-between">
           <p className="text-red-600 dark:text-red-400 text-sm">{error}</p>
           <button
-            onClick={() => setError("")}
+            onClick={() => proceedAfterAnswer(messages)}
             className="text-sm text-blue-600 dark:text-blue-400 font-medium hover:underline ml-3"
           >
             재시도
