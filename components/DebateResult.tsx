@@ -3,6 +3,9 @@
 import type { AgentEvaluation, AgentFinalOpinion } from "@/lib/agents";
 import type { AgentId } from "@/lib/interview";
 import { AGENT_ORDER } from "@/lib/interview";
+import { diagnoseWeaknesses } from "@/lib/weakness-diagnoser";
+import { buildHattieFeedbackList } from "@/lib/hattie-feedback";
+import WeaknessFeedbackCard from "@/components/WeaknessFeedbackCard";
 
 interface Props {
   finalScore: number;
@@ -22,6 +25,8 @@ interface Props {
   onRestart?: () => void;
   onBack: () => void;
   isHistory?: boolean;
+  /** 약점 기반 연습 문제 생성 시 채용공고 컨텍스트 로드용 */
+  sessionId?: string;
 }
 
 function stripMd(text: string): string {
@@ -113,12 +118,20 @@ export default function DebateResult({
   onRestart,
   onBack,
   isHistory = false,
+  sessionId,
 }: Props) {
   const displayEvaluations: (AgentEvaluation | AgentFinalOpinion)[] =
     (agentFinalOpinions && agentFinalOpinions.length > 0 ? agentFinalOpinions : agentEvaluations) ?? [];
   const isFinalOpinion = agentFinalOpinions && agentFinalOpinions.length > 0;
 
   const hasScores = displayEvaluations.some((e) => e.score != null);
+
+  // 약점 진단 + Hattie 3질문 피드백 패키지 생성 (LLM 호출 없는 순수 변환)
+  const weaknesses = diagnoseWeaknesses(
+    { agentEvaluations, agentFinalOpinions },
+    { limit: 2 },
+  );
+  const hattieFeedback = buildHattieFeedbackList(weaknesses);
 
   return (
     <div className="space-y-6">
@@ -291,6 +304,30 @@ export default function DebateResult({
               </li>
             ))}
           </ul>
+        </div>
+      )}
+
+      {/* 약점 기반 맞춤 피드백 — Hattie & Timperley(2007) 3질문 모델 */}
+      {hattieFeedback.length > 0 && (
+        <div className="space-y-3">
+          <div className="px-1 space-y-1">
+            <h3 className="font-bold text-gray-900 dark:text-slate-50 flex items-center gap-2">
+              <span>🎯</span>
+              <span>약점 기반 맞춤 피드백</span>
+            </h3>
+            <p className="text-xs text-gray-400 dark:text-slate-500">
+              평가에서 식별한 핵심 약점 {hattieFeedback.length}가지를 목표 · 현재 상태 · 다음 행동의 3단계로 안내합니다
+            </p>
+          </div>
+          {hattieFeedback.map((pkg, i) => (
+            <WeaknessFeedbackCard
+              key={pkg.dimensionId}
+              pkg={pkg}
+              agentId={pkg.agentId}
+              index={i + 1}
+              sessionId={sessionId}
+            />
+          ))}
         </div>
       )}
 

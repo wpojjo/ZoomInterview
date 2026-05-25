@@ -77,6 +77,7 @@ export default async function SessionDetailPage({
         {/* 상태별 본문 */}
         {session.status === "done" ? (
           <SessionDetailResult
+            sessionId={session.id}
             data={{
               finalScore: session.finalScore ?? 0,
               agentEvaluations: (session.agentEvaluations ?? []) as unknown as AgentEvaluation[],
