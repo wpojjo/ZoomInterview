@@ -316,6 +316,7 @@ function QuestionBubble({ agentId, question, difficulty }: { agentId: AgentId; q
 
   const [audioReady, setAudioReady] = useState(false);
   const [isPlaying, setIsPlaying] = useState(false);
+  const [ttsError, setTtsError] = useState(false);
 
   useEffect(() => {
     // 질문 입력이 완료되거나 음성 전용 모드에서 텍스트가 있으면 자동으로 음성 생성 및 재생
@@ -339,6 +340,7 @@ function QuestionBubble({ agentId, question, difficulty }: { agentId: AgentId; q
           }
         } catch (error) {
           console.error("TTS Error:", error);
+          setTtsError(true);
         }
       })();
     }
@@ -363,7 +365,7 @@ function QuestionBubble({ agentId, question, difficulty }: { agentId: AgentId; q
             )}
           </p>
         )}
-        {isAudioOnly && (
+        {isAudioOnly && !ttsError && (
           <div className="flex items-center justify-between gap-3">
             <p className="text-gray-400 dark:text-slate-500 text-[15px] leading-relaxed italic">
               {isPlaying ? "면접관이 질문 중입니다..." : "음성으로 질문을 들어주세요"}
@@ -388,6 +390,11 @@ function QuestionBubble({ agentId, question, difficulty }: { agentId: AgentId; q
               {isPlaying ? "재생 중" : "다시 듣기"}
             </button>
           </div>
+        )}
+        {isAudioOnly && ttsError && (
+          <p className="text-gray-900 dark:text-slate-100 text-[15px] leading-relaxed">
+            {question}
+          </p>
         )}
       </div>
       <audio
