@@ -412,7 +412,7 @@ function stripMarkdown(text: string): string {
     .trim();
 }
 
-async function callOllama(systemPrompt: string, userContent: string, _json = false): Promise<string> {
+async function chatLLM(systemPrompt: string, userContent: string): Promise<string> {
   const raw = await callLLM({
     messages: [
       { role: "system", content: systemPrompt },
@@ -526,7 +526,7 @@ STAR, S, T, A, R 같은 영어 약어를 출력에 사용하지 마세요.${news
   "hint": ""${thoughtField}
 }`;
 
-  const raw = await callOllama(systemPrompt, userContent, true);
+  const raw = await chatLLM(systemPrompt, userContent);
   try {
     const match = raw.match(/\{[\s\S]*\}/);
     if (!match) throw new Error("no JSON");
@@ -742,7 +742,7 @@ ${{
 }
 reaction/judgment/curiosity는 반드시 반말 구어체(~습니다/~합니다 절대 금지). question은 반드시 격식체 존댓말. 마크다운 서식(**, *, #) 사용 금지.`;
 
-  const raw = await callOllama(systemPrompt, userContent, true);
+  const raw = await chatLLM(systemPrompt, userContent);
 
   try {
     const match = raw.match(/\{[\s\S]*\}/);

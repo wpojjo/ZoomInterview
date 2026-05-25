@@ -55,13 +55,14 @@ export interface ModeratorResult {
   debateSummary: string;
 }
 
-async function callOllama(systemPrompt: string, userContent: string): Promise<string> {
+async function chatLLM(systemPrompt: string, userContent: string, temperature?: number): Promise<string> {
   return callLLM({
     messages: [
       { role: "system", content: systemPrompt },
       { role: "user", content: userContent },
     ],
     max_tokens: 2000,
+    ...(temperature !== undefined ? { temperature } : {}),
   });
 }
 
@@ -234,7 +235,7 @@ ${conversationText}
 ${jsonSchema}
 문자열 값 안에 마크다운 서식(**, *, #)을 사용하지 마세요.`;
 
-  const raw = await callOllama(AGENT_SYSTEM_PROMPTS[agentId], userContent);
+  const raw = await chatLLM(AGENT_SYSTEM_PROMPTS[agentId], userContent, 0);
 
   if (agentId === "logic") {
     const parsed = extractJSON<{
@@ -375,7 +376,7 @@ ${replySchema}
 }
 문자열 값 안에 마크다운 서식(**, *, #)을 사용하지 마세요.`;
 
-  const raw = await callOllama(systemPrompt, userContent);
+  const raw = await chatLLM(systemPrompt, userContent);
   const parsedReply = extractJSON<{
     replies: { targetAgentId: string; stance: string; comment: string }[];
   }>(raw);
@@ -447,7 +448,7 @@ ${rebuttalSchema}
 }
 문자열 값 안에 마크다운 서식(**, *, #)을 사용하지 마세요.`;
 
-  const raw = await callOllama(systemPrompt, userContent);
+  const raw = await chatLLM(systemPrompt, userContent);
   const parsed = extractJSON<{
     rebuttals: { fromAgentId: string; comment: string }[];
   }>(raw);
@@ -550,7 +551,7 @@ ${othersRebuttalText}
 ${jsonSchema}
 문자열 값 안에 마크다운 서식(**, *, #)을 사용하지 마세요.`;
 
-  const raw = await callOllama(systemPrompt, userContent);
+  const raw = await chatLLM(systemPrompt, userContent, 0);
 
   if (agentId === "logic") {
     const parsed = extractJSON<{
@@ -691,7 +692,7 @@ ${evaluationsText}
 }
 문자열 값 안에 마크다운 서식(**, *, #)을 사용하지 마세요.`;
 
-  const raw = await callOllama(systemPrompt, userContent);
+  const raw = await chatLLM(systemPrompt, userContent, 0);
   const parsedMod = extractJSON<{
     adjustment: number;
     recommendLevel: string;
