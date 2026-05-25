@@ -6,9 +6,10 @@ import type { DebateResultData } from "@/components/DebateLoading";
 
 interface Props {
   data: DebateResultData;
+  sessionId?: string;
 }
 
-export default function SessionDetailResult({ data }: Props) {
+export default function SessionDetailResult({ data, sessionId }: Props) {
   const router = useRouter();
   return (
     <DebateResult
@@ -20,6 +21,7 @@ export default function SessionDetailResult({ data }: Props) {
       improvementTips={data.improvementTips}
       onBack={() => router.push("/history")}
       isHistory
+      sessionId={sessionId}
     />
   );
 }
