@@ -3,6 +3,10 @@ import { ProfileContext, JobPostingContext, Difficulty } from "@/lib/interview";
 import { detectJobClassification, JobClassification } from "@/lib/job-classifications";
 import { fetchNewsForJobPosting, formatNewsContextForPrompt } from "@/lib/naver-news-crawler";
 
+// 뉴스는 세션 내내 동일하므로 jobPostingId 기준으로 캐시한다. 면접 진행 중 매 요청마다
+// 재크롤링하지 않도록 신선한 캐시가 있으면 재사용하고, 만료 시에만 다시 수집한다.
+const NEWS_CACHE_TTL_MS = 24 * 60 * 60 * 1000; // 24시간
+
 export async function loadProfileContext(userId: string): Promise<ProfileContext | null> {
   const { data: profile } = await supabase
     .from("profiles")
@@ -65,7 +69,7 @@ export async function loadJobPostingWithContext(
 
   const { data: companyInfo } = await supabase
     .from("company_info")
-    .select("company_cache(foundedYear, listingStatus, financialSummary, recentDisclosures, employeeSummary, businessSummary, industrySector, mainServices, visionMission, targetCustomer, competitivePosition)")
+    .select("newsContext, newsCollectedAt, company_cache(foundedYear, listingStatus, financialSummary, recentDisclosures, employeeSummary, businessSummary, industrySector, mainServices, visionMission, targetCustomer, competitivePosition)")
     .eq("jobPostingId", jobPosting.id)
     .maybeSingle();
 
@@ -81,16 +85,45 @@ export async function loadJobPostingWithContext(
 
     const useNews = difficulty === "normal" || difficulty === "hard";
     if (useNews && classification && jobPosting.companyName) {
-      try {
-        const newsResult = await fetchNewsForJobPosting(
-          classification,
-          jobPosting.companyName,
-          jobPosting.responsibilities ?? "",
-          jobPosting.techStack ?? "",
-        );
-        newsContext = formatNewsContextForPrompt(newsResult);
-      } catch (error) {
-        console.warn("뉴스 수집 실패 (무시됨):", error);
+      const cachedNews = companyInfo?.newsContext;
+      const cachedAt = companyInfo?.newsCollectedAt;
+      const newsFresh =
+        !!cachedNews && !!cachedAt &&
+        Date.now() - new Date(cachedAt).getTime() < NEWS_CACHE_TTL_MS;
+
+      if (newsFresh) {
+        newsContext = cachedNews;
+      } else {
+        try {
+          const newsResult = await fetchNewsForJobPosting(
+            classification,
+            jobPosting.companyName,
+            jobPosting.responsibilities ?? "",
+            jobPosting.techStack ?? "",
+          );
+          newsContext = formatNewsContextForPrompt(newsResult);
+
+          // write-through 캐시. companyCacheId 등 기존 값을 덮어쓰지 않도록
+          // 행이 있으면 update, 없으면 insert로 분기한다.
+          const newsCollectedAt = new Date().toISOString();
+          if (companyInfo) {
+            await supabase
+              .from("company_info")
+              .update({ newsContext, newsCollectedAt })
+              .eq("jobPostingId", jobPosting.id);
+          } else {
+            await supabase
+              .from("company_info")
+              .insert({
+                jobPostingId: jobPosting.id,
+                companyName: jobPosting.companyName,
+                newsContext,
+                newsCollectedAt,
+              });
+          }
+        } catch (error) {
+          console.warn("뉴스 수집 실패 (무시됨):", error);
+        }
       }
     }
   }

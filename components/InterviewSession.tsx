@@ -529,6 +529,14 @@ export default function InterviewSession({ name }: { name: string }) {
 
   function handleDifficultySelect(d: Difficulty) {
     setDifficulty(d);
+    // 고정 첫 질문에 답하는 동안 뉴스 캐시를 백그라운드로 워밍 (normal/hard만 뉴스 사용)
+    if (d === "normal" || d === "hard") {
+      fetch("/api/interview/prepare", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ difficulty: d }),
+      }).catch(() => {});
+    }
     setAvatarSeeds({ organization: randomSeed(), logic: randomSeed(), technical: randomSeed() });
     setMessages([{ role: "interviewer", content: getFirstQuestion(name), agentId: "organization" }]);
     setAgentIndex(0);
