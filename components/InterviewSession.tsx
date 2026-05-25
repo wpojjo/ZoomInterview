@@ -503,6 +503,7 @@ export default function InterviewSession({ name }: { name: string }) {
   const proceededRef = useRef(false);
   const inProgressSessionIdRef = useRef<string | null>(null);
   const sessionCreatingRef = useRef(false);
+  const pendingSyncMessagesRef = useRef<Message[] | null>(null);
 
   const [interimTranscript, setInterimTranscript] = useState("");
   const finalTranscriptRef = useRef("");
@@ -672,12 +673,20 @@ export default function InterviewSession({ name }: { name: string }) {
           .then((sid) => {
             inProgressSessionIdRef.current = sid;
             updateStoredSessionId(sid);
+            // 세션 생성 중 들어온 답변이 있으면 완료 후 sync
+            if (pendingSyncMessagesRef.current) {
+              syncMessages(sid, pendingSyncMessagesRef.current).catch(() => {});
+              pendingSyncMessagesRef.current = null;
+            }
           })
           .catch(() => {})
           .finally(() => { sessionCreatingRef.current = false; });
       } else if (inProgressSessionIdRef.current) {
-        // 이후 답변: messages 동기화 (생성 완료된 경우에만)
+        // 이후 답변: messages 동기화
         syncMessages(inProgressSessionIdRef.current, updatedMessages).catch(() => {});
+      } else {
+        // 세션 생성 중: 최신 messages를 버퍼에 보관 (이전 버퍼 덮어쓰기)
+        pendingSyncMessagesRef.current = updatedMessages;
       }
     }
 
@@ -772,6 +781,7 @@ export default function InterviewSession({ name }: { name: string }) {
     setSessionId(null);
     inProgressSessionIdRef.current = null;
     sessionCreatingRef.current = false;
+    pendingSyncMessagesRef.current = null;
     setDebateResult(null);
     setDebateError("");
     setFinishedMessages([]);
