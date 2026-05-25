@@ -186,6 +186,8 @@ export type Database = {
           companyName: string
           id: string
           jobPostingId: string
+          newsCollectedAt: string | null
+          newsContext: string | null
         }
         Insert: {
           collectedAt?: string
@@ -193,6 +195,8 @@ export type Database = {
           companyName: string
           id?: string
           jobPostingId: string
+          newsCollectedAt?: string | null
+          newsContext?: string | null
         }
         Update: {
           collectedAt?: string
@@ -200,6 +204,8 @@ export type Database = {
           companyName?: string
           id?: string
           jobPostingId?: string
+          newsCollectedAt?: string | null
+          newsContext?: string | null
         }
         Relationships: [
           {
