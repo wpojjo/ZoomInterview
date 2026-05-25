@@ -299,7 +299,10 @@ export default function DebateLoading({ sessionId, avatarSeeds, onDone, onProcee
 
     poll();
     pollRef.current = setInterval(poll, 1500);
-    return () => clearInterval(pollRef.current);
+    return () => {
+      clearInterval(pollRef.current);
+      clearTimeout(popTimerRef.current);
+    };
   }, [sessionId, onError]);
 
   // 토론 반론 → 큐 추가 + 1.5초 후 토론 뷰 전환
