@@ -5,9 +5,11 @@ import { useSpeechRecognition } from "@/hooks/useSpeechRecognition";
 import {
   Message,
   Difficulty,
+  DIFFICULTY_LABEL,
   AgentId,
   AgentThoughtResult,
   AGENTS,
+  AGENT_PANEL_NAME,
   AGENT_ORDER,
   TOTAL_AGENTS,
   MAX_FOLLOWUP_ROUNDS,
@@ -135,21 +137,21 @@ const AGENT_META: Record<AgentId, { color: string; bg: string; bgColor: string; 
     color: "text-purple-600 dark:text-purple-400",
     bg: "bg-purple-100 dark:bg-purple-900/40",
     bgColor: "e9d5ff",
-    name: "면접관 1",
+    name: AGENT_PANEL_NAME.organization,
     border: "border-purple-300 dark:border-purple-600",
   },
   logic: {
     color: "text-blue-600 dark:text-blue-400",
     bg: "bg-blue-100 dark:bg-blue-900/40",
     bgColor: "bfdbfe",
-    name: "면접관 2",
+    name: AGENT_PANEL_NAME.logic,
     border: "border-blue-300 dark:border-blue-600",
   },
   technical: {
     color: "text-green-600 dark:text-green-400",
     bg: "bg-green-100 dark:bg-green-900/40",
     bgColor: "bbf7d0",
-    name: "면접관 3",
+    name: AGENT_PANEL_NAME.technical,
     border: "border-green-300 dark:border-green-600",
   },
 };
@@ -953,7 +955,7 @@ export default function InterviewSession({ name }: { name: string }) {
       <div className="flex items-center gap-2 text-xs text-gray-400 dark:text-slate-500 px-1">
         <span className="font-medium">면접 진행 중</span>
         <span className="text-gray-300 dark:text-slate-600">·</span>
-        <span>{{ tutorial: "연습", easy: "입문", normal: "기본", hard: "심화" }[difficulty]}</span>
+        <span>{DIFFICULTY_LABEL[difficulty]}</span>
       </div>
 
       {/* 면접관 패널 (속마음 말풍선 포함) */}

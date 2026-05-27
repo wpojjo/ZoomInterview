@@ -3,12 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
-
-const DIFFICULTY_LABEL: Record<string, string> = {
-  easy: "입문",
-  normal: "기본",
-  hard: "심화",
-};
+import { DIFFICULTY_LABEL, type Difficulty } from "@/lib/interview";
 
 const RECOMMEND_STYLE: Record<string, string> = {
   "강력 추천": "bg-green-100 text-green-700 dark:bg-green-900/40 dark:text-green-300",
@@ -108,7 +103,7 @@ export default function SessionHistoryCard({
           <div className="flex items-center gap-2 text-xs text-gray-400 dark:text-slate-500 pt-1">
             <span>{formatDate(createdAt)}</span>
             <span className="text-gray-300 dark:text-slate-600">·</span>
-            <span>{DIFFICULTY_LABEL[difficulty] ?? difficulty}</span>
+            <span>{DIFFICULTY_LABEL[difficulty as Difficulty] ?? difficulty}</span>
           </div>
         </div>
 

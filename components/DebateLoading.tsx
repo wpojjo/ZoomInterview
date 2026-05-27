@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import type { AgentEvaluation, AgentReply, AgentRebuttal, AgentFinalOpinion, ModeratorResult } from "@/lib/agents";
-import type { AgentId } from "@/lib/interview";
+import { type AgentId, AGENT_PANEL_NAME } from "@/lib/interview";
 
 export interface DebateResultData {
   agentEvaluations: AgentEvaluation[];
@@ -47,19 +47,19 @@ function stripMd(text: string): string {
 
 const AGENT_META: Record<AgentId, { name: string; bgColor: string; color: string; bubble: string }> = {
   organization: {
-    name: "면접관 1",
+    name: AGENT_PANEL_NAME.organization,
     bgColor: "e9d5ff",
     color: "text-purple-500 dark:text-purple-400",
     bubble: "bg-purple-50 dark:bg-purple-900/30 border border-purple-100 dark:border-purple-800/40",
   },
   logic: {
-    name: "면접관 2",
+    name: AGENT_PANEL_NAME.logic,
     bgColor: "bfdbfe",
     color: "text-blue-500 dark:text-blue-400",
     bubble: "bg-blue-50 dark:bg-blue-900/30 border border-blue-100 dark:border-blue-800/40",
   },
   technical: {
-    name: "면접관 3",
+    name: AGENT_PANEL_NAME.technical,
     bgColor: "bbf7d0",
     color: "text-green-500 dark:text-green-400",
     bubble: "bg-green-50 dark:bg-green-900/30 border border-green-100 dark:border-green-800/40",

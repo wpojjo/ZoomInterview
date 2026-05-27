@@ -1,38 +1,33 @@
 "use client";
 
-import { Difficulty } from "@/lib/interview";
+import { Difficulty, DIFFICULTY_LABEL } from "@/lib/interview";
 
 const DIFFICULTY_CONFIG: {
   value: Difficulty;
-  label: string;
   description: string;
   detail: string;
   color: string;
 }[] = [
   {
     value: "tutorial",
-    label: "연습",
     description: "기본 3문답만. 꼬리질문·속마음 없음",
     detail: "처음 면접을 연습하는 분께 추천합니다",
     color: "border-gray-200 dark:border-gray-700 hover:border-gray-400 dark:hover:border-gray-500",
   },
   {
     value: "easy",
-    label: "입문",
     description: "핵심이 빠졌을 때만 꼬리질문",
     detail: "면접관이 꼭 필요한 경우에만 추가 질문합니다",
     color: "border-green-200 dark:border-green-800 hover:border-green-400 dark:hover:border-green-600",
   },
   {
     value: "normal",
-    label: "기본",
     description: "구체성이 부족하면 꼬리질문",
     detail: "면접관이 사례·근거가 부족하다고 판단하면 파고듭니다",
     color: "border-blue-200 dark:border-blue-800 hover:border-blue-400 dark:hover:border-blue-600",
   },
   {
     value: "hard",
-    label: "심화",
     description: "모호한 답변엔 항상 꼬리질문",
     detail: "수치·구체적 사례가 없으면 면접관이 계속 파고듭니다",
     color: "border-red-200 dark:border-red-800 hover:border-red-400 dark:hover:border-red-600",
@@ -63,7 +58,7 @@ export default function DifficultySelect({ onSelect }: Props) {
             <div className="flex items-center justify-between">
               <div className="space-y-0.5">
                 <div className="flex items-center gap-2">
-                  <span className="font-bold text-gray-900 dark:text-slate-50">{d.label}</span>
+                  <span className="font-bold text-gray-900 dark:text-slate-50">{DIFFICULTY_LABEL[d.value]}</span>
                   <span className="text-sm text-gray-600 dark:text-slate-300">{d.description}</span>
                 </div>
                 <p className="text-xs text-gray-400 dark:text-slate-500">{d.detail}</p>

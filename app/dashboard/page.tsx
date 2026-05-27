@@ -2,6 +2,10 @@ import { redirect } from "next/navigation";
 import Link from "next/link";
 import { supabaseAdmin as supabase } from "@/lib/supabase-admin";
 import { getAuthUser } from "@/lib/auth";
+import DashboardPostingFilter from "@/components/DashboardPostingFilter";
+import SkillRankCard from "@/components/SkillRankCard";
+import { computeSkillRank } from "@/lib/skill-rank";
+import { DIFFICULTY_LABEL } from "@/lib/interview";
 
 const W = 560;
 const H = 160;
@@ -22,11 +26,11 @@ type Session = {
   status: string;
   finalScore: number | null;
   difficulty: string;
+  jobPostingId: string | null;
   finalFeedback: { agentScores?: { organization?: number; logic?: number; technical?: number } } | null;
 };
 
 const DIFFS = ["easy", "normal", "hard"] as const;
-const DIFF_LABEL: Record<string, string> = { easy: "입문", normal: "기본", hard: "심화" };
 const GRIDS = [100, 75, 50, 25, 0];
 
 function polyPoints(scores: (number | null)[], count: number): string {
@@ -43,20 +47,59 @@ function dots(scores: (number | null)[], count: number) {
     .filter((d): d is { x: number; y: number; v: number } => d != null);
 }
 
-export default async function DashboardPage() {
+export default async function DashboardPage({
+  searchParams,
+}: {
+  searchParams: { posting?: string };
+}) {
   const userId = await getAuthUser();
   if (!userId) redirect("/login");
 
   const { data } = await supabase
     .from("interview_sessions")
-    .select("id, createdAt, status, finalScore, difficulty, finalFeedback")
+    .select("id, createdAt, status, finalScore, difficulty, jobPostingId, finalFeedback")
     .eq("userId", userId)
     .neq("difficulty", "tutorial")
     .order("createdAt", { ascending: true })
     .order("id", { ascending: true });
 
-  const all = (data ?? []) as Session[];
+  const allSessions = (data ?? []) as Session[];
+
+  // 채용공고 필터 옵션 — 세션에 등장한 공고만, 회사명으로 라벨링
+  const postingIds = Array.from(
+    new Set(allSessions.map((s) => s.jobPostingId).filter((id): id is string => !!id)),
+  );
+  const postingOptions: { id: string; label: string }[] = [];
+  if (postingIds.length > 0) {
+    const { data: postings } = await supabase
+      .from("job_postings")
+      .select("id, companyName, divisionName")
+      .in("id", postingIds);
+    for (const id of postingIds) {
+      const p = postings?.find((x) => x.id === id);
+      const label = [p?.companyName, p?.divisionName].filter(Boolean).join(" · ") || "이름 없는 공고";
+      postingOptions.push({ id, label });
+    }
+  }
+
+  // 선택된 공고 (URL 파라미터). 옵션에 없으면 전체로 폴백.
+  const selectedPosting =
+    searchParams.posting && postingOptions.some((o) => o.id === searchParams.posting)
+      ? searchParams.posting
+      : "all";
+
+  const all =
+    selectedPosting === "all"
+      ? allSessions
+      : allSessions.filter((s) => s.jobPostingId === selectedPosting);
   const done = all.filter((s) => s.status === "done" && s.finalScore != null);
+
+  // 면접 실력 랭크 — 공고 무관 통합 지표 (전체 done 세션, 시간순)
+  const skillRank = computeSkillRank(
+    allSessions
+      .filter((s) => s.status === "done" && s.finalScore != null)
+      .map((s) => ({ finalScore: s.finalScore!, difficulty: s.difficulty })),
+  );
 
   const total = all.length;
   const doneCount = done.length;
@@ -103,9 +146,14 @@ export default async function DashboardPage() {
   return (
     <main className="min-h-screen py-8 px-4">
       <div className="max-w-2xl mx-auto space-y-8">
-        <header className="space-y-1">
-          <h1 className="text-2xl font-bold text-gray-900 dark:text-slate-50">통계 대시보드</h1>
-          <p className="text-sm text-gray-500 dark:text-slate-400">내 면접 성과를 한눈에 확인하세요.</p>
+        <header className="space-y-3">
+          <div className="space-y-1">
+            <h1 className="text-2xl font-bold text-gray-900 dark:text-slate-50">통계 대시보드</h1>
+            <p className="text-sm text-gray-500 dark:text-slate-400">내 면접 성과를 한눈에 확인하세요.</p>
+          </div>
+          {postingOptions.length > 0 && (
+            <DashboardPostingFilter options={postingOptions} selected={selectedPosting} />
+          )}
         </header>
 
         {/* 요약 카드 */}
@@ -123,6 +171,9 @@ export default async function DashboardPage() {
           ))}
         </div>
 
+        {/* 면접 실력 랭크 — 전체 보기에서만 (공고 무관 통합 지표) */}
+        {selectedPosting === "all" && <SkillRankCard rank={skillRank} />}
+
         {isEmpty ? (
           <div className="card p-8 text-center space-y-4">
             <p className="text-gray-600 dark:text-slate-300">완료된 면접이 없어 차트를 표시할 수 없습니다.</p>
@@ -132,8 +183,8 @@ export default async function DashboardPage() {
           </div>
         ) : (
           <>
-            {/* 사용 전/후 비교 */}
-            {k >= 1 && beforeAvg != null && afterAvg != null && (
+            {/* 사용 전/후 비교 — 공고 선택 시에만 (전체는 공고 혼합이라 raw 점수 비교가 왜곡됨) */}
+            {selectedPosting !== "all" && k >= 1 && beforeAvg != null && afterAvg != null && (
               <section className="card p-5 space-y-3">
                 <h2 className="text-sm font-semibold text-gray-700 dark:text-slate-300">사용 전 / 후 비교</h2>
                 <div className="flex items-center justify-center gap-5 sm:gap-8">
@@ -163,7 +214,8 @@ export default async function DashboardPage() {
               </section>
             )}
 
-            {/* 점수 추이 */}
+            {/* 점수 추이 — 공고 선택 시에만 (전체는 랭크가 대체) */}
+            {selectedPosting !== "all" && (
             <section className="card p-5 space-y-2">
               <h2 className="text-sm font-semibold text-gray-700 dark:text-slate-300">점수 추이</h2>
               <svg width="100%" viewBox={`0 0 ${W} ${H}`} className="overflow-visible">
@@ -189,19 +241,20 @@ export default async function DashboardPage() {
                 ))}
               </svg>
             </section>
+            )}
 
-            {/* 면접관별 점수 추이 */}
-            {na >= 1 && (
+            {/* 면접관별 점수 추이 — 공고 선택 시에만 */}
+            {selectedPosting !== "all" && na >= 1 && (
               <section className="card p-5 space-y-3">
                 <h2 className="text-sm font-semibold text-gray-700 dark:text-slate-300">면접관별 점수 추이</h2>
                 <div className="flex gap-4 text-xs text-gray-500 dark:text-slate-400">
                   <span>
                     <span className="inline-block w-3 h-0.5 bg-violet-500 mr-1 align-middle rounded" />
-                    조직
+                    인사
                   </span>
                   <span>
                     <span className="inline-block w-3 h-0.5 bg-orange-500 mr-1 align-middle rounded" />
-                    논리
+                    실무
                   </span>
                   <span>
                     <span className="inline-block w-3 h-0.5 bg-green-500 mr-1 align-middle rounded" />
@@ -266,7 +319,7 @@ export default async function DashboardPage() {
                         className="w-full rounded-t-md bg-blue-500 dark:bg-blue-600"
                         style={{ height: v != null ? `${v}%` : "0%" }}
                       />
-                      <span className="text-xs text-gray-500 dark:text-slate-400">{DIFF_LABEL[diff]}</span>
+                      <span className="text-xs text-gray-500 dark:text-slate-400">{DIFFICULTY_LABEL[diff]}</span>
                     </div>
                   );
                 })}

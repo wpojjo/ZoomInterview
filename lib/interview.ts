@@ -12,8 +12,23 @@ export const MAX_FOLLOWUP_ROUNDS: Record<Difficulty, number> = {
   hard: 3,
 };
 
+// 난이도 표시 라벨 (UI 전체 공용 — 드리프트 방지용 단일 소스)
+export const DIFFICULTY_LABEL: Record<Difficulty, string> = {
+  tutorial: "연습",
+  easy: "쉬움",
+  normal: "보통",
+  hard: "어려움",
+};
+
 export const AGENT_ORDER: AgentId[] = ["organization", "logic", "technical"];
 export const TOTAL_AGENTS = AGENT_ORDER.length;
+
+// 면접 진행/로딩 화면에서 쓰는 익명 패널 이름 (UI 공용 단일 소스)
+export const AGENT_PANEL_NAME: Record<AgentId, string> = {
+  organization: "면접관 1",
+  logic: "면접관 2",
+  technical: "면접관 3",
+};
 
 export const AGENTS: Record<AgentId, { label: string; criterion: string }> = {
   organization: {

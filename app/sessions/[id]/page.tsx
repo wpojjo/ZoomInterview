@@ -5,12 +5,7 @@ import { getAuthUser } from "@/lib/auth";
 import SessionDetailResult from "@/components/SessionDetailResult";
 import type { DebateResultData } from "@/components/DebateLoading";
 import type { AgentEvaluation, AgentFinalOpinion } from "@/lib/agents";
-
-const DIFFICULTY_LABEL: Record<string, string> = {
-  easy: "입문",
-  normal: "기본",
-  hard: "심화",
-};
+import { DIFFICULTY_LABEL, type Difficulty } from "@/lib/interview";
 
 function formatDate(iso: string | null): string {
   if (!iso) return "날짜 정보 없음";
@@ -64,7 +59,7 @@ export default async function SessionDetailPage({
           <div className="flex items-center gap-2 text-xs text-gray-500 dark:text-slate-400">
             <span>{formatDate(session.createdAt)}</span>
             <span className="text-gray-300 dark:text-slate-600">·</span>
-            <span>{DIFFICULTY_LABEL[session.difficulty] ?? session.difficulty}</span>
+            <span>{DIFFICULTY_LABEL[session.difficulty as Difficulty] ?? session.difficulty}</span>
           </div>
           <h1 className="text-2xl font-bold text-gray-900 dark:text-slate-50">
             {companyName ?? "정보 없음"}
