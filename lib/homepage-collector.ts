@@ -355,13 +355,20 @@ ${combinedText}`;
   }
 }
 
-export async function collectHomepageInfo(_jobPostingId: string, companyName: string): Promise<void> {
+// company_info.companyCacheId를 업데이트해 homepage 데이터가 면접 컨텍스트에 도달하도록 연결한다.
+async function linkCompanyInfo(jobPostingId: string, companyName: string, companyCacheId: string): Promise<void> {
+  await supabase
+    .from("company_info")
+    .upsert({ jobPostingId, companyName, companyCacheId }, { onConflict: "jobPostingId" });
+}
+
+export async function collectHomepageInfo(jobPostingId: string, companyName: string): Promise<void> {
   if (!companyName) return;
 
   try {
     const { data: cached } = await supabase
       .from("company_cache")
-      .select("homepageCollectedAt")
+      .select("id, homepageCollectedAt")
       .eq("companyName", companyName)
       .maybeSingle();
 
@@ -369,16 +376,22 @@ export async function collectHomepageInfo(_jobPostingId: string, companyName: st
       cached?.homepageCollectedAt &&
       Date.now() - new Date(cached.homepageCollectedAt).getTime() < CACHE_TTL_MS
     ) {
+      // 캐시가 신선해도 company_info 연결이 없을 수 있으므로 항상 확인
+      if (cached.id && jobPostingId) {
+        await linkCompanyInfo(jobPostingId, companyName, cached.id);
+      }
       return;
     }
 
     const homepageUrl = await getHomepageUrl(companyName);
 
     if (!homepageUrl) {
-      await supabase.from("company_cache").upsert(
-        { companyName, homepageCollectedAt: new Date().toISOString() },
-        { onConflict: "companyName" },
-      );
+      const { data: upserted } = await supabase
+        .from("company_cache")
+        .upsert({ companyName, homepageCollectedAt: new Date().toISOString() }, { onConflict: "companyName" })
+        .select("id")
+        .maybeSingle();
+      if (upserted && jobPostingId) await linkCompanyInfo(jobPostingId, companyName, upserted.id);
       return;
     }
 
@@ -411,24 +424,38 @@ export async function collectHomepageInfo(_jobPostingId: string, companyName: st
     const combinedText = selectedPages.filter(Boolean).join("\n\n---\n\n").slice(0, 8_000);
 
     if (!combinedText) {
-      await supabase.from("company_cache").upsert(
-        { companyName, homepageUrl, homepageCollectedAt: new Date().toISOString() },
-        { onConflict: "companyName" },
-      );
+      const { data: upserted } = await supabase
+        .from("company_cache")
+        .upsert({ companyName, homepageUrl, homepageCollectedAt: new Date().toISOString() }, { onConflict: "companyName" })
+        .select("id")
+        .maybeSingle();
+      if (upserted && jobPostingId) await linkCompanyInfo(jobPostingId, companyName, upserted.id);
       return;
     }
 
     const extracted = await extractInfo(companyName, combinedText);
 
-    await supabase.from("company_cache").upsert(
-      {
-        companyName,
-        homepageUrl,
-        ...extracted,
-        homepageCollectedAt: new Date().toISOString(),
-      },
-      { onConflict: "companyName" },
-    );
+    // extractInfo가 반환하는 businessArea → DB 컬럼명 industrySector 로 매핑.
+    // coreProduct는 현재 DB 스키마에 없으므로 제외한다.
+    const { data: upserted } = await supabase
+      .from("company_cache")
+      .upsert(
+        {
+          companyName,
+          homepageUrl,
+          industrySector: extracted.businessArea,
+          mainServices: extracted.mainServices,
+          visionMission: extracted.visionMission,
+          targetCustomer: extracted.targetCustomer,
+          competitivePosition: extracted.competitivePosition,
+          homepageCollectedAt: new Date().toISOString(),
+        },
+        { onConflict: "companyName" },
+      )
+      .select("id")
+      .maybeSingle();
+
+    if (upserted && jobPostingId) await linkCompanyInfo(jobPostingId, companyName, upserted.id);
   } catch (err) {
     console.error("homepage-collector error:", err);
   }
