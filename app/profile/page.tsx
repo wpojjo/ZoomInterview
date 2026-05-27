@@ -37,12 +37,13 @@ export default async function ProfileHubPage() {
       .select("createdAt, finalScore, status, difficulty, jobPostingId")
       .eq("userId", userId)
       .neq("difficulty", "tutorial")
-      .eq("status", "done")
       .order("createdAt", { ascending: false }),
   ]);
 
-  const doneSessions = sessions ?? [];
-  const totalCount = doneSessions.length;
+  const allSessions = sessions ?? [];
+  const totalCount = allSessions.length;
+
+  const doneSessions = allSessions.filter((s) => s.status === "done");
 
   const skillRank = computeSkillRank(
     doneSessions.map((s) => ({ finalScore: s.finalScore ?? 0, difficulty: s.difficulty })),
@@ -100,7 +101,7 @@ export default async function ProfileHubPage() {
           </span>
           <div className="flex-1 min-w-0">
             <p className="text-base font-semibold text-gray-800 dark:text-slate-100 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">대시보드</p>
-            <p className="text-xs text-gray-400 dark:text-slate-500 mt-0.5">총 면접 횟수: {totalCount}</p>
+            <p className="text-xs text-gray-400 dark:text-slate-500 mt-0.5">본 면접 횟수: {totalCount}</p>
           </div>
           <div className="flex items-center gap-2 shrink-0">
             <TierBadge tier={skillRank.tier} />

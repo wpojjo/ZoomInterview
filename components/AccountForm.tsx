@@ -120,13 +120,15 @@ export default function AccountForm({ email, name }: { email: string; name: stri
         </div>
         {nameStatus === "error" && <p className="text-sm text-red-600 dark:text-red-400">{nameError}</p>}
         {nameStatus === "success" && <p className="text-sm text-green-600 dark:text-green-400">이름이 변경되었습니다</p>}
-        <button
-          type="submit"
-          disabled={nameStatus === "loading" || !nameInput.trim() || nameInput.trim() === savedName}
-          className="btn-primary disabled:opacity-50"
-        >
-          {nameStatus === "loading" ? "변경 중..." : "이름 변경"}
-        </button>
+        <div className="flex justify-end">
+          <button
+            type="submit"
+            disabled={nameStatus === "loading" || !nameInput.trim() || nameInput.trim() === savedName}
+            className="btn-primary disabled:opacity-50"
+          >
+            {nameStatus === "loading" ? "변경 중..." : "이름 변경"}
+          </button>
+        </div>
       </form>
 
       {/* 비밀번호 변경 */}
@@ -170,13 +172,15 @@ export default function AccountForm({ email, name }: { email: string; name: stri
         {pwStatus === "error" && <p className="text-sm text-red-600 dark:text-red-400">{pwError}</p>}
         {pwStatus === "success" && <p className="text-sm text-green-600 dark:text-green-400">비밀번호가 변경되었습니다</p>}
 
-        <button
-          type="submit"
-          disabled={pwStatus === "loading" || !currentPassword || !newPassword}
-          className="btn-primary disabled:opacity-50"
-        >
-          {pwStatus === "loading" ? "변경 중..." : "비밀번호 변경"}
-        </button>
+        <div className="flex justify-end">
+          <button
+            type="submit"
+            disabled={pwStatus === "loading" || !currentPassword || !newPassword}
+            className="btn-primary disabled:opacity-50"
+          >
+            {pwStatus === "loading" ? "변경 중..." : "비밀번호 변경"}
+          </button>
+        </div>
       </form>
 
       {/* 계정 삭제 */}

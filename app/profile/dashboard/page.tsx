@@ -155,7 +155,7 @@ export default async function ProfileDashboardPage({
 
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           {[
-            { label: "총 면접", value: `${total}회` },
+            { label: "본 면접", value: `${total}회` },
             { label: "평균 점수", value: avgScore != null ? `${avgScore}점` : "-" },
             { label: "최고 점수", value: maxScore != null ? `${maxScore}점` : "-" },
             { label: "완주율", value: `${completionRate}%` },

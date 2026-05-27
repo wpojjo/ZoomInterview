@@ -141,7 +141,7 @@ export default function Sidebar({ children }: { children: ReactNode }) {
   return (
     <div className="flex min-h-screen">
       <aside
-        className={`${collapsed ? "w-16" : "w-60"} shrink-0 sticky top-0 h-screen flex flex-col bg-white border-r border-gray-100 dark:bg-slate-900 dark:border-slate-800 transition-all duration-200`}
+        className={`${collapsed ? "w-16" : "w-60"} shrink-0 sticky top-0 h-screen flex flex-col bg-white border-r border-gray-100 dark:bg-slate-900 dark:border-slate-800 transition-all duration-200 z-10`}
       >
         {/* 로고 + 토글 */}
         <div className="flex items-center h-14 border-b border-gray-100 dark:border-slate-800 px-3 gap-1">
@@ -327,7 +327,7 @@ export default function Sidebar({ children }: { children: ReactNode }) {
             )}
 
             {settingsOpen && (
-              <div className={`absolute bottom-full mb-2 ${collapsed ? "left-full ml-2" : "left-0 right-0"} bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700 rounded-lg shadow-lg py-1 z-50`}>
+              <div className={`absolute bottom-full mb-2 ${collapsed ? "left-full ml-2 w-40" : "left-0 right-0"} bg-white dark:bg-slate-800 border border-gray-200 dark:border-slate-700 rounded-lg shadow-lg py-1 z-50`}>
                 <button
                   onClick={toggleTheme}
                   className="w-full flex items-center gap-3 px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 dark:text-slate-300 dark:hover:bg-slate-700 transition-colors"

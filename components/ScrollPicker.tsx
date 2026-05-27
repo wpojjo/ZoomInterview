@@ -102,7 +102,7 @@ export default function ScrollPicker({
     <div
       ref={containerRef}
       tabIndex={0}
-      className="relative overflow-hidden select-none cursor-grab active:cursor-grabbing rounded-lg border border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-800 outline-none focus:ring-2 focus:ring-blue-500/40"
+      className="relative overflow-hidden select-none touch-none cursor-grab active:cursor-grabbing rounded-lg border border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-800 outline-none focus:ring-2 focus:ring-blue-500/40"
       style={{
         height: VISIBLE * ITEM_H,
         maskImage: "linear-gradient(to bottom, transparent, black 28%, black 72%, transparent)",

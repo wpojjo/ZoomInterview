@@ -2,6 +2,8 @@
 
 import { useState } from "react";
 import { useRouter } from "nextjs-toploader/app";
+import CustomSelect from "@/components/CustomSelect";
+import MonthPicker from "@/components/MonthPicker";
 
 interface Education {
   id?: string;
@@ -102,17 +104,6 @@ export default function ProfileForm({ name, initialData }: { name: string; initi
 
   return (
     <div className="space-y-5 pb-6">
-      {/* 이름 확인 카드 */}
-      <div className="card px-6 py-5 flex items-center gap-5">
-        <div className="w-14 h-14 rounded-2xl bg-blue-600 flex items-center justify-center shrink-0">
-          <span className="text-white text-xl font-bold">{name[0]}</span>
-        </div>
-        <div>
-          <p className="text-xs font-medium text-gray-400 dark:text-slate-500 mb-0.5">이름</p>
-          <p className="text-lg font-semibold text-gray-900 dark:text-slate-50">{name}</p>
-        </div>
-      </div>
-
       {/* 학력 */}
       <Section
         title="학력"
@@ -131,16 +122,16 @@ export default function ProfileForm({ name, initialData }: { name: string; initi
                 <input type="text" value={edu.major} onChange={(e) => setEducations((p) => p.map((item, idx) => idx === i ? { ...item, major: e.target.value } : item))} placeholder="컴퓨터공학" className="input" />
               </Field>
               <Field label="학위">
-                <SelectInput value={edu.degree} onChange={(e) => setEducations((p) => p.map((item, idx) => idx === i ? { ...item, degree: e.target.value as Education["degree"] } : item))} options={["학사", "석사", "박사"]} />
+                <CustomSelect value={edu.degree} options={["학사", "석사", "박사"]} onChange={(v) => setEducations((p) => p.map((item, idx) => idx === i ? { ...item, degree: v as Education["degree"] } : item))} />
               </Field>
               <Field label="졸업상태">
-                <SelectInput value={edu.graduationStatus} onChange={(e) => setEducations((p) => p.map((item, idx) => idx === i ? { ...item, graduationStatus: e.target.value as Education["graduationStatus"] } : item))} options={["재학중", "졸업", "졸업예정", "중퇴", "휴학중"]} />
+                <CustomSelect value={edu.graduationStatus} options={["재학중", "졸업", "졸업예정", "중퇴", "휴학중"]} onChange={(v) => setEducations((p) => p.map((item, idx) => idx === i ? { ...item, graduationStatus: v as Education["graduationStatus"] } : item))} />
               </Field>
               <Field label="입학일">
-                <input type="month" value={edu.startDate} onChange={(e) => setEducations((p) => p.map((item, idx) => idx === i ? { ...item, startDate: e.target.value } : item))} className="input" />
+                <MonthPicker value={edu.startDate} onChange={(v) => setEducations((p) => p.map((item, idx) => idx === i ? { ...item, startDate: v } : item))} />
               </Field>
               <Field label="졸업일">
-                <input type="month" value={edu.endDate ?? ""} onChange={(e) => setEducations((p) => p.map((item, idx) => idx === i ? { ...item, endDate: e.target.value } : item))} className="input" />
+                <MonthPicker value={edu.endDate ?? ""} onChange={(v) => setEducations((p) => p.map((item, idx) => idx === i ? { ...item, endDate: v } : item))} />
               </Field>
             </div>
           </ItemCard>
@@ -165,10 +156,10 @@ export default function ProfileForm({ name, initialData }: { name: string; initi
                 <input type="text" value={career.role} onChange={(e) => setCareers((p) => p.map((item, idx) => idx === i ? { ...item, role: e.target.value } : item))} placeholder="백엔드 개발자" className="input" />
               </Field>
               <Field label="시작일">
-                <input type="month" value={career.startDate} onChange={(e) => setCareers((p) => p.map((item, idx) => idx === i ? { ...item, startDate: e.target.value } : item))} className="input" />
+                <MonthPicker value={career.startDate} onChange={(v) => setCareers((p) => p.map((item, idx) => idx === i ? { ...item, startDate: v } : item))} />
               </Field>
               <Field label="종료일">
-                <input type="month" value={career.endDate ?? ""} onChange={(e) => setCareers((p) => p.map((item, idx) => idx === i ? { ...item, endDate: e.target.value } : item))} className="input" />
+                <MonthPicker value={career.endDate ?? ""} onChange={(v) => setCareers((p) => p.map((item, idx) => idx === i ? { ...item, endDate: v } : item))} />
               </Field>
             </div>
             <Field label="업무 설명">
@@ -218,10 +209,10 @@ export default function ProfileForm({ name, initialData }: { name: string; initi
                 <input type="text" value={act.role} onChange={(e) => setActivities((p) => p.map((item, idx) => idx === i ? { ...item, role: e.target.value } : item))} placeholder="팀장" className="input" />
               </Field>
               <Field label="시작일">
-                <input type="month" value={act.startDate} onChange={(e) => setActivities((p) => p.map((item, idx) => idx === i ? { ...item, startDate: e.target.value } : item))} className="input" />
+                <MonthPicker value={act.startDate} onChange={(v) => setActivities((p) => p.map((item, idx) => idx === i ? { ...item, startDate: v } : item))} />
               </Field>
               <Field label="종료일">
-                <input type="month" value={act.endDate ?? ""} onChange={(e) => setActivities((p) => p.map((item, idx) => idx === i ? { ...item, endDate: e.target.value } : item))} className="input" />
+                <MonthPicker value={act.endDate ?? ""} onChange={(v) => setActivities((p) => p.map((item, idx) => idx === i ? { ...item, endDate: v } : item))} />
               </Field>
             </div>
             <Field label="활동 설명">
@@ -301,22 +292,6 @@ function EmptyState({ text }: { text: string }) {
   );
 }
 
-function SelectInput({ value, onChange, options }: {
-  value: string;
-  onChange: (e: React.ChangeEvent<HTMLSelectElement>) => void;
-  options: string[];
-}) {
-  return (
-    <div className="relative">
-      <select value={value} onChange={onChange} className="input appearance-none">
-        {options.map((o) => <option key={o} value={o}>{o}</option>)}
-      </select>
-      <span className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 dark:text-slate-500">
-        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
-      </span>
-    </div>
-  );
-}
 
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (

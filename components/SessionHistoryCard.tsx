@@ -73,6 +73,7 @@ export default function SessionHistoryCard({
 
   const router = useRouter();
   const [deleting, setDeleting] = useState(false);
+  const [showConfirm, setShowConfirm] = useState(false);
   const [pinned, setPinned] = useState(initialPinned);
   const [pinning, setPinning] = useState(false);
 
@@ -98,15 +99,14 @@ export default function SessionHistoryCard({
 
   async function handleDelete() {
     if (deleting) return;
-    if (!window.confirm("이 면접 기록을 삭제할까요? 삭제하면 복구할 수 없습니다.")) return;
     setDeleting(true);
+    setShowConfirm(false);
     try {
       const res = await fetch(`/api/interview/sessions/${id}`, { method: "DELETE" });
       if (!res.ok) throw new Error();
       router.refresh();
     } catch {
       setDeleting(false);
-      window.alert("삭제에 실패했습니다. 잠시 후 다시 시도해주세요.");
     }
   }
 
@@ -160,36 +160,67 @@ export default function SessionHistoryCard({
       </Link>
 
       <div className="flex flex-col gap-1.5 justify-center">
-        <button
-          type="button"
-          onClick={handlePin}
-          disabled={pinning}
-          aria-label={pinned ? "고정 해제" : "상단 고정"}
-          className={`p-2 rounded-lg transition-colors disabled:opacity-50 ${
-            pinned
-              ? "text-blue-500 bg-blue-50 dark:bg-blue-900/30 hover:bg-blue-100 dark:hover:bg-blue-900/50"
-              : "text-gray-300 dark:text-slate-600 hover:text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/30"
-          }`}
-        >
-          <svg width="15" height="15" viewBox="0 0 24 24" fill={pinned ? "currentColor" : "none"} stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <line x1="12" y1="17" x2="12" y2="22" />
-            <path d="M5 17h14v-1.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V6h1a2 2 0 0 0 0-4H8a2 2 0 0 0 0 4h1v4.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24Z" />
-          </svg>
-        </button>
-        <button
-          type="button"
-          onClick={handleDelete}
-          disabled={deleting}
-          aria-label="기록 삭제"
-          className="p-2 rounded-lg text-gray-300 dark:text-slate-600 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/30 transition-colors disabled:opacity-50"
-        >
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <polyline points="3 6 5 6 21 6" />
-            <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
-            <line x1="10" y1="11" x2="10" y2="17" />
-            <line x1="14" y1="11" x2="14" y2="17" />
-          </svg>
-        </button>
+        {showConfirm ? (
+          <>
+            <button
+              type="button"
+              onClick={() => setShowConfirm(false)}
+              aria-label="취소"
+              className="p-2 rounded-lg text-gray-400 dark:text-slate-500 hover:bg-gray-100 dark:hover:bg-slate-700 transition-colors"
+            >
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
+              </svg>
+            </button>
+            <button
+              type="button"
+              onClick={handleDelete}
+              disabled={deleting}
+              aria-label="삭제 확인"
+              className="p-2 rounded-lg text-red-500 bg-red-50 dark:bg-red-900/30 hover:bg-red-100 dark:hover:bg-red-900/50 transition-colors disabled:opacity-50"
+            >
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <polyline points="3 6 5 6 21 6" />
+                <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+                <line x1="10" y1="11" x2="10" y2="17" />
+                <line x1="14" y1="11" x2="14" y2="17" />
+              </svg>
+            </button>
+          </>
+        ) : (
+          <>
+            <button
+              type="button"
+              onClick={handlePin}
+              disabled={pinning}
+              aria-label={pinned ? "고정 해제" : "상단 고정"}
+              className={`p-2 rounded-lg transition-colors disabled:opacity-50 ${
+                pinned
+                  ? "text-blue-500 bg-blue-50 dark:bg-blue-900/30 hover:bg-blue-100 dark:hover:bg-blue-900/50"
+                  : "text-gray-300 dark:text-slate-600 hover:text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/30"
+              }`}
+            >
+              <svg width="15" height="15" viewBox="0 0 24 24" fill={pinned ? "currentColor" : "none"} stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <line x1="12" y1="17" x2="12" y2="22" />
+                <path d="M5 17h14v-1.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V6h1a2 2 0 0 0 0-4H8a2 2 0 0 0 0 4h1v4.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24Z" />
+              </svg>
+            </button>
+            <button
+              type="button"
+              onClick={() => setShowConfirm(true)}
+              disabled={deleting}
+              aria-label="기록 삭제"
+              className="p-2 rounded-lg text-gray-300 dark:text-slate-600 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/30 transition-colors disabled:opacity-50"
+            >
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <polyline points="3 6 5 6 21 6" />
+                <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+                <line x1="10" y1="11" x2="10" y2="17" />
+                <line x1="14" y1="11" x2="14" y2="17" />
+              </svg>
+            </button>
+          </>
+        )}
       </div>
     </div>
   );
