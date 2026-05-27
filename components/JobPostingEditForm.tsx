@@ -102,7 +102,7 @@ export default function JobPostingEditForm({ initialData, isAnalyzing = false, i
         setMode("editing");
         if (!onComplete) window.history.replaceState(null, "", "/job-posting/edit");
       });
-  }, [mode, router, isPasteMode]);
+  }, [mode, isPasteMode]);
 
   async function handlePasteAnalyze() {
     if (!pasteInput.trim()) return;
