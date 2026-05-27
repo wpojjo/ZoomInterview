@@ -59,7 +59,7 @@ export default async function ProfileHubPage() {
     latestCompany = posting?.companyName ?? null;
   }
   const latestDate = latest?.createdAt
-    ? new Intl.DateTimeFormat("ko-KR", { month: "long", day: "numeric" }).format(new Date(latest.createdAt))
+    ? new Intl.DateTimeFormat("ko-KR", { year: "numeric", month: "long", day: "numeric" }).format(new Date(latest.createdAt))
     : null;
 
   return (
@@ -100,14 +100,14 @@ export default async function ProfileHubPage() {
           </span>
           <div className="flex-1 min-w-0">
             <p className="text-base font-semibold text-gray-800 dark:text-slate-100 group-hover:text-blue-600 dark:group-hover:text-blue-400 transition-colors">대시보드</p>
-            <div className="flex items-center gap-2 mt-0.5">
-              <TierBadge tier={skillRank.tier} />
-              <span className="text-xs text-gray-400 dark:text-slate-500">총 {totalCount}회</span>
-            </div>
+            <p className="text-xs text-gray-400 dark:text-slate-500 mt-0.5">총 면접 횟수: {totalCount}</p>
           </div>
-          <svg className="text-gray-300 dark:text-slate-600 group-hover:text-blue-400 transition-colors shrink-0" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <polyline points="9 18 15 12 9 6" />
-          </svg>
+          <div className="flex items-center gap-2 shrink-0">
+            <TierBadge tier={skillRank.tier} />
+            <svg className="text-gray-300 dark:text-slate-600 group-hover:text-blue-400 transition-colors" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <polyline points="9 18 15 12 9 6" />
+            </svg>
+          </div>
         </Link>
 
         {/* 히스토리 */}
@@ -129,7 +129,7 @@ export default async function ProfileHubPage() {
                   {latestCompany ?? "회사 정보 없음"}
                 </p>
                 <span className="text-xs text-gray-300 dark:text-slate-600 shrink-0">·</span>
-                <span className="text-xs text-gray-400 dark:text-slate-500 shrink-0">{latestDate}</span>
+                <span className="text-xs text-gray-400 dark:text-slate-500 shrink-0">최근 면접 일자: {latestDate}</span>
               </div>
             ) : (
               <p className="text-xs text-gray-400 dark:text-slate-500 mt-0.5">기록 없음</p>

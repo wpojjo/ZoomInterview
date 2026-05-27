@@ -42,7 +42,7 @@ function LoginForm() {
           <span className="text-white font-bold text-sm">AI</span>
         </Link>
         <h1 className="text-2xl font-bold text-gray-900 dark:text-slate-50">로그인</h1>
-        <p className="text-sm text-gray-500 dark:text-slate-400 mt-1">AI 면접 코치에 오신 것을 환영합니다</p>
+        <p className="text-sm text-gray-500 dark:text-slate-400 mt-1">반가워요! AI 면접 코치와 함께 준비해봐요</p>
       </div>
 
       {message && (

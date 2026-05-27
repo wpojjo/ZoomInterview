@@ -17,7 +17,7 @@ export default function ProfileNameForm({ initialName }: { initialName?: string 
     <form onSubmit={handleNext} className="space-y-6">
       <div className="card p-6 space-y-4">
         <p className="text-sm text-gray-500 dark:text-slate-400">
-          면접에서 사용할 이름을 알려주세요
+          면접에서 부를 이름을 알려주세요
         </p>
         <input
           type="text"

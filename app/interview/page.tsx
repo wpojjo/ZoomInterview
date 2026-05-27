@@ -32,7 +32,12 @@ async function checkReadiness() {
   };
 }
 
-export default async function InterviewPage() {
+export default async function InterviewPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ force?: string }>;
+}) {
+  const params = await searchParams;
   const { ready, name, jobPosting } = await checkReadiness();
 
   if (!ready) {
@@ -42,7 +47,10 @@ export default async function InterviewPage() {
   return (
     <main className="min-h-screen py-8 px-4">
       <div className="max-w-2xl mx-auto space-y-6">
-        <InterviewSession name={name!} existingJobPosting={jobPosting} />
+        <InterviewSession
+          name={name!}
+          existingJobPosting={params.force === "true" ? null : jobPosting}
+        />
       </div>
     </main>
   );

@@ -80,8 +80,13 @@ export default function Sidebar({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     setIsDark(document.documentElement.classList.contains("dark"));
-    const saved = localStorage.getItem("sidebarCollapsed");
-    if (saved === "true") setCollapsed(true);
+    const isMobile = window.innerWidth < 768;
+    if (isMobile) {
+      setCollapsed(true);
+    } else {
+      const saved = localStorage.getItem("sidebarCollapsed");
+      if (saved === "true") setCollapsed(true);
+    }
   }, []);
 
   useEffect(() => {

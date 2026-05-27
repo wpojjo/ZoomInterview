@@ -55,7 +55,7 @@ export default function SignupPage() {
             <span className="text-white font-bold text-sm">AI</span>
           </Link>
           <h1 className="text-2xl font-bold text-gray-900 dark:text-slate-50">회원가입</h1>
-          <p className="text-sm text-gray-500 dark:text-slate-400 mt-1">계정을 만들고 면접 연습을 시작하세요</p>
+          <p className="text-sm text-gray-500 dark:text-slate-400 mt-1">가입하고 바로 면접 연습을 시작해봐요</p>
         </div>
 
         <form onSubmit={handleSignup} className="space-y-4">

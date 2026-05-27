@@ -28,7 +28,7 @@ export default async function OnboardingDetailPage({ searchParams }: Props) {
             {name}님의 기본 정보를 입력해주세요
           </h1>
           <p className="text-sm text-gray-500 dark:text-slate-400">
-            학력, 경력, 자격증, 대외활동 정보를 바탕으로 맞춤 면접 질문을 생성합니다
+            입력한 정보를 바탕으로 딱 맞는 면접 질문을 만들어드려요
           </p>
         </div>
         <ProfileForm name={name} initialData={profile} />

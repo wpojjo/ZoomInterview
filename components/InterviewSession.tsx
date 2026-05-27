@@ -822,7 +822,7 @@ export default function InterviewSession({ name, existingJobPosting }: { name: s
       <div className="space-y-6">
         <div className="space-y-1">
           <h1 className="text-2xl font-bold text-gray-900 dark:text-slate-50">채용공고를 입력해주세요</h1>
-          <p className="text-sm text-gray-500 dark:text-slate-400">채용공고를 분석하면 면접관들이 해당 직무에 맞는 질문을 출제할 수 있어요</p>
+          <p className="text-sm text-gray-500 dark:text-slate-400">채용공고를 분석하면 직무에 딱 맞는 질문으로 연습할 수 있어요</p>
         </div>
         <JobPostingForm onNext={(pasteMode) => { setIsPasteMode(pasteMode); setPhase("job-posting-edit"); }} />
       </div>
@@ -838,7 +838,7 @@ export default function InterviewSession({ name, existingJobPosting }: { name: s
           <h1 className="text-2xl font-bold text-gray-900 dark:text-slate-50">
             {isAnalyzing ? "채용공고를 분석하고 있어요" : "분석 결과를 확인해주세요"}
           </h1>
-          {!isAnalyzing && <p className="text-sm text-gray-500 dark:text-slate-400">내용이 맞으면 면접을 시작하세요</p>}
+          {!isAnalyzing && <p className="text-sm text-gray-500 dark:text-slate-400">내용이 맞다면 바로 면접을 시작해봐요</p>}
         </div>
         <JobPostingEditForm
           initialData={existingJobPosting ?? { responsibilities: "", requirements: "", preferredQuals: "" }}
@@ -859,7 +859,7 @@ export default function InterviewSession({ name, existingJobPosting }: { name: s
         <div className="space-y-1">
           <h1 className="text-2xl font-bold text-gray-900 dark:text-slate-50">{name}님의 맞춤 면접</h1>
           <p className="text-sm text-gray-500 dark:text-slate-400">
-            프로필과 채용공고를 분석한 맞춤형 질문입니다. 실제 면접처럼 답변해보세요.
+            프로필과 채용공고를 분석해서 맞춤 질문을 준비했어요. 실제 면접이라 생각하고 답변해봐요
           </p>
         </div>
         <DifficultySelect onSelect={handleDifficultySelect} />
@@ -874,7 +874,7 @@ export default function InterviewSession({ name, existingJobPosting }: { name: s
         <div className="text-4xl">🎉</div>
         <div className="space-y-2">
           <h2 className="text-xl font-bold text-gray-900 dark:text-slate-50">면접이 완료되었습니다!</h2>
-          <p className="text-sm text-gray-500 dark:text-slate-400">3명의 면접관이 답변을 종합 평가합니다</p>
+          <p className="text-sm text-gray-500 dark:text-slate-400">3명의 면접관이 함께 답변을 평가하고 있어요</p>
         </div>
         <button
           onClick={async () => {
@@ -994,10 +994,27 @@ export default function InterviewSession({ name, existingJobPosting }: { name: s
   return (
     <div className="space-y-4">
       {/* 진행 상황 */}
-      <div className="flex items-center gap-2 text-xs text-gray-400 dark:text-slate-500 px-1">
-        <span className="font-medium">면접 진행 중</span>
-        <span className="text-gray-300 dark:text-slate-600">·</span>
-        <span>{DIFFICULTY_LABEL[difficulty]}</span>
+      <div className="flex items-center justify-between px-1">
+        <div className="flex items-center gap-2 text-xs text-gray-400 dark:text-slate-500">
+          <span className="font-medium">면접 진행 중</span>
+          <span className="text-gray-300 dark:text-slate-600">·</span>
+          <span>{DIFFICULTY_LABEL[difficulty]}</span>
+        </div>
+        <button
+          onClick={() => {
+            if (!window.confirm("면접을 종료할까요? 지금까지의 답변으로 평가를 진행합니다.")) return;
+            const hasAnswer = messages.some((m) => m.role === "candidate");
+            if (hasAnswer) {
+              setFinishedMessages(messages);
+              goToPhase("finished");
+            } else {
+              setPhase("selecting");
+            }
+          }}
+          className="text-xs text-gray-400 dark:text-slate-500 hover:text-red-500 dark:hover:text-red-400 transition-colors"
+        >
+          면접 종료
+        </button>
       </div>
 
       {/* 면접관 패널 (속마음 말풍선 포함) */}

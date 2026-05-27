@@ -2,7 +2,6 @@
 
 import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
-import { useRouter } from "nextjs-toploader/app";
 
 interface Props {
   initialData: {
@@ -33,7 +32,6 @@ const ANALYZE_STEPS = [
 type Mode = "analyzing" | "view" | "editing";
 
 export default function JobPostingEditForm({ initialData, isAnalyzing = false, isPasteMode = false, onComplete, onRestart }: Props) {
-  const router = useRouter();
   const [mode, setMode] = useState<Mode>(isAnalyzing ? "analyzing" : "view");
   const [fields, setFields] = useState(initialData);
   const [stepIndex, setStepIndex] = useState(0);
@@ -97,12 +95,12 @@ export default function JobPostingEditForm({ initialData, isAnalyzing = false, i
           setAnalysisError("URL에서 공고 내용을 자동으로 가져오지 못했어요. 직접 입력해 주세요.");
           setMode("editing");
         }
-        if (!onComplete) router.replace("/job-posting/edit");
+        if (!onComplete) window.history.replaceState(null, "", "/job-posting/edit");
       })
       .catch(() => {
         setAnalysisError("URL에서 공고 내용을 자동으로 가져오지 못했어요. 직접 입력해 주세요.");
         setMode("editing");
-        if (!onComplete) router.replace("/job-posting/edit");
+        if (!onComplete) window.history.replaceState(null, "", "/job-posting/edit");
       });
   }, [mode, router, isPasteMode]);
 
@@ -242,7 +240,7 @@ export default function JobPostingEditForm({ initialData, isAnalyzing = false, i
           {onRestart ? (
             <button onClick={onRestart} className="btn-secondary">← 다시 입력</button>
           ) : (
-            <Link href="/job-posting?force=true" className="btn-secondary">← 다시 입력</Link>
+            <Link href="/interview?force=true" className="btn-secondary">← 다시 입력</Link>
           )}
           <div className="flex gap-2">
             <button onClick={() => setMode("editing")} className="btn-secondary">편집하기</button>

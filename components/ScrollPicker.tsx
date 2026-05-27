@@ -21,6 +21,7 @@ export default function ScrollPicker({
 
   const [offset, setOffset] = useState(() => toOffset(value));
   const [snapping, setSnapping] = useState(false);
+  const containerRef = useRef<HTMLDivElement>(null);
   const dragging = useRef(false);
   const startY = useRef(0);
   const startOffset = useRef(0);
@@ -63,10 +64,17 @@ export default function ScrollPicker({
     commit(offset);
   }
 
-  function onWheel(e: React.WheelEvent) {
-    e.preventDefault();
-    commit(offset + Math.sign(e.deltaY) * ITEM_H);
-  }
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+    const handler = (e: WheelEvent) => {
+      e.preventDefault();
+      commit(offset + Math.sign(e.deltaY) * ITEM_H);
+    };
+    el.addEventListener("wheel", handler, { passive: false });
+    return () => el.removeEventListener("wheel", handler);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [offset]);
 
   function onKeyDown(e: React.KeyboardEvent) {
     if (e.key === "ArrowUp") { e.preventDefault(); commit(offset - ITEM_H); return; }
@@ -92,6 +100,7 @@ export default function ScrollPicker({
 
   return (
     <div
+      ref={containerRef}
       tabIndex={0}
       className="relative overflow-hidden select-none cursor-grab active:cursor-grabbing rounded-lg border border-gray-200 dark:border-slate-700 bg-white dark:bg-slate-800 outline-none focus:ring-2 focus:ring-blue-500/40"
       style={{
@@ -103,7 +112,6 @@ export default function ScrollPicker({
       onPointerMove={onPointerMove}
       onPointerUp={onPointerUp}
       onPointerCancel={onPointerUp}
-      onWheel={onWheel}
       onKeyDown={onKeyDown}
     >
       {/* 선택 영역 표시 */}

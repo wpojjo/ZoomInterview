@@ -17,7 +17,7 @@ export default async function ProfileEditPage() {
         <div className="space-y-1">
           <h1 className="text-2xl font-bold text-gray-900 dark:text-slate-50">프로필 설정</h1>
           <p className="text-sm text-gray-500 dark:text-slate-400">
-            {profile.name}님의 프로필을 수정할 수 있습니다
+            {profile.name}님의 프로필을 자유롭게 수정해보세요
           </p>
         </div>
         <SettingsForm initialData={profile} />

@@ -302,6 +302,7 @@ export type Database = {
           improvementTips: Json | null
           jobPostingId: string | null
           messages: Json
+          pinned: boolean
           status: string
           updatedAt: string | null
           userId: string
@@ -321,6 +322,7 @@ export type Database = {
           improvementTips?: Json | null
           jobPostingId?: string | null
           messages: Json
+          pinned?: boolean
           status?: string
           updatedAt?: string | null
           userId: string
@@ -340,6 +342,7 @@ export type Database = {
           improvementTips?: Json | null
           jobPostingId?: string | null
           messages?: Json
+          pinned?: boolean
           status?: string
           updatedAt?: string | null
           userId?: string

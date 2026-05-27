@@ -146,7 +146,7 @@ export default async function ProfileDashboardPage({
           <BackButton />
           <div className="space-y-1">
             <h1 className="text-2xl font-bold text-gray-900 dark:text-slate-50">통계 대시보드</h1>
-            <p className="text-sm text-gray-500 dark:text-slate-400">내 면접 성과를 한눈에 확인하세요.</p>
+            <p className="text-sm text-gray-500 dark:text-slate-400">지금까지의 면접 성과를 한눈에 확인해봐요</p>
           </div>
           {postingOptions.length > 0 && (
             <DashboardPostingFilter options={postingOptions} selected={selectedPosting} />

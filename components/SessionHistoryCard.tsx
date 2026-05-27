@@ -54,6 +54,7 @@ interface Props {
   status: string;
   finalScore: number | null;
   recommendLevel: string | null;
+  pinned: boolean;
 }
 
 export default function SessionHistoryCard({
@@ -65,12 +66,35 @@ export default function SessionHistoryCard({
   status,
   finalScore,
   recommendLevel,
+  pinned: initialPinned,
 }: Props) {
   const badge = statusBadge(status);
   const isDone = status === "done";
 
   const router = useRouter();
   const [deleting, setDeleting] = useState(false);
+  const [pinned, setPinned] = useState(initialPinned);
+  const [pinning, setPinning] = useState(false);
+
+  async function handlePin() {
+    if (pinning) return;
+    setPinning(true);
+    const next = !pinned;
+    setPinned(next);
+    try {
+      const res = await fetch(`/api/interview/sessions/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ pinned: next }),
+      });
+      if (!res.ok) throw new Error();
+      router.refresh();
+    } catch {
+      setPinned(!next);
+    } finally {
+      setPinning(false);
+    }
+  }
 
   async function handleDelete() {
     if (deleting) return;
@@ -87,67 +111,86 @@ export default function SessionHistoryCard({
   }
 
   return (
-    <div className="relative">
-    <Link
-      href={`/sessions/${id}`}
-      className={`card p-5 block hover:border-blue-200 dark:hover:border-blue-700 transition-colors ${deleting ? "opacity-50 pointer-events-none" : ""}`}
-    >
-      <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0 flex-1 space-y-1">
-          <h3 className="font-semibold text-gray-900 dark:text-slate-50 truncate">
-            {companyName ?? "정보 없음"}
-          </h3>
-          <p className="text-sm text-gray-500 dark:text-slate-400 truncate">
-            {divisionName ?? "직무 정보 없음"}
-          </p>
-          <div className="flex items-center gap-2 text-xs text-gray-400 dark:text-slate-500 pt-1">
-            <span>{formatDate(createdAt)}</span>
-            <span className="text-gray-300 dark:text-slate-600">·</span>
-            <span>{DIFFICULTY_LABEL[difficulty as Difficulty] ?? difficulty}</span>
+    <div className={`flex items-stretch gap-2 ${deleting ? "opacity-50 pointer-events-none" : ""}`}>
+      <Link
+        href={`/sessions/${id}`}
+        className="card p-5 flex-1 block hover:border-blue-200 dark:hover:border-blue-700 transition-colors"
+      >
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0 flex-1 space-y-1">
+            <h3 className="font-semibold text-gray-900 dark:text-slate-50 truncate">
+              {companyName ?? "정보 없음"}
+            </h3>
+            <p className="text-sm text-gray-500 dark:text-slate-400 truncate">
+              {divisionName ?? "직무 정보 없음"}
+            </p>
+            <div className="flex items-center gap-2 text-xs text-gray-400 dark:text-slate-500 pt-1">
+              <span>{formatDate(createdAt)}</span>
+              <span className="text-gray-300 dark:text-slate-600">·</span>
+              <span>{DIFFICULTY_LABEL[difficulty as Difficulty] ?? difficulty}</span>
+            </div>
+          </div>
+
+          <div className="shrink-0 flex flex-col items-end gap-1.5">
+            {isDone && finalScore != null ? (
+              <>
+                <span className="text-2xl font-bold text-gray-900 dark:text-slate-50 leading-none">
+                  {finalScore}
+                  <span className="text-xs text-gray-400 dark:text-slate-500 font-medium ml-0.5">
+                    /100
+                  </span>
+                </span>
+                {recommendLevel && (
+                  <span
+                    className={`text-xs font-semibold px-2 py-0.5 rounded-full ${
+                      RECOMMEND_STYLE[recommendLevel] ?? RECOMMEND_STYLE["보류"]
+                    }`}
+                  >
+                    {recommendLevel}
+                  </span>
+                )}
+              </>
+            ) : badge ? (
+              <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${badge.className}`}>
+                {badge.label}
+              </span>
+            ) : null}
           </div>
         </div>
+      </Link>
 
-        <div className="shrink-0 flex flex-col items-end gap-1.5">
-          {isDone && finalScore != null ? (
-            <>
-              <span className="text-2xl font-bold text-gray-900 dark:text-slate-50 leading-none">
-                {finalScore}
-                <span className="text-xs text-gray-400 dark:text-slate-500 font-medium ml-0.5">
-                  /100
-                </span>
-              </span>
-              {recommendLevel && (
-                <span
-                  className={`text-xs font-semibold px-2 py-0.5 rounded-full ${
-                    RECOMMEND_STYLE[recommendLevel] ?? RECOMMEND_STYLE["보류"]
-                  }`}
-                >
-                  {recommendLevel}
-                </span>
-              )}
-            </>
-          ) : badge ? (
-            <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${badge.className}`}>
-              {badge.label}
-            </span>
-          ) : null}
-        </div>
+      <div className="flex flex-col gap-1.5 justify-center">
+        <button
+          type="button"
+          onClick={handlePin}
+          disabled={pinning}
+          aria-label={pinned ? "고정 해제" : "상단 고정"}
+          className={`p-2 rounded-lg transition-colors disabled:opacity-50 ${
+            pinned
+              ? "text-blue-500 bg-blue-50 dark:bg-blue-900/30 hover:bg-blue-100 dark:hover:bg-blue-900/50"
+              : "text-gray-300 dark:text-slate-600 hover:text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/30"
+          }`}
+        >
+          <svg width="15" height="15" viewBox="0 0 24 24" fill={pinned ? "currentColor" : "none"} stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <line x1="12" y1="17" x2="12" y2="22" />
+            <path d="M5 17h14v-1.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V6h1a2 2 0 0 0 0-4H8a2 2 0 0 0 0 4h1v4.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24Z" />
+          </svg>
+        </button>
+        <button
+          type="button"
+          onClick={handleDelete}
+          disabled={deleting}
+          aria-label="기록 삭제"
+          className="p-2 rounded-lg text-gray-300 dark:text-slate-600 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/30 transition-colors disabled:opacity-50"
+        >
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <polyline points="3 6 5 6 21 6" />
+            <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+            <line x1="10" y1="11" x2="10" y2="17" />
+            <line x1="14" y1="11" x2="14" y2="17" />
+          </svg>
+        </button>
       </div>
-    </Link>
-      <button
-        type="button"
-        onClick={handleDelete}
-        disabled={deleting}
-        aria-label="기록 삭제"
-        className="absolute bottom-3 right-3 z-10 p-1.5 rounded-lg text-gray-300 dark:text-slate-600 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/30 transition-colors disabled:opacity-50"
-      >
-        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-          <polyline points="3 6 5 6 21 6" />
-          <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
-          <line x1="10" y1="11" x2="10" y2="17" />
-          <line x1="14" y1="11" x2="14" y2="17" />
-        </svg>
-      </button>
     </div>
   );
 }

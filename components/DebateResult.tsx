@@ -84,7 +84,7 @@ function ScoreRing({ score }: { score: number }) {
       </div>
       <div className="text-center space-y-0.5">
         <h2 className="text-xl font-bold text-gray-900 dark:text-slate-50">면접 완료!</h2>
-        <p className="text-sm text-gray-500 dark:text-slate-400">3명의 면접관 토론 결과입니다</p>
+        <p className="text-sm text-gray-500 dark:text-slate-400">3명의 면접관이 나눈 토론 결과예요</p>
       </div>
     </div>
   );

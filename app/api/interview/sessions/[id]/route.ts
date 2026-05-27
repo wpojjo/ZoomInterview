@@ -2,6 +2,32 @@ import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin as supabase } from "@/lib/supabase-admin";
 import { getAuthUser } from "@/lib/auth";
 
+export async function PATCH(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> },
+) {
+  try {
+    const userId = await getAuthUser();
+    if (!userId) return NextResponse.json({ error: "로그인이 필요합니다" }, { status: 401 });
+
+    const { id } = await params;
+    const { pinned } = (await request.json()) as { pinned: boolean };
+
+    const { error } = await supabase
+      .from("interview_sessions")
+      .update({ pinned })
+      .eq("id", id)
+      .eq("userId", userId);
+
+    if (error) throw error;
+
+    return NextResponse.json({ ok: true });
+  } catch (error) {
+    console.error("Session pin update error:", error);
+    return NextResponse.json({ error: "저장에 실패했습니다" }, { status: 500 });
+  }
+}
+
 export async function DELETE(
   _request: NextRequest,
   { params }: { params: Promise<{ id: string }> },

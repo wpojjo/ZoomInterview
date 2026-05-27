@@ -44,47 +44,19 @@ export async function POST(request: NextRequest) {
     const { sourceUrl } = parsed.data;
     const now = new Date().toISOString();
 
-    const { data: rows } = await supabase
-      .from("job_postings")
-      .select("id")
-      .eq("userId", userId)
-      .order("updatedAt", { ascending: false })
-      .limit(1);
-
-    const existing = rows?.[0] ?? null;
-
-    let jobPosting;
     const sourceType = sourceUrl ? "LINK" : "PASTE";
 
-    if (existing) {
-      const { data } = await supabase
-        .from("job_postings")
-        .update({
-          sourceType,
-          sourceUrl,
-          responsibilities: null,
-          requirements: null,
-          preferredQuals: null,
-          updatedAt: now,
-        })
-        .eq("id", existing.id)
-        .select()
-        .single();
-      jobPosting = data;
-    } else {
-      const { data } = await supabase
-        .from("job_postings")
-        .insert({
-          id: crypto.randomUUID(),
-          userId,
-          sourceType,
-          sourceUrl,
-          updatedAt: now,
-        })
-        .select()
-        .single();
-      jobPosting = data;
-    }
+    const { data: jobPosting } = await supabase
+      .from("job_postings")
+      .insert({
+        id: crypto.randomUUID(),
+        userId,
+        sourceType,
+        sourceUrl,
+        updatedAt: now,
+      })
+      .select()
+      .single();
 
     return NextResponse.json({ jobPosting });
   } catch (error) {

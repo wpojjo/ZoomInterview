@@ -44,7 +44,7 @@ export default function DifficultySelect({ onSelect }: Props) {
       <div className="text-center space-y-1">
         <h2 className="text-lg font-bold text-gray-900 dark:text-slate-50">난이도를 선택하세요</h2>
         <p className="text-sm text-gray-500 dark:text-slate-400">
-          3명의 전문 면접관이 각자의 관점에서 질문합니다
+          3명의 면접관이 각자 다른 시각으로 질문을 드려요
         </p>
       </div>
 

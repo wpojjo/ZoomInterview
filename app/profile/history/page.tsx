@@ -13,9 +13,10 @@ export default async function ProfileHistoryPage() {
 
   const { data: sessions } = await supabase
     .from("interview_sessions")
-    .select("id, createdAt, status, finalScore, difficulty, jobPostingId, finalFeedback")
+    .select("id, createdAt, status, finalScore, difficulty, jobPostingId, finalFeedback, pinned")
     .eq("userId", userId)
     .neq("difficulty", "tutorial")
+    .order("pinned", { ascending: false })
     .order("createdAt", { ascending: false })
     .order("id", { ascending: false })
     .range(0, PAGE_SIZE - 1);
@@ -44,7 +45,7 @@ export default async function ProfileHistoryPage() {
           <BackButton />
           <h1 className="text-2xl font-bold text-gray-900 dark:text-slate-50">면접 기록</h1>
           <p className="text-sm text-gray-500 dark:text-slate-400">
-            지금까지 진행한 면접을 다시 확인할 수 있어요.
+            지금까지 진행한 면접을 돌아볼 수 있어요.
           </p>
         </header>
 
@@ -57,11 +58,23 @@ export default async function ProfileHistoryPage() {
           </div>
         ) : (
           <ul className="space-y-3">
-            {items.map((s) => {
+            {items.some((s) => s.pinned) && (
+              <li>
+                <p className="text-xs font-medium text-gray-400 dark:text-slate-500 px-1 pb-1">고정됨</p>
+              </li>
+            )}
+            {items.map((s, i) => {
               const posting = s.jobPostingId ? postingMap.get(s.jobPostingId) : undefined;
               const feedback = s.finalFeedback as { recommendLevel?: string } | null;
+              const showDivider = i > 0 && !s.pinned && items[i - 1].pinned;
               return (
                 <li key={s.id}>
+                  {showDivider && (
+                    <div className="my-4">
+                      <div className="border-t-2 border-gray-200 dark:border-slate-700 mb-3" />
+                      <p className="text-xs font-medium text-gray-400 dark:text-slate-500 px-1">전체 기록</p>
+                    </div>
+                  )}
                   <SessionHistoryCard
                     id={s.id}
                     companyName={posting?.companyName ?? null}
@@ -71,6 +84,7 @@ export default async function ProfileHistoryPage() {
                     status={s.status}
                     finalScore={s.finalScore}
                     recommendLevel={feedback?.recommendLevel ?? null}
+                    pinned={s.pinned}
                   />
                 </li>
               );
