@@ -3,10 +3,11 @@ import Link from "next/link";
 import { supabaseAdmin as supabase } from "@/lib/supabase-admin";
 import { getAuthUser } from "@/lib/auth";
 import SessionHistoryCard from "@/components/SessionHistoryCard";
+import BackButton from "@/components/BackButton";
 
 const PAGE_SIZE = 20;
 
-export default async function HistoryPage() {
+export default async function ProfileHistoryPage() {
   const userId = await getAuthUser();
   if (!userId) redirect("/login");
 
@@ -37,9 +38,10 @@ export default async function HistoryPage() {
   }
 
   return (
-    <main className="min-h-screen py-8 px-4">
+    <main className="py-8 px-4">
       <div className="max-w-2xl mx-auto space-y-6">
         <header className="space-y-1">
+          <BackButton />
           <h1 className="text-2xl font-bold text-gray-900 dark:text-slate-50">면접 기록</h1>
           <p className="text-sm text-gray-500 dark:text-slate-400">
             지금까지 진행한 면접을 다시 확인할 수 있어요.

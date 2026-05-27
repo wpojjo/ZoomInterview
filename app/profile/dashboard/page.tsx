@@ -6,6 +6,7 @@ import DashboardPostingFilter from "@/components/DashboardPostingFilter";
 import SkillRankCard from "@/components/SkillRankCard";
 import { computeSkillRank } from "@/lib/skill-rank";
 import { DIFFICULTY_LABEL } from "@/lib/interview";
+import BackButton from "@/components/BackButton";
 
 const W = 560;
 const H = 160;
@@ -47,7 +48,7 @@ function dots(scores: (number | null)[], count: number) {
     .filter((d): d is { x: number; y: number; v: number } => d != null);
 }
 
-export default async function DashboardPage({
+export default async function ProfileDashboardPage({
   searchParams,
 }: {
   searchParams: { posting?: string };
@@ -65,7 +66,6 @@ export default async function DashboardPage({
 
   const allSessions = (data ?? []) as Session[];
 
-  // 채용공고 필터 옵션 — 세션에 등장한 공고만, 회사명으로 라벨링
   const postingIds = Array.from(
     new Set(allSessions.map((s) => s.jobPostingId).filter((id): id is string => !!id)),
   );
@@ -82,7 +82,6 @@ export default async function DashboardPage({
     }
   }
 
-  // 선택된 공고 (URL 파라미터). 옵션에 없으면 전체로 폴백.
   const selectedPosting =
     searchParams.posting && postingOptions.some((o) => o.id === searchParams.posting)
       ? searchParams.posting
@@ -94,7 +93,6 @@ export default async function DashboardPage({
       : allSessions.filter((s) => s.jobPostingId === selectedPosting);
   const done = all.filter((s) => s.status === "done" && s.finalScore != null);
 
-  // 면접 실력 랭크 — 공고 무관 통합 지표 (전체 done 세션, 시간순)
   const skillRank = computeSkillRank(
     allSessions
       .filter((s) => s.status === "done" && s.finalScore != null)
@@ -111,7 +109,6 @@ export default async function DashboardPage({
   const trendScores = done.map((s) => s.finalScore!);
   const n = trendScores.length;
 
-  // 에이전트 점수가 있는 세션만
   const agentSessions = done.filter((s) => {
     const as_ = (s.finalFeedback as Session["finalFeedback"])?.agentScores;
     return as_ && (as_.organization != null || as_.logic != null || as_.technical != null);
@@ -134,7 +131,6 @@ export default async function DashboardPage({
       : Math.round(g.reduce((a, s) => a + s.finalScore!, 0) / g.length);
   });
 
-  // 사용 전/후 비교: 겹치지 않는 초기 k회 vs 최근 k회 (k = min(3, ⌊n/2⌋))
   const k = Math.min(3, Math.floor(n / 2));
   const avgOf = (arr: number[]) => Math.round(arr.reduce((a, v) => a + v, 0) / arr.length);
   const beforeAvg = k === 0 ? null : avgOf(trendScores.slice(0, k));
@@ -144,9 +140,10 @@ export default async function DashboardPage({
   const isEmpty = doneCount === 0;
 
   return (
-    <main className="min-h-screen py-8 px-4">
+    <main className="py-8 px-4">
       <div className="max-w-2xl mx-auto space-y-8">
         <header className="space-y-3">
+          <BackButton />
           <div className="space-y-1">
             <h1 className="text-2xl font-bold text-gray-900 dark:text-slate-50">통계 대시보드</h1>
             <p className="text-sm text-gray-500 dark:text-slate-400">내 면접 성과를 한눈에 확인하세요.</p>
@@ -156,7 +153,6 @@ export default async function DashboardPage({
           )}
         </header>
 
-        {/* 요약 카드 */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           {[
             { label: "총 면접", value: `${total}회` },
@@ -171,7 +167,6 @@ export default async function DashboardPage({
           ))}
         </div>
 
-        {/* 면접 실력 랭크 — 전체 보기에서만 (공고 무관 통합 지표) */}
         {selectedPosting === "all" && <SkillRankCard rank={skillRank} />}
 
         {isEmpty ? (
@@ -183,7 +178,6 @@ export default async function DashboardPage({
           </div>
         ) : (
           <>
-            {/* 사용 전/후 비교 — 공고 선택 시에만 (전체는 공고 혼합이라 raw 점수 비교가 왜곡됨) */}
             {selectedPosting !== "all" && k >= 1 && beforeAvg != null && afterAvg != null && (
               <section className="card p-5 space-y-3">
                 <h2 className="text-sm font-semibold text-gray-700 dark:text-slate-300">사용 전 / 후 비교</h2>
@@ -214,97 +208,51 @@ export default async function DashboardPage({
               </section>
             )}
 
-            {/* 점수 추이 — 공고 선택 시에만 (전체는 랭크가 대체) */}
             {selectedPosting !== "all" && (
-            <section className="card p-5 space-y-2">
-              <h2 className="text-sm font-semibold text-gray-700 dark:text-slate-300">점수 추이</h2>
-              <svg width="100%" viewBox={`0 0 ${W} ${H}`} className="overflow-visible">
-                {GRIDS.map((g) => (
-                  <g key={g}>
-                    <line
-                      x1={PAD} y1={py(g)} x2={W - PAD} y2={py(g)}
-                      stroke="#e5e7eb" strokeWidth="1"
-                    />
-                    <text x={PAD - 4} y={py(g) + 4} textAnchor="end" fontSize="9" fill="#9ca3af">
-                      {g}
-                    </text>
-                  </g>
-                ))}
-                {n >= 2 && (
-                  <polyline
-                    points={polyPoints(trendScores, n)}
-                    fill="none" stroke="#3b82f6" strokeWidth="2" strokeLinejoin="round"
-                  />
-                )}
-                {dots(trendScores, n).map(({ x, y }, i) => (
-                  <circle key={i} cx={x} cy={y} r="3.5" fill="#3b82f6" />
-                ))}
-              </svg>
-            </section>
-            )}
-
-            {/* 면접관별 점수 추이 — 공고 선택 시에만 */}
-            {selectedPosting !== "all" && na >= 1 && (
-              <section className="card p-5 space-y-3">
-                <h2 className="text-sm font-semibold text-gray-700 dark:text-slate-300">면접관별 점수 추이</h2>
-                <div className="flex gap-4 text-xs text-gray-500 dark:text-slate-400">
-                  <span>
-                    <span className="inline-block w-3 h-0.5 bg-violet-500 mr-1 align-middle rounded" />
-                    인사
-                  </span>
-                  <span>
-                    <span className="inline-block w-3 h-0.5 bg-orange-500 mr-1 align-middle rounded" />
-                    실무
-                  </span>
-                  <span>
-                    <span className="inline-block w-3 h-0.5 bg-green-500 mr-1 align-middle rounded" />
-                    기술
-                  </span>
-                </div>
+              <section className="card p-5 space-y-2">
+                <h2 className="text-sm font-semibold text-gray-700 dark:text-slate-300">점수 추이</h2>
                 <svg width="100%" viewBox={`0 0 ${W} ${H}`} className="overflow-visible">
                   {GRIDS.map((g) => (
                     <g key={g}>
-                      <line
-                        x1={PAD} y1={py(g)} x2={W - PAD} y2={py(g)}
-                        stroke="#e5e7eb" strokeWidth="1"
-                      />
-                      <text x={PAD - 4} y={py(g) + 4} textAnchor="end" fontSize="9" fill="#9ca3af">
-                        {g}
-                      </text>
+                      <line x1={PAD} y1={py(g)} x2={W - PAD} y2={py(g)} stroke="#e5e7eb" strokeWidth="1" />
+                      <text x={PAD - 4} y={py(g) + 4} textAnchor="end" fontSize="9" fill="#9ca3af">{g}</text>
                     </g>
                   ))}
-                  {na >= 2 && (
-                    <polyline
-                      points={polyPoints(orgScores, na)}
-                      fill="none" stroke="#8b5cf6" strokeWidth="2" strokeLinejoin="round"
-                    />
+                  {n >= 2 && (
+                    <polyline points={polyPoints(trendScores, n)} fill="none" stroke="#3b82f6" strokeWidth="2" strokeLinejoin="round" />
                   )}
-                  {dots(orgScores, na).map(({ x, y }, i) => (
-                    <circle key={i} cx={x} cy={y} r="3" fill="#8b5cf6" />
-                  ))}
-                  {na >= 2 && (
-                    <polyline
-                      points={polyPoints(logicScores, na)}
-                      fill="none" stroke="#f97316" strokeWidth="2" strokeLinejoin="round"
-                    />
-                  )}
-                  {dots(logicScores, na).map(({ x, y }, i) => (
-                    <circle key={i} cx={x} cy={y} r="3" fill="#f97316" />
-                  ))}
-                  {na >= 2 && (
-                    <polyline
-                      points={polyPoints(techScores, na)}
-                      fill="none" stroke="#22c55e" strokeWidth="2" strokeLinejoin="round"
-                    />
-                  )}
-                  {dots(techScores, na).map(({ x, y }, i) => (
-                    <circle key={i} cx={x} cy={y} r="3" fill="#22c55e" />
+                  {dots(trendScores, n).map(({ x, y }, i) => (
+                    <circle key={i} cx={x} cy={y} r="3.5" fill="#3b82f6" />
                   ))}
                 </svg>
               </section>
             )}
 
-            {/* 난이도별 평균 점수 */}
+            {selectedPosting !== "all" && na >= 1 && (
+              <section className="card p-5 space-y-3">
+                <h2 className="text-sm font-semibold text-gray-700 dark:text-slate-300">면접관별 점수 추이</h2>
+                <div className="flex gap-4 text-xs text-gray-500 dark:text-slate-400">
+                  <span><span className="inline-block w-3 h-0.5 bg-violet-500 mr-1 align-middle rounded" />인사</span>
+                  <span><span className="inline-block w-3 h-0.5 bg-orange-500 mr-1 align-middle rounded" />실무</span>
+                  <span><span className="inline-block w-3 h-0.5 bg-green-500 mr-1 align-middle rounded" />기술</span>
+                </div>
+                <svg width="100%" viewBox={`0 0 ${W} ${H}`} className="overflow-visible">
+                  {GRIDS.map((g) => (
+                    <g key={g}>
+                      <line x1={PAD} y1={py(g)} x2={W - PAD} y2={py(g)} stroke="#e5e7eb" strokeWidth="1" />
+                      <text x={PAD - 4} y={py(g) + 4} textAnchor="end" fontSize="9" fill="#9ca3af">{g}</text>
+                    </g>
+                  ))}
+                  {na >= 2 && <polyline points={polyPoints(orgScores, na)} fill="none" stroke="#8b5cf6" strokeWidth="2" strokeLinejoin="round" />}
+                  {dots(orgScores, na).map(({ x, y }, i) => <circle key={i} cx={x} cy={y} r="3" fill="#8b5cf6" />)}
+                  {na >= 2 && <polyline points={polyPoints(logicScores, na)} fill="none" stroke="#f97316" strokeWidth="2" strokeLinejoin="round" />}
+                  {dots(logicScores, na).map(({ x, y }, i) => <circle key={i} cx={x} cy={y} r="3" fill="#f97316" />)}
+                  {na >= 2 && <polyline points={polyPoints(techScores, na)} fill="none" stroke="#22c55e" strokeWidth="2" strokeLinejoin="round" />}
+                  {dots(techScores, na).map(({ x, y }, i) => <circle key={i} cx={x} cy={y} r="3" fill="#22c55e" />)}
+                </svg>
+              </section>
+            )}
+
             <section className="card p-5 space-y-3">
               <h2 className="text-sm font-semibold text-gray-700 dark:text-slate-300">난이도별 평균 점수</h2>
               <div className="flex gap-4 items-end h-36 px-4">
@@ -315,10 +263,7 @@ export default async function DashboardPage({
                       <span className="text-xs font-semibold text-gray-700 dark:text-slate-200">
                         {v != null ? `${v}점` : ""}
                       </span>
-                      <div
-                        className="w-full rounded-t-md bg-blue-500 dark:bg-blue-600"
-                        style={{ height: v != null ? `${v}%` : "0%" }}
-                      />
+                      <div className="w-full rounded-t-md bg-blue-500 dark:bg-blue-600" style={{ height: v != null ? `${v}%` : "0%" }} />
                       <span className="text-xs text-gray-500 dark:text-slate-400">{DIFFICULTY_LABEL[diff]}</span>
                     </div>
                   );

@@ -39,7 +39,7 @@ export default function SignupPage() {
     }
 
     if (data.session) {
-      router.push("/profile");
+      router.push("/onboarding");
       router.refresh();
     } else {
       router.push("/login?message=이메일을 확인해 인증을 완료해주세요");

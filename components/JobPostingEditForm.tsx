@@ -12,6 +12,8 @@ interface Props {
   };
   isAnalyzing?: boolean;
   isPasteMode?: boolean;
+  onComplete?: () => void;
+  onRestart?: () => void;
 }
 
 const FIELDS = [
@@ -30,7 +32,7 @@ const ANALYZE_STEPS = [
 
 type Mode = "analyzing" | "view" | "editing";
 
-export default function JobPostingEditForm({ initialData, isAnalyzing = false, isPasteMode = false }: Props) {
+export default function JobPostingEditForm({ initialData, isAnalyzing = false, isPasteMode = false, onComplete, onRestart }: Props) {
   const router = useRouter();
   const [mode, setMode] = useState<Mode>(isAnalyzing ? "analyzing" : "view");
   const [fields, setFields] = useState(initialData);
@@ -95,12 +97,12 @@ export default function JobPostingEditForm({ initialData, isAnalyzing = false, i
           setAnalysisError("URL에서 공고 내용을 자동으로 가져오지 못했어요. 직접 입력해 주세요.");
           setMode("editing");
         }
-        router.replace("/job-posting/edit");
+        if (!onComplete) router.replace("/job-posting/edit");
       })
       .catch(() => {
         setAnalysisError("URL에서 공고 내용을 자동으로 가져오지 못했어요. 직접 입력해 주세요.");
         setMode("editing");
-        router.replace("/job-posting/edit");
+        if (!onComplete) router.replace("/job-posting/edit");
       });
   }, [mode, router, isPasteMode]);
 
@@ -237,16 +239,18 @@ export default function JobPostingEditForm({ initialData, isAnalyzing = false, i
         </div>
 
         <div className="flex items-center justify-between gap-3">
-          <Link href="/job-posting?force=true" className="btn-secondary">
-            ← 다시 입력
-          </Link>
+          {onRestart ? (
+            <button onClick={onRestart} className="btn-secondary">← 다시 입력</button>
+          ) : (
+            <Link href="/job-posting?force=true" className="btn-secondary">← 다시 입력</Link>
+          )}
           <div className="flex gap-2">
-            <button onClick={() => setMode("editing")} className="btn-secondary">
-              편집하기
-            </button>
-            <Link href="/interview" className="btn-primary">
-              면접 시작하기 →
-            </Link>
+            <button onClick={() => setMode("editing")} className="btn-secondary">편집하기</button>
+            {onComplete ? (
+              <button onClick={onComplete} className="btn-primary">면접 시작하기 →</button>
+            ) : (
+              <Link href="/interview" className="btn-primary">면접 시작하기 →</Link>
+            )}
           </div>
         </div>
       </div>

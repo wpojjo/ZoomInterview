@@ -25,7 +25,8 @@ export async function DELETE() {
     await supabase.from("profiles").delete().eq("userId", userId);
   }
 
-  // 3. 채용공고 삭제
+  // 3. 면접 세션 + 채용공고 삭제
+  await supabase.from("interview_sessions").delete().eq("userId", userId);
   await supabase.from("job_postings").delete().eq("userId", userId);
 
   // 4. auth user 삭제

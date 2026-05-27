@@ -21,6 +21,10 @@
     }
   }
 
+  html {
+    scrollbar-gutter: stable;
+  }
+
   body {
     background-color: var(--bg);
     color: var(--text);

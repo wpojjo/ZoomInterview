@@ -30,7 +30,7 @@ function LoginForm() {
       return;
     }
 
-    router.push("/profile");
+    router.push("/onboarding");
     router.refresh();
   }
 

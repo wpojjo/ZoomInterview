@@ -37,7 +37,7 @@ export default async function JobPostingEditPage({
 
   return (
     <main className="min-h-screen py-8 px-4">
-      <div className="max-w-3xl mx-auto space-y-6">
+      <div className="max-w-2xl mx-auto space-y-6">
         <div className="space-y-1">
           <div className="flex items-center gap-2 text-xs text-gray-500 dark:text-slate-400">
             <span className="bg-blue-600 text-white font-bold px-2 py-0.5 rounded-md">3 / 3</span>

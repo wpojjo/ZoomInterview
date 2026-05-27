@@ -6,7 +6,7 @@ import { useRouter } from "nextjs-toploader/app";
 
 type InputMode = "url" | "paste";
 
-export default function JobPostingForm() {
+export default function JobPostingForm({ onNext }: { onNext?: (isPasteMode: boolean) => void }) {
   const router = useRouter();
   const [inputMode, setInputMode] = useState<InputMode>("url");
   const [url, setUrl] = useState("");
@@ -33,7 +33,7 @@ export default function JobPostingForm() {
         setStatus("error");
         return;
       }
-      router.push("/job-posting/edit?analyzing=true");
+      if (onNext) onNext(false); else router.push("/job-posting/edit?analyzing=true");
     } catch {
       setErrorMessage("네트워크 오류가 발생했습니다");
       setStatus("error");
@@ -58,7 +58,7 @@ export default function JobPostingForm() {
         return;
       }
       sessionStorage.setItem("pastedJobText", pastedText.trim());
-      router.push("/job-posting/edit?analyzing=true&mode=paste");
+      if (onNext) onNext(true); else router.push("/job-posting/edit?analyzing=true&mode=paste");
     } catch {
       setErrorMessage("네트워크 오류가 발생했습니다");
       setStatus("error");
@@ -122,9 +122,11 @@ export default function JobPostingForm() {
       </div>
 
       <div className="flex items-center justify-between gap-3">
-        <Link href="/settings" className="btn-secondary">
-          ← 프로필 수정
-        </Link>
+        {!onNext && (
+          <Link href="/profile" className="btn-secondary">
+            ← 프로필 수정
+          </Link>
+        )}
         <button
           onClick={inputMode === "url" ? handleUrlAnalyze : handlePasteAnalyze}
           disabled={isLoading || (inputMode === "url" ? !url.trim() : !pastedText.trim())}

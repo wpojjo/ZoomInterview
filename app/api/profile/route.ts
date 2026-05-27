@@ -47,6 +47,26 @@ export async function GET() {
   }
 }
 
+export async function PATCH(request: NextRequest) {
+  try {
+    const userId = await getAuthUser();
+    if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+    const { name } = await request.json();
+    if (!name?.trim()) return NextResponse.json({ error: "이름을 입력해주세요" }, { status: 400 });
+
+    const { error } = await supabase
+      .from("profiles")
+      .update({ name: name.trim() })
+      .eq("userId", userId);
+
+    if (error) return NextResponse.json({ error: "이름 변경에 실패했습니다" }, { status: 500 });
+    return NextResponse.json({ ok: true });
+  } catch {
+    return NextResponse.json({ error: "이름 변경 중 오류가 발생했습니다" }, { status: 500 });
+  }
+}
+
 export async function POST(request: NextRequest) {
   try {
     const userId = await getAuthUser();

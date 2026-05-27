@@ -23,7 +23,7 @@ interface Props {
   debateSummary: string;
   improvementTips: string[];
   onRestart?: () => void;
-  onBack: () => void;
+  onBack?: () => void;
   isHistory?: boolean;
   /** 약점 기반 연습 문제 생성 시 채용공고 컨텍스트 로드용 */
   sessionId?: string;
@@ -136,12 +136,14 @@ export default function DebateResult({
   return (
     <div className="space-y-6">
       {/* 뒤로가기 */}
-      <button
-        onClick={onBack}
-        className="flex items-center gap-1.5 text-sm text-gray-400 dark:text-slate-500 hover:text-gray-600 dark:hover:text-slate-300 transition-colors"
-      >
-        {isHistory ? "← 히스토리로 돌아가기" : "← 면접관 토론 돌아보기"}
-      </button>
+      {onBack && (
+        <button
+          onClick={onBack}
+          className="flex items-center gap-1.5 text-sm text-gray-400 dark:text-slate-500 hover:text-gray-600 dark:hover:text-slate-300 transition-colors"
+        >
+          ← 면접관 토론 돌아보기
+        </button>
+      )}
 
       {/* 점수 링 + 채용 권고 + 점수 분포 */}
       <div className="card p-8 flex flex-col items-center gap-4">

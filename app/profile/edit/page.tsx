@@ -2,16 +2,18 @@ import { redirect } from "next/navigation";
 import { getAuthUser } from "@/lib/auth";
 import { getFullProfile } from "@/lib/profile";
 import SettingsForm from "@/components/SettingsForm";
+import BackButton from "@/components/BackButton";
 
-export default async function SettingsPage() {
+export default async function ProfileEditPage() {
   const userId = await getAuthUser();
   const profile = userId ? await getFullProfile(userId) : null;
 
-  if (!profile) redirect("/profile");
+  if (!profile) redirect("/onboarding");
 
   return (
     <main className="min-h-screen py-8 px-4">
-      <div className="max-w-3xl mx-auto space-y-6">
+      <div className="max-w-2xl mx-auto space-y-6">
+        <BackButton />
         <div className="space-y-1">
           <h1 className="text-2xl font-bold text-gray-900 dark:text-slate-50">프로필 설정</h1>
           <p className="text-sm text-gray-500 dark:text-slate-400">

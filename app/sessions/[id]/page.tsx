@@ -6,6 +6,7 @@ import SessionDetailResult from "@/components/SessionDetailResult";
 import type { DebateResultData } from "@/components/DebateLoading";
 import type { AgentEvaluation, AgentFinalOpinion } from "@/lib/agents";
 import { DIFFICULTY_LABEL, type Difficulty } from "@/lib/interview";
+import BackButton from "@/components/BackButton";
 
 function formatDate(iso: string | null): string {
   if (!iso) return "날짜 정보 없음";
@@ -56,6 +57,7 @@ export default async function SessionDetailPage({
       <div className="max-w-2xl mx-auto space-y-6">
         {/* 헤더 */}
         <header className="space-y-2">
+          <BackButton />
           <div className="flex items-center gap-2 text-xs text-gray-500 dark:text-slate-400">
             <span>{formatDate(session.createdAt)}</span>
             <span className="text-gray-300 dark:text-slate-600">·</span>
@@ -105,12 +107,6 @@ export default async function SessionDetailPage({
           />
         )}
 
-        <Link
-          href="/history"
-          className="block text-center text-sm text-gray-400 dark:text-slate-500 hover:text-gray-600 dark:hover:text-slate-300"
-        >
-          ← 히스토리로 돌아가기
-        </Link>
       </div>
     </main>
   );

@@ -47,7 +47,7 @@ export default function Header() {
         </Link>
         <div className="flex items-center gap-2">
           <Link
-            href="/settings"
+            href="/profile"
             className="text-gray-400 hover:text-gray-600 dark:text-slate-500 dark:hover:text-slate-300 transition-colors p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-slate-800"
             aria-label="설정"
           >

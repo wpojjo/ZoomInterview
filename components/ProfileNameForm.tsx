@@ -10,7 +10,7 @@ export default function ProfileNameForm({ initialName }: { initialName?: string 
   function handleNext(e: React.FormEvent) {
     e.preventDefault();
     if (!name.trim()) return;
-    router.push(`/profile/detail?name=${encodeURIComponent(name.trim())}`);
+    router.push(`/onboarding/detail?name=${encodeURIComponent(name.trim())}`);
   }
 
   return (

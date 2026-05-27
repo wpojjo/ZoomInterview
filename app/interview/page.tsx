@@ -5,7 +5,7 @@ import InterviewSession from "@/components/InterviewSession";
 
 async function checkReadiness() {
   const userId = await getAuthUser();
-  if (!userId) return { ready: false, reason: "auth" as const, name: "" };
+  if (!userId) return { ready: false, name: "", hasJobPosting: false };
 
   const { data: profile } = await supabase
     .from("profiles")
@@ -13,33 +13,36 @@ async function checkReadiness() {
     .eq("userId", userId)
     .maybeSingle();
 
-  if (!profile) return { ready: false, reason: "profile" as const, name: "" };
+  if (!profile) return { ready: false, name: "", hasJobPosting: false };
 
   const { data: jobPosting } = await supabase
     .from("job_postings")
-    .select("id, responsibilities")
+    .select("id, responsibilities, requirements, preferredQuals")
     .eq("userId", userId)
     .order("updatedAt", { ascending: false })
     .limit(1)
     .maybeSingle();
 
-  if (!jobPosting?.responsibilities)
-    return { ready: false, reason: "jobPosting" as const, name: profile.name };
-
-  return { ready: true, name: profile.name };
+  return {
+    ready: true,
+    name: profile.name,
+    jobPosting: jobPosting?.responsibilities
+      ? { responsibilities: jobPosting.responsibilities ?? "", requirements: jobPosting.requirements ?? "", preferredQuals: jobPosting.preferredQuals ?? "" }
+      : null,
+  };
 }
 
 export default async function InterviewPage() {
-  const { ready, reason, name } = await checkReadiness();
+  const { ready, name, jobPosting } = await checkReadiness();
 
   if (!ready) {
-    redirect(reason === "profile" ? "/profile" : "/job-posting");
+    redirect("/onboarding");
   }
 
   return (
     <main className="min-h-screen py-8 px-4">
       <div className="max-w-2xl mx-auto space-y-6">
-        <InterviewSession name={name!} />
+        <InterviewSession name={name!} existingJobPosting={jobPosting} />
       </div>
     </main>
   );

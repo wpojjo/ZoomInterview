@@ -1,6 +1,5 @@
 "use client";
 
-import { useRouter } from "next/navigation";
 import DebateResult from "@/components/DebateResult";
 import type { DebateResultData } from "@/components/DebateLoading";
 
@@ -10,7 +9,6 @@ interface Props {
 }
 
 export default function SessionDetailResult({ data, sessionId }: Props) {
-  const router = useRouter();
   return (
     <DebateResult
       finalScore={data.finalScore}
@@ -19,7 +17,6 @@ export default function SessionDetailResult({ data, sessionId }: Props) {
       finalFeedback={data.finalFeedback}
       debateSummary={data.debateSummary}
       improvementTips={data.improvementTips}
-      onBack={() => router.push("/history")}
       isHistory
       sessionId={sessionId}
     />

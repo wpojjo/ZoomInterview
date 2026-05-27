@@ -16,12 +16,15 @@ import {
   getFirstQuestion,
 } from "@/lib/interview";
 import DifficultySelect from "@/components/DifficultySelect";
+import BackButton from "@/components/BackButton";
 import DebateLoading, { type DebateResultData } from "@/components/DebateLoading";
 import DebateResult from "@/components/DebateResult";
+import JobPostingForm from "@/components/JobPostingForm";
+import JobPostingEditForm from "@/components/JobPostingEditForm";
 
 const ANSWER_TIME_LIMIT = 80;
 
-type Phase = "selecting" | "interviewing" | "finished" | "debating" | "done";
+type Phase = "job-posting" | "job-posting-edit" | "selecting" | "interviewing" | "finished" | "debating" | "done";
 
 type ResumeSnapshot = {
   phase: "interviewing" | "finished";
@@ -474,8 +477,11 @@ function ThoughtSpeechBubble({
   );
 }
 
-export default function InterviewSession({ name }: { name: string }) {
-  const [phase, setPhase] = useState<Phase>("selecting");
+type JobPostingData = { responsibilities: string; requirements: string; preferredQuals: string };
+
+export default function InterviewSession({ name, existingJobPosting }: { name: string; existingJobPosting?: JobPostingData | null }) {
+  const [phase, setPhase] = useState<Phase>(existingJobPosting ? "job-posting-edit" : "job-posting");
+  const [isPasteMode, setIsPasteMode] = useState(false);
   const [difficulty, setDifficulty] = useState<Difficulty>("normal");
   const [agentIndex, setAgentIndex] = useState(0);
   const [followUpRound, setFollowUpRound] = useState(0);
@@ -810,10 +816,46 @@ export default function InterviewSession({ name }: { name: string }) {
     );
   }
 
+  // 채용공고 입력
+  if (phase === "job-posting") {
+    return (
+      <div className="space-y-6">
+        <div className="space-y-1">
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-slate-50">채용공고를 입력해주세요</h1>
+          <p className="text-sm text-gray-500 dark:text-slate-400">채용공고를 분석하면 면접관들이 해당 직무에 맞는 질문을 출제할 수 있어요</p>
+        </div>
+        <JobPostingForm onNext={(pasteMode) => { setIsPasteMode(pasteMode); setPhase("job-posting-edit"); }} />
+      </div>
+    );
+  }
+
+  // 채용공고 분석 확인
+  if (phase === "job-posting-edit") {
+    const isAnalyzing = !existingJobPosting;
+    return (
+      <div className="space-y-6">
+        <div className="space-y-1">
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-slate-50">
+            {isAnalyzing ? "채용공고를 분석하고 있어요" : "분석 결과를 확인해주세요"}
+          </h1>
+          {!isAnalyzing && <p className="text-sm text-gray-500 dark:text-slate-400">내용이 맞으면 면접을 시작하세요</p>}
+        </div>
+        <JobPostingEditForm
+          initialData={existingJobPosting ?? { responsibilities: "", requirements: "", preferredQuals: "" }}
+          isAnalyzing={isAnalyzing}
+          isPasteMode={isPasteMode}
+          onComplete={() => setPhase("selecting")}
+          onRestart={() => setPhase("job-posting")}
+        />
+      </div>
+    );
+  }
+
   // 난이도 선택
   if (phase === "selecting") {
     return (
       <div className="space-y-6">
+        <BackButton href="/job-posting/edit" />
         <div className="space-y-1">
           <h1 className="text-2xl font-bold text-gray-900 dark:text-slate-50">{name}님의 맞춤 면접</h1>
           <p className="text-sm text-gray-500 dark:text-slate-400">
