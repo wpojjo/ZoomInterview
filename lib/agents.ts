@@ -111,6 +111,7 @@ function buildContextBlock(profile: ProfileContext, jobPosting: JobPostingContex
       jobPosting.companyName ? `회사명: ${jobPosting.companyName}` : "",
       jobPosting.divisionName ? `지원 사업부: ${jobPosting.divisionName}` : "",
       jobPosting.jobClassification ? `직무 분류: ${jobPosting.jobClassification}` : "",
+      jobPosting.industrySector ? `사업 영역: ${jobPosting.industrySector}` : "",
     ];
   } else if (agentId === "technical") {
     agentParts = [

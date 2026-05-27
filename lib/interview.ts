@@ -277,6 +277,172 @@ function buildOrganizationDartHints(jobPosting: JobPostingContext): string {
   return sections.length > 0 ? `\n\n${sections.join("\n\n")}` : "";
 }
 
+// ── 홈페이지 힌트 시스템 ──────────────────────────────────────────────────
+
+const B2B_KEYWORDS = [
+  "기업", "법인", "엔터프라이즈", "파트너사", "고객사", "비즈니스", "사업자",
+  "소상공인", "매장", "관리자", "솔루션", "업무 효율", "SaaS", "B2B", "계약",
+  "권한 관리", "도입 문의", "세일즈", "API 제공",
+];
+const B2C_KEYWORDS = [
+  "개인", "사용자", "일반 사용자", "소비자", "대중", "앱 다운로드", "회원가입",
+  "무료 시작", "일상", "취향", "추천", "간편하게", "누구나", "모바일 앱",
+  "커뮤니티", "리뷰", "B2C", "유저", "개인 맞춤형",
+];
+
+type CustomerType = "B2B" | "B2C" | "UNKNOWN";
+
+function detectCustomerType(targetCustomer: string | undefined): CustomerType {
+  if (!targetCustomer) return "UNKNOWN";
+  const hasB2B = B2B_KEYWORDS.some(k => targetCustomer.includes(k));
+  const hasB2C = B2C_KEYWORDS.some(k => targetCustomer.includes(k));
+  if (hasB2B && !hasB2C) return "B2B";
+  if (hasB2C && !hasB2B) return "B2C";
+  return "UNKNOWN"; // 동시 감지(플랫폼) 또는 미감지 → 첫 번째 설계에서는 미주입
+}
+
+// 비전/미션이 앵커로 쓸 만한 내용인지 판단한다.
+const ABSTRACT_VISION_PATTERNS = [
+  "세상을 더 좋게", "더 나은 미래", "고객 행복", "최고의 가치", "글로벌 리더",
+  "혁신을 선도", "함께 성장", "더 좋은 세상", "무한한 가능성", "미래를 바꾸는",
+  "모두를 위한 가치", "새로운 경험",
+];
+const VALID_VISION_KEYWORDS = [
+  "금융", "교육", "물류", "커머스", "의료", "AI", "데이터", "보안", "콘텐츠",
+  "창작자", "소상공인", "개발자", "생산성", "자동화", "플랫폼", "접근성",
+  "개인화", "지속가능", "업무 효율", "고객 문제", "기업",
+];
+
+function isValidVisionMission(visionMission: string | undefined): boolean {
+  if (!visionMission || visionMission.length < 10) return false;
+  const hasValidKeyword = VALID_VISION_KEYWORDS.some(k => visionMission.includes(k));
+  if (!hasValidKeyword) return false;
+  // 추상 문구만으로 가득 찬 경우 제외
+  const onlyAbstract = ABSTRACT_VISION_PATTERNS.every(p => visionMission.includes(p)) &&
+    !VALID_VISION_KEYWORDS.some(k => visionMission.includes(k));
+  return !onlyAbstract;
+}
+
+// 차별점이 마케팅 문구 수준인지 판단한다.
+const FLUFF_PATTERNS = [
+  "업계 최고", "글로벌 선도", "차별화된 기술력", "고객 중심", "혁신 기업",
+  "No.1", "최고의 서비스", "압도적인", "독보적인", "미래를 선도", "새로운 기준",
+  "국내 대표",
+];
+const VALID_DIFFERENTIATION_KEYWORDS = [
+  "AI 기반", "소상공인", "정산", "실시간", "보안 인증", "창작자", "수익화",
+  "맞춤 추천", "API", "오프라인", "권한 분리", "빠른 배송", "커뮤니티",
+  "워크플로우", "자동화", "데이터 분석", "매칭", "정기 구독",
+];
+
+function isValidDifferentiation(competitivePosition: string | undefined): boolean {
+  if (!competitivePosition || competitivePosition.length < 15) return false;
+  return VALID_DIFFERENTIATION_KEYWORDS.some(k => competitivePosition.includes(k)) ||
+    (!FLUFF_PATTERNS.some(p => competitivePosition.includes(p)) && competitivePosition.length >= 20);
+}
+
+// Organization 전용: 홈페이지 기반 4종 힌트를 조건부로 반환한다.
+function buildOrganizationHomepageHints(jobPosting: JobPostingContext): string {
+  const sections: string[] = [];
+  const parsedServices = jobPosting.mainServices ? parseMainServices(jobPosting.mainServices) : "";
+  const customerType = detectCustomerType(jobPosting.targetCustomer);
+
+  // 힌트 1: 비전/미션 앵커
+  if (isValidVisionMission(jobPosting.visionMission)) {
+    sections.push(
+      `[비전/미션 앵커 — 질문 방향 참고]\n` +
+      `회사 비전/미션: "${jobPosting.visionMission}"\n` +
+      `지원동기 답변에서 이 비전과 자신의 경험·가치관을 구체적으로 연결하면 좋은 신호입니다. ` +
+      `"비전에 공감해서", "성장 가능성이 좋아서" 같은 보편적 표현만 나오면, ` +
+      `비전 문구를 앵커로 삼아 "어떤 부분이 본인 경험과 맞닿아 있는지" 파고드세요.\n` +
+      `금지: "우리 비전이 뭔지 아세요?" 같은 암기 확인 질문.`,
+    );
+  }
+
+  // 힌트 2: 서비스 이해 검증
+  if (parsedServices) {
+    if (customerType === "B2C") {
+      sections.push(
+        `[서비스 이해 검증 — 질문 방향 참고]\n` +
+        `주요 서비스: ${parsedServices}\n` +
+        `개인이 직접 사용할 수 있는 서비스입니다. 실제 사용 경험이 있는지, 어떤 기능을 살펴봤는지, ` +
+        `사용자 관점의 장단점을 말할 수 있는지 확인하세요. ` +
+        `단순 "써봤다"에서 끝내지 말고 구체적인 관찰과 본인 직무 연결까지 끌어내세요.\n` +
+        `금지: "우리 서비스 이름이 뭔지 아세요?" 같은 암기 확인 질문.`,
+      );
+    } else if (customerType === "B2B") {
+      sections.push(
+        `[서비스 이해 검증 — 질문 방향 참고]\n` +
+        `주요 서비스: ${parsedServices}\n` +
+        `기업 고객 대상 서비스로 개인이 직접 사용하기 어렵습니다. ` +
+        `"써보셨나요?"를 묻지 말고, 고객사가 왜 이 서비스를 필요로 하는지, ` +
+        `어떤 문제를 해결하는지 이해하고 있는지 확인하세요.\n` +
+        `권장: "이 서비스가 기업 고객에게 어떤 가치를 주는지 어떻게 이해하고 계신가요?"`,
+      );
+    }
+    // UNKNOWN일 때는 서비스 힌트 미주입
+  }
+
+  // 힌트 3: 고객층 매핑
+  if (jobPosting.targetCustomer && customerType !== "UNKNOWN") {
+    if (customerType === "B2B") {
+      sections.push(
+        `[고객층 매핑 — 질문 방향 참고]\n` +
+        `B2B 기업입니다. 지원자가 기업 고객과의 장기 관계, 계약 사이클, 신뢰 구축 환경에서 ` +
+        `일할 준비가 됐는지 확인하세요. "배우고 싶다" 수혜 지향보다 "기여하고 싶다" 기여 지향이 적합한 신호입니다.\n` +
+        `금지: "우리 고객이 B2B인지 아세요?" 같은 지식 테스트.`,
+      );
+    } else {
+      sections.push(
+        `[고객층 매핑 — 질문 방향 참고]\n` +
+        `B2C 기업입니다. 지원자가 사용자 페인포인트에 민감하고 빠른 실험 문화에 적응할 수 있는지 확인하세요. ` +
+        `실제 사용자 관점으로 생각하는 답변이 나오면 좋은 신호입니다.\n` +
+        `금지: "우리 고객이 누구인지 아세요?" 같은 지식 테스트.`,
+      );
+    }
+  }
+
+  // 힌트 4: 차별점 인지
+  if (isValidDifferentiation(jobPosting.competitivePosition)) {
+    sections.push(
+      `[차별점 인지 — 질문 방향 참고]\n` +
+      `회사 강조 차별점: "${jobPosting.competitivePosition}"\n` +
+      `지원자가 "선도 기업이어서", "좋아 보여서" 수준에 머물면, ` +
+      `위 차별점을 앵커로 삼아 구체적으로 어떤 부분에 관심을 가졌는지 파고드세요. ` +
+      `경쟁사나 유사 서비스를 지원자가 먼저 언급하면 좋은 신호입니다.\n` +
+      `금지: "경쟁사가 어딘지 아세요?" 같은 지식 테스트.`,
+    );
+  }
+
+  if (sections.length === 0) return "";
+
+  // 힌트가 많을수록 우선순위 지침 추가
+  let priorityNote = "";
+  if (sections.length === 3) {
+    priorityNote = "\n\n[홈페이지 힌트 우선순위] 위 3개 힌트 중 면접 흐름상 자연스러운 2개에 집중하세요. 비전/미션과 서비스 이해를 우선합니다.";
+  } else if (sections.length >= 4) {
+    priorityNote = "\n\n[홈페이지 힌트 우선순위] 비전/미션 앵커와 서비스 이해 검증을 우선 활용하세요. 고객층과 차별점 힌트는 여력이 있을 때 사용하세요.";
+  }
+
+  return `\n\n${sections.join("\n\n")}${priorityNote}`;
+}
+
+// Technical 전용: B2B/B2C 기술 평가 방향 힌트.
+function buildTechnicalHomepageHint(jobPosting: JobPostingContext): string {
+  const customerType = detectCustomerType(jobPosting.targetCustomer);
+  if (customerType === "B2B") {
+    return `\n\n[기술 평가 방향 — 서비스 유형 참고]\n` +
+      `B2B 서비스입니다. 대규모 트래픽 처리보다 안정성, 권한 관리, 데이터 격리, ` +
+      `고객사별 설정, 장애 대응, API 안정성 관련 경험을 우선적으로 확인하세요.`;
+  }
+  if (customerType === "B2C") {
+    return `\n\n[기술 평가 방향 — 서비스 유형 참고]\n` +
+      `B2C 서비스입니다. 대규모 트래픽 대응, 응답 속도 최적화, 사용자 행동 분석, ` +
+      `A/B 테스트, 모바일 경험 관련 경험을 우선적으로 확인하세요.`;
+  }
+  return "";
+}
+
 export function getFirstQuestion(name: string) {
   return `안녕하세요, ${name}님. 간단한 자기소개와 지원동기를 말씀해주세요.`;
 }
@@ -305,6 +471,8 @@ function buildAgentSystemPrompt(
   const profileSummary = buildProfileSummary(profile);
   const contextualHints = buildContextualHints(profile, jobPosting);
   const dartHints = buildOrganizationDartHints(jobPosting);
+  const homepageHints = buildOrganizationHomepageHints(jobPosting);
+  const technicalHomepageHint = buildTechnicalHomepageHint(jobPosting);
 
   const agentRole: Record<AgentId, string> = {
     organization: `당신은 [HR 담당자] 면접관입니다.
@@ -318,7 +486,7 @@ function buildAgentSystemPrompt(
 - 경력자라면 이직 이유가 긍정적인지 (전 직장 도피 여부)
 - 오래 다닐 것 같은지
 
-질문은 하나만 하세요. 열린 질문으로 시작해 지원자가 충분히 말하도록 유도하세요.${dartHints}`,
+질문은 하나만 하세요. 열린 질문으로 시작해 지원자가 충분히 말하도록 유도하세요.${dartHints}${homepageHints}`,
     logic: `당신은 [실무 팀장] 면접관입니다.
 판단 철학: "이 사람, 내 팀에서 실제로 어떻게 일할 사람인가?"
 성향: 친절하지도 불친절하지도 않은 건조한 실무형. 답변을 끝까지 들은 뒤 핵심을 찌르는 질문을 하나 던진다. 칭찬은 거의 없고, 모호한 답변엔 범위를 좁혀서 다시 묻는다.
@@ -342,7 +510,7 @@ function buildAgentSystemPrompt(
 
 직무 분류가 명시된 경우, 해당 직무의 현업 선임 입장에서 질문하세요.
 
-이력서나 지금까지 답변에 나온 특정 기술·경험을 직접 짚어서 검증하는 질문을 하나 하세요. 채용공고에 없는 요건을 만들지 마세요.`,
+이력서나 지금까지 답변에 나온 특정 기술·경험을 직접 짚어서 검증하는 질문을 하나 하세요. 채용공고에 없는 요건을 만들지 마세요.${technicalHomepageHint}`,
   };
 
   const commonJobBlock = [
@@ -373,6 +541,7 @@ function buildAgentSystemPrompt(
       jobPosting.companyName ? `회사명: ${jobPosting.companyName}` : "",
       jobPosting.divisionName ? `지원 사업부: ${jobPosting.divisionName}` : "",
       jobPosting.jobClassification ? `직무 분류: ${jobPosting.jobClassification}` : "",
+      jobPosting.industrySector ? `사업 영역: ${jobPosting.industrySector}` : "",
       commonJobBlock,
     ].filter(Boolean).join("\n"),
     technical: [
@@ -683,6 +852,7 @@ async function generateSingleAgentThought(
       jobPosting.companyName ? `회사명: ${jobPosting.companyName}` : "",
       jobPosting.divisionName ? `지원 사업부: ${jobPosting.divisionName}` : "",
       jobPosting.jobClassification ? `직무 분류: ${jobPosting.jobClassification}` : "",
+      jobPosting.industrySector ? `사업 영역: ${jobPosting.industrySector}` : "",
       thoughtCommonJobBlock,
     ].filter(Boolean).join("\n"),
     technical: [
@@ -697,7 +867,12 @@ async function generateSingleAgentThought(
   };
 
   const thoughtDartHints = agentId === "organization" ? buildOrganizationDartHints(jobPosting) : "";
-  const thoughtPersona = AGENT_THOUGHT_PERSONA[agentId] + thoughtDartHints;
+  const thoughtHomepageHints = agentId === "organization"
+    ? buildOrganizationHomepageHints(jobPosting)
+    : agentId === "technical"
+    ? buildTechnicalHomepageHint(jobPosting)
+    : "";
+  const thoughtPersona = AGENT_THOUGHT_PERSONA[agentId] + thoughtDartHints + thoughtHomepageHints;
 
   const systemPrompt = `${thoughtPersona}
 
