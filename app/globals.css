@@ -59,3 +59,241 @@
       transition-all duration-150;
   }
 }
+
+/* === ZoomInterview cinematic hero === */
+
+/* 0. opening camera flash */
+@keyframes zi-flash {
+  0%   { opacity: 0; }
+  4%   { opacity: 0.45; }
+  18%  { opacity: 0; }
+  100% { opacity: 0; }
+}
+
+/* 1. cinema letterbox bars */
+@keyframes zi-letterbox-top {
+  0%   { transform: translateY(-100%); }
+  35%  { transform: translateY(0); }
+  100% { transform: translateY(0); }
+}
+@keyframes zi-letterbox-bot {
+  0%   { transform: translateY(100%); }
+  35%  { transform: translateY(0); }
+  100% { transform: translateY(0); }
+}
+
+/* 2. viewfinder corner brackets shoot inward */
+@keyframes zi-bracket-tl {
+  0%   { opacity: 0; transform: translate(-40px, -40px); }
+  100% { opacity: 1; transform: translate(0, 0); }
+}
+@keyframes zi-bracket-tr {
+  0%   { opacity: 0; transform: translate(40px, -40px); }
+  100% { opacity: 1; transform: translate(0, 0); }
+}
+@keyframes zi-bracket-bl {
+  0%   { opacity: 0; transform: translate(-40px, 40px); }
+  100% { opacity: 1; transform: translate(0, 0); }
+}
+@keyframes zi-bracket-br {
+  0%   { opacity: 0; transform: translate(40px, 40px); }
+  100% { opacity: 1; transform: translate(0, 0); }
+}
+
+/* 3. title dolly zoom — huge & blurred → locked focus */
+@keyframes zi-dolly {
+  0% {
+    opacity: 0;
+    transform: scale(3);
+    filter: blur(40px);
+    letter-spacing: 0.3em;
+  }
+  55% {
+    opacity: 1;
+    filter: blur(6px);
+    letter-spacing: 0.05em;
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+    filter: blur(0);
+    letter-spacing: -0.025em;
+  }
+}
+
+/* 4. focus rings COLLAPSE inward, converging onto title */
+@keyframes zi-ring-collapse {
+  0% {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(2.4);
+    border-width: 1px;
+  }
+  20% { opacity: 0.7; }
+  100% {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(0.3);
+    border-width: 4px;
+  }
+}
+
+/* 5. focus lock burst */
+@keyframes zi-lock-burst {
+  0%   { opacity: 0; transform: translate(-50%, -50%) scale(0.4); }
+  30%  { opacity: 0.85; }
+  100% { opacity: 0; transform: translate(-50%, -50%) scale(2.5); }
+}
+
+/* 6. snappy spring entrance (badge / subtitle) */
+@keyframes zi-snap-in {
+  0%   { opacity: 0; transform: translateY(14px) scale(0.94); }
+  55%  { opacity: 1; transform: translateY(-3px) scale(1.02); }
+  100% { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+/* 7. title continuous breathing after lock */
+@keyframes zi-breath {
+  0%, 100% { transform: scale(1); }
+  50%      { transform: scale(1.018); }
+}
+
+/* 8. CTA pop with bounce */
+@keyframes zi-cta-pop {
+  0%   { opacity: 0; transform: translateY(40px) scale(0.85); }
+  60%  { opacity: 1; transform: translateY(-6px) scale(1.03); }
+  100% { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+/* 9. step cards 3D flip-in */
+@keyframes zi-card-flip {
+  0%   { opacity: 0; transform: perspective(800px) rotateX(-55deg) translateY(40px); }
+  100% { opacity: 1; transform: perspective(800px) rotateX(0) translateY(0); }
+}
+
+/* 10. floating Q&A bubbles drift upward */
+@keyframes zi-bubble-rise {
+  0%   { opacity: 0; transform: translateY(40px) scale(0.9); }
+  10%  { opacity: 0.55; }
+  85%  { opacity: 0.55; }
+  100% { opacity: 0; transform: translateY(-180px) scale(1); }
+}
+
+/* 11. REC dot pulse */
+@keyframes zi-rec-pulse {
+  0%, 100% { opacity: 1; box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.75); }
+  50%      { opacity: 0.55; box-shadow: 0 0 0 8px rgba(239, 68, 68, 0); }
+}
+
+/* 12. HUD slide in */
+@keyframes zi-hud-in {
+  0%   { opacity: 0; transform: translateY(-12px); }
+  100% { opacity: 1; transform: translateY(0); }
+}
+
+/* 14. background orb drift */
+@keyframes zi-orb-drift {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  33% { transform: translate(50px, -34px) scale(1.18); }
+  66% { transform: translate(-34px, 26px) scale(0.92); }
+}
+
+/* 16. continuous title shimmer (gradient sweep) */
+@keyframes zi-shimmer {
+  0%   { background-position: -150% 0; }
+  100% { background-position: 250% 0; }
+}
+
+/* 17. periodic title re-pulse (commercial-style logo reveal loop) */
+@keyframes zi-title-pulse {
+  0%, 88%, 100% { transform: scale(1); filter: blur(0); }
+  93% { transform: scale(1.07); filter: blur(1.5px); }
+}
+
+/* 18. periodic camera flash (rhythmic ad beat) */
+@keyframes zi-flash-loop {
+  0%, 97%, 100% { opacity: 0; }
+  98.5% { opacity: 0.15; }
+}
+
+/* 19. gentle continuous bracket pulse */
+@keyframes zi-bracket-breathe {
+  0%, 100% { opacity: 0.6; transform: scale(1); }
+  50%      { opacity: 1;   transform: scale(1.08); }
+}
+
+/* Apply timing — opening compressed to ~1.6s */
+.zi-flash          { opacity: 0; animation: zi-flash 1.2s ease-out 0s both; }
+.zi-flash-loop     { opacity: 0; animation: zi-flash-loop 10s ease-in-out 3s infinite; }
+.zi-letter-top     { animation: zi-letterbox-top 0.55s cubic-bezier(0.6, 0, 0.2, 1) 0s both; }
+.zi-letter-bot     { animation: zi-letterbox-bot 0.55s cubic-bezier(0.6, 0, 0.2, 1) 0s both; }
+
+.zi-hud            { animation: zi-hud-in 0.5s ease-out 0.2s both; }
+
+.zi-bracket-tl     { animation: zi-bracket-tl 0.5s cubic-bezier(0.2, 0.9, 0.3, 1) 0.15s both, zi-bracket-breathe 4s ease-in-out 2s infinite; }
+.zi-bracket-tr     { animation: zi-bracket-tr 0.5s cubic-bezier(0.2, 0.9, 0.3, 1) 0.15s both, zi-bracket-breathe 4s ease-in-out 2.2s infinite; }
+.zi-bracket-bl     { animation: zi-bracket-bl 0.5s cubic-bezier(0.2, 0.9, 0.3, 1) 0.15s both, zi-bracket-breathe 4s ease-in-out 2.4s infinite; }
+.zi-bracket-br     { animation: zi-bracket-br 0.5s cubic-bezier(0.2, 0.9, 0.3, 1) 0.15s both, zi-bracket-breathe 4s ease-in-out 2.6s infinite; }
+
+.zi-anim-title     {
+  /* Light mode — deep saturated palette so it pops against pale blue bg */
+  background-image: linear-gradient(110deg, #0c1e3e 0%, #1e3a8a 25%, #4338ca 50%, #1e3a8a 75%, #0c1e3e 100%);
+  background-size: 200% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  color: transparent;
+  animation:
+    zi-dolly 0.7s cubic-bezier(0.2, 0.8, 0.2, 1) 0.1s both,
+    zi-shimmer 3s linear 1.8s infinite,
+    zi-title-pulse 6s ease-in-out 2.4s infinite;
+}
+
+/* Dark mode (Tailwind class strategy) — bright cyan/white peak against dark navy bg */
+.dark .zi-anim-title {
+  background-image: linear-gradient(110deg, #60a5fa 0%, #bfdbfe 30%, #ffffff 50%, #bfdbfe 70%, #60a5fa 100%);
+}
+
+/* Title glow wrapper — filter applied outside the animated h1 so dolly's filter doesn't override */
+.zi-title-glow {
+  display: inline-block;
+  /* Light mode — subtle dark shadow, no blue haze that would blend with the bg */
+  filter:
+    drop-shadow(0 2px 4px rgba(15, 23, 42, 0.25))
+    drop-shadow(0 8px 24px rgba(30, 58, 138, 0.18));
+}
+
+.dark .zi-title-glow {
+  filter:
+    drop-shadow(0 0 28px rgba(147, 197, 253, 0.55))
+    drop-shadow(0 0 70px rgba(59, 130, 246, 0.35));
+}
+
+/* --- WAVE 1 (t=0.1s): 배지 + 타이틀 --- */
+.zi-anim-badge     { animation: zi-snap-in 0.5s cubic-bezier(0.34, 1.4, 0.64, 1) 0.1s both; }
+
+.zi-ring-c         { opacity: 0; animation: zi-ring-collapse 0.55s cubic-bezier(0.4, 0, 0.2, 1) 0.1s both; }
+.zi-ring-c2        { opacity: 0; animation: zi-ring-collapse 0.55s cubic-bezier(0.4, 0, 0.2, 1) 0.2s both; }
+.zi-ring-c3        { opacity: 0; animation: zi-ring-collapse 0.55s cubic-bezier(0.4, 0, 0.2, 1) 0.3s both; }
+.zi-lock-burst     { opacity: 0; animation: zi-lock-burst 0.45s ease-out 0.5s both; }
+
+/* --- WAVE 2 (t=0.95s): 서브타이틀 + CTA --- */
+.zi-anim-sub       { display: inline-block; animation: zi-snap-in 0.5s cubic-bezier(0.34, 1.4, 0.64, 1) 0.95s both; }
+.zi-anim-cta-1     { animation: zi-cta-pop 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) 0.95s both; }
+.zi-anim-cta-2     { animation: zi-cta-pop 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) 1.05s both; }
+
+/* --- WAVE 3 (t=1.6s~): 스텝 카드 (개별 delay는 page.tsx inline 스타일로) --- */
+.zi-anim-card      { animation: zi-card-flip 0.55s cubic-bezier(0.2, 0.8, 0.2, 1) both; transform-origin: center top; }
+
+.zi-rec-dot        { animation: zi-rec-pulse 1.4s ease-in-out infinite; }
+.zi-orb            { animation: zi-orb-drift 14s ease-in-out infinite; }
+.zi-orb-r          { animation: zi-orb-drift 17s ease-in-out infinite reverse; }
+.zi-bubble         { opacity: 0; animation: zi-bubble-rise 6s ease-in-out infinite; }
+
+@media (prefers-reduced-motion: reduce) {
+  .zi-flash, .zi-flash-loop, .zi-letter-top, .zi-letter-bot, .zi-hud,
+  .zi-bracket-tl, .zi-bracket-tr, .zi-bracket-bl, .zi-bracket-br,
+  .zi-anim-title, .zi-anim-badge, .zi-ring-c, .zi-ring-c2, .zi-ring-c3, .zi-lock-burst,
+  .zi-anim-sub, .zi-anim-cta-1, .zi-anim-cta-2, .zi-anim-card,
+  .zi-rec-dot, .zi-orb, .zi-orb-r, .zi-bubble {
+    animation: none !important;
+  }
+}
