@@ -10,6 +10,7 @@ interface HomepageResult {
   urlSource?: "DART" | "검색";
   pagesCollected?: number;
   collectedUrls?: string[];
+  collectedText?: string;
   businessArea?: string;
   mainServices?: string[];
   visionMission?: string;
@@ -141,6 +142,12 @@ export default function HomepageTestPage() {
               <Row label="수집 페이지" value={`${result.pagesCollected}개`} />
             </div>
 
+            {result.pagesCollected === 0 && (
+              <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-xl p-4 text-sm text-yellow-700 dark:text-yellow-300">
+                이 사이트는 크롤링이 차단되어 있어 정보를 수집할 수 없습니다. 상장사라면 DART 데이터로 대체됩니다.
+              </div>
+            )}
+
             {/* 수집된 페이지 목록 */}
             {result.collectedUrls && result.collectedUrls.length > 0 && (
               <div className="bg-white dark:bg-slate-900 rounded-xl border border-gray-200 dark:border-slate-700 p-5">
@@ -162,6 +169,20 @@ export default function HomepageTestPage() {
               <Row label="타겟 고객" value={result.targetCustomer} />
               <Row label="경쟁 포지셔닝" value={result.competitivePosition} />
             </div>
+
+            {/* 수집된 원문 텍스트 */}
+            {result.collectedText && (
+              <div className="bg-white dark:bg-slate-900 rounded-xl border border-gray-200 dark:border-slate-700 p-5">
+                <details>
+                  <summary className="text-xs font-semibold text-gray-400 dark:text-slate-500 cursor-pointer select-none">
+                    LLM에 입력된 원문 텍스트 ({result.collectedText.length.toLocaleString()}자) — 클릭해서 펼치기
+                  </summary>
+                  <pre className="mt-3 text-xs text-gray-700 dark:text-slate-300 bg-gray-50 dark:bg-slate-800 rounded-lg p-3 overflow-x-auto whitespace-pre-wrap max-h-96 overflow-y-auto">
+                    {result.collectedText}
+                  </pre>
+                </details>
+              </div>
+            )}
 
             {/* 주요 서비스 */}
             {result.mainServices && result.mainServices.length > 0 && (
