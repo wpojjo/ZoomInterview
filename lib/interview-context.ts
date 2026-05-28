@@ -47,6 +47,7 @@ type CompanyCache = {
   industrySector: string | null;
   mainServices: string | null;
   visionMission: string | null;
+  coreProduct: string | null;
   targetCustomer: string | null;
   competitivePosition: string | null;
 } | null;
@@ -69,7 +70,7 @@ export async function loadJobPostingWithContext(
 
   const { data: companyInfo } = await supabase
     .from("company_info")
-    .select("newsContext, newsCollectedAt, company_cache(foundedYear, listingStatus, financialSummary, recentDisclosures, employeeSummary, businessSummary, industrySector, mainServices, visionMission, targetCustomer, competitivePosition)")
+    .select("newsContext, newsCollectedAt, company_cache(foundedYear, listingStatus, financialSummary, recentDisclosures, employeeSummary, businessSummary, industrySector, mainServices, visionMission, coreProduct, targetCustomer, competitivePosition)")
     .eq("jobPostingId", jobPosting.id)
     .maybeSingle();
 
@@ -148,6 +149,7 @@ export async function loadJobPostingWithContext(
     industrySector: cache?.industrySector ?? undefined,
     mainServices: cache?.mainServices ?? undefined,
     visionMission: cache?.visionMission ?? undefined,
+    coreProduct: cache?.coreProduct ?? undefined,
     targetCustomer: cache?.targetCustomer ?? undefined,
     competitivePosition: cache?.competitivePosition ?? undefined,
   };

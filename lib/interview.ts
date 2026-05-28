@@ -107,6 +107,7 @@ export interface JobPostingContext {
   industrySector?: string;
   mainServices?: string;
   visionMission?: string;
+  coreProduct?: string;
   targetCustomer?: string;
   competitivePosition?: string;
 }
@@ -360,11 +361,16 @@ function buildOrganizationHomepageHints(jobPosting: JobPostingContext): string {
   }
 
   // 힌트 2: 서비스 이해 검증
-  if (parsedServices) {
+  if (parsedServices || jobPosting.coreProduct) {
+    const serviceDetail = [
+      parsedServices ? `주요 서비스: ${parsedServices}` : "",
+      jobPosting.coreProduct ? `핵심 제품: ${jobPosting.coreProduct}` : "",
+    ].filter(Boolean).join("\n");
+
     if (customerType === "B2C") {
       sections.push(
         `[서비스 이해 검증 — 질문 방향 참고]\n` +
-        `주요 서비스: ${parsedServices}\n` +
+        `${serviceDetail}\n` +
         `개인이 직접 사용할 수 있는 서비스입니다. 실제 사용 경험이 있는지, 어떤 기능을 살펴봤는지, ` +
         `사용자 관점의 장단점을 말할 수 있는지 확인하세요. ` +
         `단순 "써봤다"에서 끝내지 말고 구체적인 관찰과 본인 직무 연결까지 끌어내세요.\n` +
@@ -373,7 +379,7 @@ function buildOrganizationHomepageHints(jobPosting: JobPostingContext): string {
     } else if (customerType === "B2B") {
       sections.push(
         `[서비스 이해 검증 — 질문 방향 참고]\n` +
-        `주요 서비스: ${parsedServices}\n` +
+        `${serviceDetail}\n` +
         `기업 고객 대상 서비스로 개인이 직접 사용하기 어렵습니다. ` +
         `"써보셨나요?"를 묻지 말고, 고객사가 왜 이 서비스를 필요로 하는지, ` +
         `어떤 문제를 해결하는지 이해하고 있는지 확인하세요.\n` +
@@ -551,6 +557,7 @@ function buildAgentSystemPrompt(
       jobPosting.techStack ? `기술스택: ${jobPosting.techStack}` : "",
       jobPosting.industrySector ? `업종: ${jobPosting.industrySector}` : "",
       jobPosting.mainServices ? `주요 서비스: ${parseMainServices(jobPosting.mainServices)}` : "",
+      jobPosting.coreProduct ? `핵심 제품: ${jobPosting.coreProduct}` : "",
       commonJobBlock,
     ].filter(Boolean).join("\n"),
   };
@@ -862,6 +869,7 @@ async function generateSingleAgentThought(
       jobPosting.techStack ? `기술스택: ${jobPosting.techStack}` : "",
       jobPosting.industrySector ? `업종: ${jobPosting.industrySector}` : "",
       jobPosting.mainServices ? `주요 서비스: ${parseMainServices(jobPosting.mainServices)}` : "",
+      jobPosting.coreProduct ? `핵심 제품: ${jobPosting.coreProduct}` : "",
       thoughtCommonJobBlock,
     ].filter(Boolean).join("\n"),
   };
