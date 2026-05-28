@@ -11,6 +11,12 @@ const EXCLUDED_DOMAINS = [
   "google.com", "daum.net", "namu.wiki", "wikipedia",
 ];
 
+// 검색 결과에서 기사/게시물 URL 제외 패턴
+const NEWS_URL_PATTERNS = [
+  "articleView", "/article/", "/articles/", "/news/", "/board/",
+  "idxno=", "idx=", "/post/", "/bbs/", "/notice/",
+];
+
 async function getHomepageUrl(companyName: string): Promise<string | null> {
   const result = await getHomepageUrlWithSource(companyName);
   return result?.url ?? null;
@@ -48,7 +54,11 @@ async function getHomepageUrlWithSource(companyName: string): Promise<{ url: str
         const data = await res.json() as { items?: { link: string }[] };
         for (const item of data.items ?? []) {
           const u = item.link;
-          if (u?.startsWith("http") && !EXCLUDED_DOMAINS.some(d => u.includes(d))) {
+          if (
+            u?.startsWith("http") &&
+            !EXCLUDED_DOMAINS.some(d => u.includes(d)) &&
+            !NEWS_URL_PATTERNS.some(p => u.includes(p))
+          ) {
             return { url: u, source: "검색" };
           }
         }
@@ -199,7 +209,12 @@ async function fetchPage(url: string): Promise<string | null> {
 }
 
 function buildCandidateUrls(homepage: string): string[] {
-  const base = homepage.replace(/\/$/, "");
+  let base: string;
+  try {
+    base = new URL(homepage).origin;
+  } catch {
+    base = homepage.replace(/\/$/, "");
+  }
   return [
     `${base}/`,
     // 회사 소개
@@ -436,7 +451,6 @@ export async function collectHomepageInfo(jobPostingId: string, companyName: str
     const extracted = await extractInfo(companyName, combinedText);
 
     // extractInfo가 반환하는 businessArea → DB 컬럼명 industrySector 로 매핑.
-    // coreProduct는 현재 DB 스키마에 없으므로 제외한다.
     const { data: upserted } = await supabase
       .from("company_cache")
       .upsert(
@@ -446,6 +460,7 @@ export async function collectHomepageInfo(jobPostingId: string, companyName: str
           industrySector: extracted.businessArea,
           mainServices: extracted.mainServices,
           visionMission: extracted.visionMission,
+          coreProduct: extracted.coreProduct,
           targetCustomer: extracted.targetCustomer,
           competitivePosition: extracted.competitivePosition,
           homepageCollectedAt: new Date().toISOString(),
