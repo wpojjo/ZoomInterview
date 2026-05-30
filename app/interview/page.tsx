@@ -57,6 +57,7 @@ export default async function InterviewPage({
         <InterviewSession
           name={name!}
           existingJobPosting={params.force === "true" ? null : jobPosting}
+          isOnboarding={!jobPosting && params.force !== "true"}
         />
       </div>
     </main>
