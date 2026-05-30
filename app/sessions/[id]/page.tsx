@@ -5,7 +5,7 @@ import { getAuthUser } from "@/lib/auth";
 import SessionDetailResult from "@/components/SessionDetailResult";
 import type { DebateResultData } from "@/components/DebateLoading";
 import type { AgentEvaluation, AgentFinalOpinion } from "@/lib/agents";
-import { DIFFICULTY_LABEL, type Difficulty } from "@/lib/interview";
+import { AGENTS, DIFFICULTY_LABEL, type AgentId, type Difficulty, type Message } from "@/lib/interview";
 import BackButton from "@/components/BackButton";
 
 function formatDate(iso: string | null): string {
@@ -71,6 +71,11 @@ export default async function SessionDetailPage({
           </p>
         </header>
 
+        {/* 면접 대화 내역 */}
+        {Array.isArray(session.messages) && session.messages.length > 0 && (
+          <InterviewTranscript messages={session.messages as unknown as Message[]} />
+        )}
+
         {/* 상태별 본문 */}
         {session.status === "done" ? (
           <SessionDetailResult
@@ -109,6 +114,38 @@ export default async function SessionDetailPage({
 
       </div>
     </main>
+  );
+}
+
+function InterviewTranscript({ messages }: { messages: Message[] }) {
+  return (
+    <details className="card overflow-hidden group">
+      <summary className="p-5 cursor-pointer list-none flex items-center justify-between gap-3 text-sm font-semibold text-gray-600 dark:text-slate-400">
+        <span>💬 면접 대화 내역 ({messages.filter((m) => m.role === "candidate").length}개 답변)</span>
+        <span className="text-gray-400 dark:text-slate-500 text-xs group-open:rotate-180 transition-transform">▼</span>
+      </summary>
+      <div className="border-t border-gray-50 dark:border-slate-700/50">
+        {messages.map((msg, i) => (
+          <div
+            key={i}
+            className={`px-5 py-4 border-b border-gray-50 dark:border-slate-700/50 last:border-0 ${
+              msg.role === "interviewer"
+                ? "bg-gray-50/50 dark:bg-slate-800/50"
+                : ""
+            }`}
+          >
+            <p className="text-xs font-semibold mb-1.5 text-gray-400 dark:text-slate-500">
+              {msg.role === "interviewer"
+                ? `면접관 (${msg.agentId ? AGENTS[msg.agentId as AgentId].label : "면접관"})`
+                : "나"}
+            </p>
+            <p className="text-sm text-gray-700 dark:text-slate-200 leading-relaxed whitespace-pre-line">
+              {msg.content}
+            </p>
+          </div>
+        ))}
+      </div>
+    </details>
   );
 }
 

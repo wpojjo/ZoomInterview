@@ -5,9 +5,12 @@ import Link from "next/link";
 
 interface Props {
   initialData: {
+    companyName?: string;
+    divisionName?: string;
     responsibilities: string;
     requirements: string;
     preferredQuals: string;
+    techStack?: string;
   };
   isAnalyzing?: boolean;
   isPasteMode?: boolean;
@@ -15,10 +18,22 @@ interface Props {
   onRestart?: () => void;
 }
 
-const FIELDS = [
-  { key: "responsibilities" as const, label: "담당업무", required: true, placeholder: "주요 업무 내용을 입력하세요" },
-  { key: "requirements"     as const, label: "지원자격", required: true, placeholder: "필수 자격 요건을 입력하세요" },
-  { key: "preferredQuals"   as const, label: "우대사항", required: false, placeholder: "우대 사항을 입력하세요 (선택)" },
+type Fields = {
+  companyName: string;
+  divisionName: string;
+  responsibilities: string;
+  requirements: string;
+  preferredQuals: string;
+  techStack: string;
+};
+
+const FIELDS: { key: keyof Fields; label: string; required: boolean; placeholder: string; rows: number }[] = [
+  { key: "companyName",      label: "회사명",    required: false, placeholder: "예: 카카오, 토스증권", rows: 1 },
+  { key: "divisionName",     label: "지원 팀/사업부", required: false, placeholder: "예: 서버개발팀, 데이터분석 사업부", rows: 1 },
+  { key: "responsibilities", label: "담당업무",  required: true,  placeholder: "주요 업무 내용을 입력하세요", rows: 8 },
+  { key: "requirements",     label: "지원자격",  required: true,  placeholder: "필수 자격 요건을 입력하세요", rows: 8 },
+  { key: "preferredQuals",   label: "우대사항",  required: false, placeholder: "우대 사항을 입력하세요 (선택)", rows: 8 },
+  { key: "techStack",        label: "기술스택",  required: false, placeholder: "예: Python, React, PostgreSQL (쉼표로 구분)", rows: 2 },
 ];
 
 const ANALYZE_STEPS = [
@@ -33,7 +48,14 @@ type Mode = "analyzing" | "view" | "editing";
 
 export default function JobPostingEditForm({ initialData, isAnalyzing = false, isPasteMode = false, onComplete, onRestart }: Props) {
   const [mode, setMode] = useState<Mode>(isAnalyzing ? "analyzing" : "view");
-  const [fields, setFields] = useState(initialData);
+  const [fields, setFields] = useState<Fields>({
+    companyName:      initialData.companyName      ?? "",
+    divisionName:     initialData.divisionName     ?? "",
+    responsibilities: initialData.responsibilities ?? "",
+    requirements:     initialData.requirements     ?? "",
+    preferredQuals:   initialData.preferredQuals   ?? "",
+    techStack:        initialData.techStack         ?? "",
+  });
   const [stepIndex, setStepIndex] = useState(0);
   const [fadeIn, setFadeIn] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
@@ -83,9 +105,12 @@ export default function JobPostingEditForm({ initialData, isAnalyzing = false, i
         const data = await res.json();
         if (res.ok && data.jobPosting) {
           setFields({
+            companyName:      data.jobPosting.companyName      ?? "",
+            divisionName:     data.jobPosting.divisionName     ?? "",
             responsibilities: data.jobPosting.responsibilities ?? "",
             requirements:     data.jobPosting.requirements     ?? "",
             preferredQuals:   data.jobPosting.preferredQuals   ?? "",
+            techStack:        data.jobPosting.techStack        ?? "",
           });
           setMode("view");
         } else if (res.status === 422 && data.needsManualInput) {
@@ -118,9 +143,12 @@ export default function JobPostingEditForm({ initialData, isAnalyzing = false, i
       const data = await res.json();
       if (res.ok && data.jobPosting) {
         setFields({
+          companyName:      data.jobPosting.companyName      ?? "",
+          divisionName:     data.jobPosting.divisionName     ?? "",
           responsibilities: data.jobPosting.responsibilities ?? "",
           requirements:     data.jobPosting.requirements     ?? "",
           preferredQuals:   data.jobPosting.preferredQuals   ?? "",
+          techStack:        data.jobPosting.techStack        ?? "",
         });
         setAnalysisError("");
         setMode("view");
@@ -145,9 +173,12 @@ export default function JobPostingEditForm({ initialData, isAnalyzing = false, i
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
+          companyName:      fields.companyName.trim(),
+          divisionName:     fields.divisionName.trim(),
           responsibilities: fields.responsibilities.trim(),
           requirements:     fields.requirements.trim(),
           preferredQuals:   fields.preferredQuals.trim(),
+          techStack:        fields.techStack.trim(),
         }),
       });
       const data = await res.json();
@@ -156,9 +187,12 @@ export default function JobPostingEditForm({ initialData, isAnalyzing = false, i
         return;
       }
       setFields({
+        companyName:      data.jobPosting.companyName      ?? "",
+        divisionName:     data.jobPosting.divisionName     ?? "",
         responsibilities: data.jobPosting.responsibilities ?? "",
         requirements:     data.jobPosting.requirements     ?? "",
         preferredQuals:   data.jobPosting.preferredQuals   ?? "",
+        techStack:        data.jobPosting.techStack        ?? "",
       });
       setMode("view");
     } catch {
@@ -216,22 +250,37 @@ export default function JobPostingEditForm({ initialData, isAnalyzing = false, i
   // 읽기 전용 UI
   if (mode === "view") {
     const isEmpty = !fields.responsibilities && !fields.requirements;
+    const hasCompanyInfo = fields.companyName || fields.divisionName;
+    const mainFields = FIELDS.filter((f) => f.key !== "companyName" && f.key !== "divisionName");
     return (
       <div className="space-y-4">
         <div className="card p-5 space-y-4">
+          {/* 회사명 / 팀 헤더 */}
+          {hasCompanyInfo && (
+            <div className="pb-3 border-b border-gray-100 dark:border-slate-700/50">
+              {fields.companyName && (
+                <p className="text-base font-bold text-gray-900 dark:text-slate-50">{fields.companyName}</p>
+              )}
+              {fields.divisionName && (
+                <p className="text-sm text-gray-500 dark:text-slate-400">{fields.divisionName}</p>
+              )}
+            </div>
+          )}
           {isEmpty ? (
             <div className="text-center py-6 space-y-1">
               <p className="text-sm font-medium text-gray-700 dark:text-slate-200">공고 내용을 불러오지 못했어요</p>
               <p className="text-xs text-gray-400 dark:text-slate-500">아래 편집하기 버튼을 눌러 직접 입력해주세요</p>
             </div>
           ) : (
-            FIELDS.map(({ key, label }) => (
-              <div key={key} className="space-y-1">
-                <p className="text-xs font-semibold text-blue-600 dark:text-blue-400">{label}</p>
-                <p className="text-sm text-gray-700 dark:text-slate-300 whitespace-pre-wrap leading-relaxed bg-gray-50 dark:bg-slate-700/50 rounded-xl p-4">
-                  {fields[key] || "해당 내용 없음"}
-                </p>
-              </div>
+            mainFields.map(({ key, label }) => (
+              fields[key] ? (
+                <div key={key} className="space-y-1">
+                  <p className="text-xs font-semibold text-blue-600 dark:text-blue-400">{label}</p>
+                  <p className="text-sm text-gray-700 dark:text-slate-300 whitespace-pre-wrap leading-relaxed bg-gray-50 dark:bg-slate-700/50 rounded-xl p-4">
+                    {fields[key]}
+                  </p>
+                </div>
+              ) : null
             ))
           )}
         </div>
@@ -287,7 +336,7 @@ export default function JobPostingEditForm({ initialData, isAnalyzing = false, i
       )}
 
       <div className="card p-5 space-y-4">
-          {FIELDS.map(({ key, label, required, placeholder }) => (
+          {FIELDS.map(({ key, label, required, placeholder, rows }) => (
             <div key={key} className="space-y-1">
               <label className="text-sm font-medium text-gray-700 dark:text-slate-300">
                 {label}{required && <span className="text-red-500 ml-0.5">*</span>}
@@ -296,7 +345,7 @@ export default function JobPostingEditForm({ initialData, isAnalyzing = false, i
                 value={fields[key]}
                 onChange={(e) => setFields((prev) => ({ ...prev, [key]: e.target.value }))}
                 placeholder={placeholder}
-                rows={8}
+                rows={rows}
                 className="input resize-none"
               />
             </div>

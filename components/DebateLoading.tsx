@@ -230,7 +230,7 @@ function ChatBubble({ msg, avatarSeeds }: { msg: ChatMsg; avatarSeeds: Record<Ag
           )}
         </div>
         <div className={`px-4 py-3 rounded-2xl rounded-bl-sm ${meta.bubble}`}>
-          <p className="text-sm text-gray-700 dark:text-slate-200 leading-relaxed">{stripMd(msg.text)}</p>
+          <p className="text-sm text-gray-700 dark:text-slate-200 leading-relaxed whitespace-pre-line">{stripMd(msg.text)}</p>
         </div>
       </div>
     </div>
@@ -250,6 +250,7 @@ export default function DebateLoading({ sessionId, avatarSeeds, onDone, onProcee
   const [showAllThinking, setShowAllThinking] = useState(false);
   const [showProceedButton, setShowProceedButton] = useState(false);
   const [allDebateMsgsShown, setAllDebateMsgsShown] = useState(false);
+  const [autoCount, setAutoCount] = useState<number | null>(null);
   const currentStatusRef = useRef("evaluating");
 
   const pendingQueue = useRef<ChatMsg[]>([]);
@@ -416,6 +417,30 @@ export default function DebateLoading({ sessionId, avatarSeeds, onDone, onProcee
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [visibleMsgs, typingAgentId]);
 
+  // 의견 교환 완료 → 2초 카운트다운 후 자동 이동
+  useEffect(() => {
+    if (!showProceedButton) return;
+    setAutoCount(2);
+    const tick = setInterval(() => {
+      setAutoCount((c) => {
+        if (c === null || c <= 1) {
+          clearInterval(tick);
+          return null;
+        }
+        return c - 1;
+      });
+    }, 1000);
+    const proceed = setTimeout(() => {
+      if (pendingResult.current) {
+        onDone(pendingResult.current);
+      } else {
+        onProceed();
+      }
+    }, 2000);
+    return () => { clearInterval(tick); clearTimeout(proceed); };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [showProceedButton]);
+
   const isActive = currentStatus !== "done" && currentStatus !== "error";
   const allEvalsReceived = agentEvaluations.length >= 3;
 
@@ -531,7 +556,7 @@ export default function DebateLoading({ sessionId, avatarSeeds, onDone, onProcee
           }}
           className="btn-primary w-full"
         >
-          최종 평가 보기 →
+          {autoCount != null ? `최종 평가로 이동합니다 (${autoCount}초)` : "최종 평가 보기 →"}
         </button>
       )}
     </div>

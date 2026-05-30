@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import ScrollPicker from "@/components/ScrollPicker";
 
 const MONTHS = ["1월", "2월", "3월", "4월", "5월", "6월", "7월", "8월", "9월", "10월", "11월", "12월"];
@@ -32,23 +33,39 @@ export default function MonthPicker({
   value: string;
   onChange: (value: string) => void;
 }) {
-  const { year, month } = parseValue(value);
+  const parsed = parseValue(value);
+  const [localYear, setLocalYear] = useState(parsed.year);
+  const [localMonth, setLocalMonth] = useState(parsed.month);
+
+  // 외부에서 완전한 값(YYYY-MM)이 들어올 때만 동기화 (빈 값은 무시 — 부분 선택 중 리셋 방지)
+  useEffect(() => {
+    if (!value) return;
+    const { year: py, month: pm } = parseValue(value);
+    if (py !== NONE) setLocalYear(py);
+    if (pm !== NONE) setLocalMonth(pm);
+  }, [value]);
 
   return (
     <div className="flex gap-2">
       <div className="flex-1">
         <ScrollPicker
-          value={year}
+          value={localYear}
           options={YEAR_OPTIONS}
-          onChange={(v) => onChange(toValue(v, month))}
+          onChange={(v) => {
+            setLocalYear(v);
+            onChange(toValue(v, localMonth));
+          }}
           maxLength={4}
         />
       </div>
       <div className="w-20">
         <ScrollPicker
-          value={month}
+          value={localMonth}
           options={MONTH_OPTIONS}
-          onChange={(v) => onChange(toValue(year, v))}
+          onChange={(v) => {
+            setLocalMonth(v);
+            onChange(toValue(localYear, v));
+          }}
           maxLength={2}
         />
       </div>

@@ -17,7 +17,7 @@ async function checkReadiness() {
 
   const { data: jobPosting } = await supabase
     .from("job_postings")
-    .select("id, responsibilities, requirements, preferredQuals")
+    .select("id, companyName, divisionName, responsibilities, requirements, preferredQuals, techStack")
     .eq("userId", userId)
     .order("updatedAt", { ascending: false })
     .limit(1)
@@ -27,7 +27,14 @@ async function checkReadiness() {
     ready: true,
     name: profile.name,
     jobPosting: jobPosting?.responsibilities
-      ? { responsibilities: jobPosting.responsibilities ?? "", requirements: jobPosting.requirements ?? "", preferredQuals: jobPosting.preferredQuals ?? "" }
+      ? {
+          companyName:      jobPosting.companyName      ?? "",
+          divisionName:     jobPosting.divisionName     ?? "",
+          responsibilities: jobPosting.responsibilities ?? "",
+          requirements:     jobPosting.requirements     ?? "",
+          preferredQuals:   jobPosting.preferredQuals   ?? "",
+          techStack:        jobPosting.techStack        ?? "",
+        }
       : null,
   };
 }

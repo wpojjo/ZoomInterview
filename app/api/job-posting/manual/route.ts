@@ -20,7 +20,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const { responsibilities, requirements, preferredQuals } = parsed.data;
+    const { companyName, divisionName, responsibilities, requirements, preferredQuals, techStack } = parsed.data;
     const now = new Date().toISOString();
 
     const { data: rows } = await supabase
@@ -36,7 +36,7 @@ export async function POST(request: NextRequest) {
     if (existing) {
       const { data } = await supabase
         .from("job_postings")
-        .update({ responsibilities, requirements, preferredQuals, updatedAt: now })
+        .update({ companyName, divisionName, responsibilities, requirements, preferredQuals, techStack, updatedAt: now })
         .eq("id", existing.id)
         .select()
         .single();
@@ -49,9 +49,12 @@ export async function POST(request: NextRequest) {
           userId,
           sourceType: "MANUAL",
           sourceUrl: null,
+          companyName,
+          divisionName,
           responsibilities,
           requirements,
           preferredQuals,
+          techStack,
           updatedAt: now,
         })
         .select()

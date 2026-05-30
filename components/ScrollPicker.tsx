@@ -22,12 +22,16 @@ export default function ScrollPicker({
   const [offset, setOffset] = useState(() => toOffset(value));
   const [snapping, setSnapping] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
+  const offsetRef = useRef(offset);
   const dragging = useRef(false);
   const startY = useRef(0);
   const startOffset = useRef(0);
   const typeBuffer = useRef("");
   const typeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [displayBuffer, setDisplayBuffer] = useState("");
+
+  // offsetRef를 항상 최신 offset으로 유지 (wheel 핸들러가 stale closure 없이 읽을 수 있도록)
+  useEffect(() => { offsetRef.current = offset; }, [offset]);
 
   useEffect(() => {
     setOffset(toOffset(value));
@@ -61,24 +65,26 @@ export default function ScrollPicker({
   function onPointerUp() {
     if (!dragging.current) return;
     dragging.current = false;
-    commit(offset);
+    commit(offsetRef.current);
   }
 
+  // 핸들러를 마운트 시 한 번만 등록 — offset은 ref로 읽어서 stale closure·재등록 경쟁 없음
   useEffect(() => {
     const el = containerRef.current;
     if (!el) return;
     const handler = (e: WheelEvent) => {
       e.preventDefault();
-      commit(offset + Math.sign(e.deltaY) * ITEM_H);
+      e.stopPropagation();
+      commit(offsetRef.current + Math.sign(e.deltaY) * ITEM_H);
     };
     el.addEventListener("wheel", handler, { passive: false });
     return () => el.removeEventListener("wheel", handler);
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [offset]);
+  }, []);
 
   function onKeyDown(e: React.KeyboardEvent) {
-    if (e.key === "ArrowUp") { e.preventDefault(); commit(offset - ITEM_H); return; }
-    if (e.key === "ArrowDown") { e.preventDefault(); commit(offset + ITEM_H); return; }
+    if (e.key === "ArrowUp") { e.preventDefault(); commit(offsetRef.current - ITEM_H); return; }
+    if (e.key === "ArrowDown") { e.preventDefault(); commit(offsetRef.current + ITEM_H); return; }
 
     if (!/^\d$/.test(e.key)) return;
 

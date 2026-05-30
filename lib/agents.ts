@@ -66,6 +66,12 @@ async function chatLLM(systemPrompt: string, userContent: string, temperature?: 
   });
 }
 
+function toScore(raw: unknown): number | undefined {
+  if (raw == null) return undefined;
+  const n = Number(raw);
+  return Number.isNaN(n) ? undefined : Math.max(0, Math.min(100, Math.round(n)));
+}
+
 function extractJSON<T>(raw: string): T {
   const match = raw.match(/\{[\s\S]*\}/);
   if (!match) throw new Error(`JSON not found in response: ${raw.slice(0, 200)}`);
@@ -260,7 +266,7 @@ ${jsonSchema}
       criterion: agent.criterion,
       opinion: parsed.opinion ?? "",
       highlights: highlights.slice(0, 3),
-      score: typeof parsed.score === "number" ? Math.max(0, Math.min(100, Math.round(parsed.score))) : undefined,
+      score: toScore(parsed.score),
       verdict: parsed.verdict ?? "",
       verdictLabel: "핵심 피드백",
     };
@@ -288,7 +294,7 @@ ${jsonSchema}
       criterion: agent.criterion,
       opinion: parsed.opinion ?? "",
       highlights: highlights.slice(0, 3),
-      score: typeof parsed.score === "number" ? Math.max(0, Math.min(100, Math.round(parsed.score))) : undefined,
+      score: toScore(parsed.score),
       verdict: parsed.verdict ?? "",
       verdictLabel: "핵심 피드백",
     };
@@ -316,7 +322,7 @@ ${jsonSchema}
     criterion: agent.criterion,
     opinion: parsed.opinion ?? "",
     highlights: highlights.slice(0, 3),
-    score: typeof parsed.score === "number" ? Math.max(0, Math.min(100, Math.round(parsed.score))) : undefined,
+    score: toScore(parsed.score),
     verdict: parsed.verdict ?? "",
     verdictLabel: "핵심 피드백",
   };
@@ -422,10 +428,8 @@ export async function generateAgentRebuttal(
   const systemPrompt = `당신은 ${agent.label}입니다. 동료들이 당신 의견에 반응했고, 이제 당신이 받아칠 차례입니다.
 평가 기준: ${agent.criterion}.
 
-말투 규칙 — 반드시 준수:
-- 반말 구어체 필수. ~습니다/~합니다/~됩니다 절대 금지.
-- "그건 좀 다른데", "맞아, 근데", "그 부분은 인정하는데" 같은 자연스러운 시작.
-- 피드백 특정 문장 인용 후 수용 또는 반박. 2~3문장이면 충분.
+${FEEDBACK_RULES}
+
 반드시 유효한 JSON만 응답하세요 — 다른 텍스트 없이.`;
 
   const userContent = `${contextBlock}
@@ -567,7 +571,7 @@ ${jsonSchema}
     return {
       agentId, agentLabel: agent.label, criterion: agent.criterion,
       opinion: parsed.opinion ?? "", highlights: highlights.slice(0, 3),
-      score: typeof parsed.score === "number" ? Math.max(0, Math.min(100, Math.round(parsed.score))) : undefined,
+      score: toScore(parsed.score),
       verdict: parsed.verdict ?? "", verdictLabel: "핵심 피드백",
     };
   }
@@ -585,7 +589,7 @@ ${jsonSchema}
     return {
       agentId, agentLabel: agent.label, criterion: agent.criterion,
       opinion: parsed.opinion ?? "", highlights: highlights.slice(0, 3),
-      score: typeof parsed.score === "number" ? Math.max(0, Math.min(100, Math.round(parsed.score))) : undefined,
+      score: toScore(parsed.score),
       verdict: parsed.verdict ?? "", verdictLabel: "핵심 피드백",
     };
   }
@@ -603,7 +607,7 @@ ${jsonSchema}
   return {
     agentId, agentLabel: agent.label, criterion: agent.criterion,
     opinion: parsed.opinion ?? "", highlights: highlights.slice(0, 3),
-    score: typeof parsed.score === "number" ? Math.max(0, Math.min(100, Math.round(parsed.score))) : undefined,
+    score: toScore(parsed.score),
     verdict: parsed.verdict ?? "", verdictLabel: "핵심 피드백",
   };
 }

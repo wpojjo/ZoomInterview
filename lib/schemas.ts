@@ -51,9 +51,12 @@ export const jobPostingSchema = z.object({
 });
 
 export const jobPostingManualSchema = z.object({
+  companyName: z.string().optional().default(""),
+  divisionName: z.string().optional().default(""),
   responsibilities: z.string().min(1, "담당업무를 입력해주세요"),
   requirements: z.string().min(1, "지원자격을 입력해주세요"),
   preferredQuals: z.string(),
+  techStack: z.string().optional().default(""),
 });
 
 export type ProfileInput = z.infer<typeof profileSchema>;

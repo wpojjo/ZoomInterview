@@ -155,7 +155,7 @@ function mergeExtracted(
     responsibilities:   longer(a.responsibilities, b.responsibilities),
     requirements:       longer(a.requirements, b.requirements),
     preferredQuals:     longer(a.preferredQuals, b.preferredQuals),
-    companyName:        longer(a.companyName, b.companyName),
+    companyName:        a.companyName || b.companyName,
     divisionName:       longer(a.divisionName, b.divisionName),
     techStack:          longer(a.techStack, b.techStack),
     companyDescription: longer(a.companyDescription, b.companyDescription),
