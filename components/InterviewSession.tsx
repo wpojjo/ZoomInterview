@@ -959,7 +959,6 @@ export default function InterviewSession({ name, existingJobPosting, isOnboardin
           <DebateResult
             finalScore={debateResult.finalScore}
             agentEvaluations={debateResult.agentEvaluations}
-            agentFinalOpinions={debateResult.agentFinalOpinions}
             finalFeedback={debateResult.finalFeedback}
             debateSummary={debateResult.debateSummary}
             improvementTips={debateResult.improvementTips}

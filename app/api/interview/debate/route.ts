@@ -11,12 +11,14 @@ import {
   generateAgentEvaluation,
   generateAgentReply,
   generateAgentRebuttal,
-  generateAgentFinalOpinion,
+  generateStanceUpdate,
   generateModeratorResult,
+  calculateWeightedScore,
   AgentEvaluation,
   AgentReply,
   AgentRebuttal,
-  AgentFinalOpinion,
+  AgentStanceUpdate,
+  Stance,
 } from "@/lib/agents";
 
 async function runDebate(
@@ -26,7 +28,7 @@ async function runDebate(
   jobPosting: JobPostingContext,
 ) {
   try {
-    // Round 0: 에이전트 순차 평가 — 각자 완료 즉시 저장 (클라이언트에 실시간 표시)
+    // Round 0: BARS 독립 평가 — 각자 완료 즉시 저장
     const evaluations: AgentEvaluation[] = [];
     for (const agentId of AGENT_ORDER) {
       try {
@@ -49,7 +51,7 @@ async function runDebate(
       throw new Error("에이전트 평가 실패 (2개 미만 성공)");
     }
 
-    // Round 1: 순차 상호 피드백 — 완료 즉시 저장 (클라이언트에 1명씩 표시)
+    // Round 1: 5단계 스탠스 피드백 — 완료 즉시 저장
     const replies: AgentReply[] = [];
     for (const myEval of evaluations) {
       const others = evaluations.filter((e) => e.agentId !== myEval.agentId);
@@ -65,17 +67,16 @@ async function runDebate(
       }
     }
 
-    // Round 2: 순차 재반박 — 각 에이전트가 자신에 대한 피드백에 응답
+    // Round 2a: 재반박 — 각 에이전트가 자신에 대한 피드백에 응답
     const rebuttals: AgentRebuttal[] = [];
     for (const myEval of evaluations) {
-      // 이 에이전트를 향한 피드백 수집 (다른 에이전트들의 reply 중 targetAgentId가 나인 것)
       const repliesAboutMe = replies.flatMap((r) =>
         r.replies
           .filter((reply) => reply.targetAgentId === myEval.agentId)
           .map((reply) => ({
             fromAgentId: r.agentId,
             fromAgentLabel: r.agentLabel,
-            stance: reply.stance,
+            stance: reply.stance as Stance,
             comment: reply.comment,
           }))
       );
@@ -88,42 +89,44 @@ async function runDebate(
           .update({ agentRebuttals: rebuttals as unknown as Json, updatedAt: new Date().toISOString() })
           .eq("id", sessionId);
       } catch (e) {
-        console.error(`[Round 2] ${myEval.agentId} 재반박 실패:`, e);
+        console.error(`[Round 2a] ${myEval.agentId} 재반박 실패:`, e);
       }
     }
 
-    // Round 3: 최종 의견 — 토론 전체를 반영한 각 에이전트의 업데이트된 입장
-    const finalOpinions: AgentFinalOpinion[] = [];
+    // Round 2b: 스탠스 갱신 — 각 비판자가 재반박을 읽고 스탠스 업데이트
+    const stanceUpdates: AgentStanceUpdate[] = [];
     for (const myEval of evaluations) {
-      const repliesAboutMe = replies.flatMap((r) =>
-        r.replies
-          .filter((reply) => reply.targetAgentId === myEval.agentId)
-          .map((reply) => ({
-            fromAgentLabel: r.agentLabel,
-            stance: reply.stance,
-            comment: reply.comment,
-          }))
+      // 이 에이전트가 Round 1에서 부여한 스탠스 (다른 에이전트들에 대해)
+      const myRound1Reply = replies.find((r) => r.agentId === myEval.agentId);
+      if (!myRound1Reply || myRound1Reply.replies.length === 0) continue;
+
+      // 각 비판 대상의 재반박 중 이 에이전트를 향한 것
+      const rebuttalsForMe = rebuttals.flatMap((rb) =>
+        rb.rebuttals
+          .filter((r) => r.fromAgentId === myEval.agentId)
+          .map((r) => ({ targetAgentId: rb.agentId as AgentEvaluation["agentId"], rebuttalComment: r.comment }))
       );
-      const myRebuttal = rebuttals.find((r) => r.agentId === myEval.agentId);
-      // 다른 에이전트들이 내 Round 1 피드백에 반박한 내용 (Round 2)
-      const othersRebuttalsToMyFeedback = rebuttals
-        .filter((r) => r.agentId !== myEval.agentId)
-        .flatMap((r) =>
-          r.rebuttals
-            .filter((rb) => rb.fromAgentId === myEval.agentId)
-            .map((rb) => ({ fromAgentLabel: r.agentLabel, comment: rb.comment }))
-        );
+
       try {
-        const finalOpinion = await generateAgentFinalOpinion(
-          myEval.agentId, myEval, repliesAboutMe, myRebuttal, othersRebuttalsToMyFeedback, messages, profile, jobPosting
+        const stanceUpdate = await generateStanceUpdate(
+          myEval.agentId,
+          myRound1Reply.replies.map((r) => ({
+            targetAgentId: r.targetAgentId as AgentEvaluation["agentId"],
+            stance: r.stance,
+            comment: r.comment,
+          })),
+          rebuttalsForMe,
+          messages,
+          profile,
+          jobPosting,
         );
-        finalOpinions.push(finalOpinion);
+        stanceUpdates.push(stanceUpdate);
         await supabase
           .from("interview_sessions")
-          .update({ agentFinalOpinions: finalOpinions as unknown as Json, updatedAt: new Date().toISOString() })
+          .update({ agentFinalOpinions: stanceUpdates as unknown as Json, updatedAt: new Date().toISOString() })
           .eq("id", sessionId);
       } catch (e) {
-        console.error(`[Round 3] ${myEval.agentId} 최종 의견 실패:`, e);
+        console.error(`[Round 2b] ${myEval.agentId} 스탠스 갱신 실패:`, e);
       }
     }
 
@@ -132,21 +135,20 @@ async function runDebate(
       .update({ status: "finalizing", updatedAt: new Date().toISOString() })
       .eq("id", sessionId);
 
-    // 중재자: Round 3 최종 의견 기반 (없으면 Round 0 평가로 폴백)
-    const opinionsForModerator: AgentFinalOpinion[] =
-      finalOpinions.length > 0
-        ? finalOpinions
-        : evaluations.map((e) => ({ ...e }));
+    // 가중 점수 산출 (코드 직접 계산)
+    const weightedResult = calculateWeightedScore(
+      evaluations,
+      stanceUpdates,
+      jobPosting.jobClassification,
+    );
 
-    const repliesForModerator: AgentReply[] =
-      replies.length > 0
-        ? replies
-        : evaluations.map((e) => ({ agentId: e.agentId, agentLabel: e.agentLabel, replies: [] }));
-
+    // Moderator: 정성 종합만
     const moderatorResult = await generateModeratorResult(
-      opinionsForModerator,
-      repliesForModerator,
+      evaluations,
+      replies,
       rebuttals,
+      stanceUpdates,
+      weightedResult,
       messages,
       profile,
       jobPosting,
@@ -155,13 +157,13 @@ async function runDebate(
     await supabase
       .from("interview_sessions")
       .update({
-        finalScore: moderatorResult.score,
+        finalScore: weightedResult.finalScore,
         finalFeedback: {
           ...moderatorResult.overall,
-          recommendLevel: moderatorResult.recommendLevel,
-          baseScore: moderatorResult.baseScore,
-          adjustment: moderatorResult.adjustment,
-          agentScores: moderatorResult.agentScores,
+          recommendLevel: weightedResult.recommendLevel,
+          agentScores: weightedResult.adjustedScores,
+          r0Scores: weightedResult.r0Scores,
+          stddev: weightedResult.stddev,
         } as unknown as Json,
         debateSummary: moderatorResult.debateSummary,
         improvementTips: moderatorResult.improvementTips as unknown as Json,

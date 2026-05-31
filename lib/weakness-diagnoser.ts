@@ -18,7 +18,7 @@
  *   ③ 가장 가중치 높은 1~2개 차원 반환
  */
 
-import type { AgentEvaluation, AgentFinalOpinion } from "@/lib/agents";
+import type { AgentEvaluation } from "@/lib/agents";
 import {
   RUBRIC_BY_AGENT,
   type DimensionId,
@@ -97,12 +97,10 @@ const MODERATE_RATIO = 0.7;
 
 interface DiagnosisInput {
   agentEvaluations: AgentEvaluation[];
-  agentFinalOpinions?: AgentFinalOpinion[];
 }
 
 /**
  * 면접 결과에서 약점 차원 Top-N 추출.
- * agentFinalOpinions(Round 3)가 있으면 우선 사용, 없으면 agentEvaluations(Round 0) 사용.
  */
 export function diagnoseWeaknesses(
   input: DiagnosisInput,
@@ -110,10 +108,7 @@ export function diagnoseWeaknesses(
 ): WeaknessDimension[] {
   const limit = options.limit ?? 2;
 
-  const source =
-    input.agentFinalOpinions && input.agentFinalOpinions.length > 0
-      ? input.agentFinalOpinions
-      : input.agentEvaluations;
+  const source: AgentEvaluation[] = input.agentEvaluations;
 
   if (!source || source.length === 0) return [];
 
