@@ -4,7 +4,7 @@ import { supabaseAdmin as supabase } from "@/lib/supabase-admin";
 import { getAuthUser } from "@/lib/auth";
 import SessionDetailResult from "@/components/SessionDetailResult";
 import type { DebateResultData } from "@/components/DebateLoading";
-import type { AgentEvaluation, AgentFinalOpinion } from "@/lib/agents";
+import type { AgentEvaluation } from "@/lib/agents";
 import { AGENTS, DIFFICULTY_LABEL, type AgentId, type Difficulty, type Message } from "@/lib/interview";
 import BackButton from "@/components/BackButton";
 
@@ -83,7 +83,6 @@ export default async function SessionDetailPage({
             data={{
               finalScore: session.finalScore ?? 0,
               agentEvaluations: (session.agentEvaluations ?? []) as unknown as AgentEvaluation[],
-              agentFinalOpinions: (session.agentFinalOpinions ?? []) as unknown as AgentFinalOpinion[],
               finalFeedback: (session.finalFeedback ?? {
                 strengths: "",
                 weaknesses: "",

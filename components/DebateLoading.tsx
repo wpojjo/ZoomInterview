@@ -1,18 +1,20 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import type { AgentEvaluation, AgentReply, AgentRebuttal, AgentFinalOpinion, ModeratorResult } from "@/lib/agents";
+import type { AgentEvaluation, AgentReply, AgentRebuttal, AgentStanceUpdate, Stance } from "@/lib/agents";
 import { type AgentId, AGENT_PANEL_NAME } from "@/lib/interview";
 
 export interface DebateResultData {
   agentEvaluations: AgentEvaluation[];
-  agentFinalOpinions: AgentFinalOpinion[];
   finalScore: number;
-  finalFeedback: ModeratorResult["overall"] & {
+  finalFeedback: {
+    strengths: string;
+    weaknesses: string;
+    advice: string;
     recommendLevel?: string;
-    baseScore?: number;
-    adjustment?: number;
     agentScores?: Record<string, number>;
+    r0Scores?: Record<string, number>;
+    stddev?: number;
   };
   debateSummary: string;
   improvementTips: string[];
@@ -31,7 +33,7 @@ type ChatMsg = {
   type?: "pause";
   agentId?: AgentId;
   text: string;
-  stance?: "agree" | "disagree" | "partial";
+  stance?: Stance;
   targetName?: string;
   label?: string;
 };
@@ -83,10 +85,12 @@ const EVAL_COLORS: Record<AgentId, { border: string; badge: string }> = {
   },
 };
 
-const STANCE_LABEL: Record<string, { label: string; color: string }> = {
-  agree:    { label: "동의",     color: "text-green-600 dark:text-green-400 bg-green-50 dark:bg-green-900/20" },
-  disagree: { label: "반박",     color: "text-red-500 dark:text-red-400 bg-red-50 dark:bg-red-900/20" },
-  partial:  { label: "부분동의", color: "text-orange-500 dark:text-orange-400 bg-orange-50 dark:bg-orange-900/20" },
+const STANCE_LABEL: Record<number, { label: string; color: string }> = {
+  2:  { label: "매우 동의", color: "text-green-600 dark:text-green-400 bg-green-50 dark:bg-green-900/20" },
+  1:  { label: "동의",     color: "text-green-500 dark:text-green-400 bg-green-50 dark:bg-green-900/20" },
+  0:  { label: "중립",     color: "text-gray-500 dark:text-slate-400 bg-gray-50 dark:bg-slate-800/40" },
+  "-1": { label: "비동의",  color: "text-orange-500 dark:text-orange-400 bg-orange-50 dark:bg-orange-900/20" },
+  "-2": { label: "강한 비동의", color: "text-red-500 dark:text-red-400 bg-red-50 dark:bg-red-900/20" },
 };
 
 function avatarUrl(seed: string, bgColor: string) {
@@ -281,7 +285,6 @@ export default function DebateLoading({ sessionId, avatarSeeds, onDone, onProcee
           clearInterval(pollRef.current);
           pendingResult.current = {
             agentEvaluations: data.agentEvaluations ?? [],
-            agentFinalOpinions: data.agentFinalOpinions ?? [],
             finalScore: data.finalScore ?? 0,
             finalFeedback: data.finalFeedback ?? { strengths: "", weaknesses: "", advice: "" },
             debateSummary: data.debateSummary ?? "",
@@ -323,7 +326,7 @@ export default function DebateLoading({ sessionId, avatarSeeds, onDone, onProcee
           id: `reply-${r.agentId}-${i}`,
           agentId: r.agentId,
           text: reply.comment,
-          stance: reply.stance as "agree" | "disagree" | "partial",
+          stance: reply.stance,
           targetName: targetMeta?.name ?? reply.targetAgentId,
         });
       });

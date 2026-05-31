@@ -1,6 +1,6 @@
 "use client";
 
-import type { AgentEvaluation, AgentFinalOpinion } from "@/lib/agents";
+import type { AgentEvaluation } from "@/lib/agents";
 import type { AgentId } from "@/lib/interview";
 import { AGENT_ORDER } from "@/lib/interview";
 import { diagnoseWeaknesses } from "@/lib/weakness-diagnoser";
@@ -10,22 +10,20 @@ import WeaknessFeedbackCard from "@/components/WeaknessFeedbackCard";
 interface Props {
   finalScore: number;
   agentEvaluations: AgentEvaluation[];
-  agentFinalOpinions?: AgentFinalOpinion[];
   finalFeedback: {
     strengths: string;
     weaknesses: string;
     advice: string;
     recommendLevel?: string;
-    baseScore?: number;
-    adjustment?: number;
     agentScores?: Record<string, number>;
+    r0Scores?: Record<string, number>;
+    stddev?: number;
   };
   debateSummary: string;
   improvementTips: string[];
   onRestart?: () => void;
   onBack?: () => void;
   isHistory?: boolean;
-  /** 약점 기반 연습 문제 생성 시 채용공고 컨텍스트 로드용 */
   sessionId?: string;
 }
 
@@ -111,7 +109,6 @@ const AGENT_COLORS: Record<AgentId, { border: string; badge: string; bar: string
 export default function DebateResult({
   finalScore,
   agentEvaluations,
-  agentFinalOpinions,
   finalFeedback,
   debateSummary,
   improvementTips,
@@ -120,15 +117,12 @@ export default function DebateResult({
   isHistory = false,
   sessionId,
 }: Props) {
-  const displayEvaluations: (AgentEvaluation | AgentFinalOpinion)[] =
-    (agentFinalOpinions && agentFinalOpinions.length > 0 ? agentFinalOpinions : agentEvaluations) ?? [];
-  const isFinalOpinion = agentFinalOpinions && agentFinalOpinions.length > 0;
+  const displayEvaluations: AgentEvaluation[] = agentEvaluations ?? [];
 
   const hasScores = displayEvaluations.some((e) => e.score != null);
 
-  // 약점 진단 + Hattie 3질문 피드백 패키지 생성 (LLM 호출 없는 순수 변환)
   const weaknesses = diagnoseWeaknesses(
-    { agentEvaluations, agentFinalOpinions },
+    { agentEvaluations },
     { limit: 2 },
   );
   const hattieFeedback = buildHattieFeedbackList(weaknesses);
@@ -187,20 +181,21 @@ export default function DebateResult({
                 );
               })}
             </div>
-            {finalFeedback.baseScore != null && (
-              <div className="space-y-1 border-t border-gray-100 dark:border-slate-700/50 pt-2">
+            {finalFeedback.stddev != null && (
+              <div className="border-t border-gray-100 dark:border-slate-700/50 pt-2">
                 <div className="flex items-center justify-between text-xs">
-                  <span className="text-gray-400 dark:text-slate-500">평균</span>
-                  <span className="font-semibold text-gray-600 dark:text-slate-300">{finalFeedback.baseScore}</span>
+                  <span className="text-gray-400 dark:text-slate-500">
+                    평가자 간 편차
+                  </span>
+                  <span className={`font-semibold ${
+                    finalFeedback.stddev >= 20 ? "text-orange-500" :
+                    finalFeedback.stddev >= 10 ? "text-yellow-500" :
+                    "text-gray-500 dark:text-slate-400"
+                  }`}>
+                    {finalFeedback.stddev >= 20 ? "의견 불일치" :
+                     finalFeedback.stddev >= 10 ? "부분 불일치" : "일치"}
+                  </span>
                 </div>
-                {finalFeedback.adjustment != null && finalFeedback.adjustment !== 0 && (
-                  <div className="flex items-center justify-between text-xs">
-                    <span className="text-gray-400 dark:text-slate-500">중재자 조정</span>
-                    <span className={`font-semibold ${finalFeedback.adjustment > 0 ? "text-green-500" : "text-red-500"}`}>
-                      {finalFeedback.adjustment > 0 ? "+" : ""}{finalFeedback.adjustment}
-                    </span>
-                  </div>
-                )}
               </div>
             )}
           </div>
@@ -211,7 +206,7 @@ export default function DebateResult({
       {displayEvaluations.length > 0 && (
         <div className="space-y-3">
           <h3 className="font-bold text-gray-900 dark:text-slate-50 px-1">
-            {isFinalOpinion ? "면접관 최종 의견" : "면접관별 평가"}
+            면접관별 평가
           </h3>
           {displayEvaluations.map((e) => {
             const colors = AGENT_COLORS[e.agentId] ?? AGENT_COLORS.organization;
@@ -241,7 +236,7 @@ export default function DebateResult({
                   )}
                   {e.highlights.length > 0 && (
                     <ul className="space-y-1">
-                      {e.highlights.map((h, i) => (
+                      {e.highlights.map((h: string, i: number) => (
                         <li key={i} className="text-xs text-gray-500 dark:text-slate-400 flex gap-1.5">
                           <span className="text-gray-300 dark:text-slate-600 shrink-0">•</span>
                           {stripMd(h)}

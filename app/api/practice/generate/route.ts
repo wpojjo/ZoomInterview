@@ -6,7 +6,7 @@ import {
   type PracticeContext,
 } from "@/lib/practice-generator";
 import type { DimensionId } from "@/lib/rubric";
-import type { AgentEvaluation, AgentFinalOpinion } from "@/lib/agents";
+import type { AgentEvaluation } from "@/lib/agents";
 import type { Message } from "@/lib/interview";
 import { buildProfileSummary } from "@/lib/interview";
 import { loadProfileContext } from "@/lib/interview-context";
@@ -32,7 +32,7 @@ const VALID_DIMENSION_IDS: DimensionId[] = [
  */
 function extractWeaknessEvidence(
   dimensionId: DimensionId,
-  evaluations: (AgentEvaluation | AgentFinalOpinion)[],
+  evaluations: AgentEvaluation[],
 ): { answerQuote?: string; verdict?: string } {
   const dim = RUBRIC_DIMENSIONS.find((d) => d.id === dimensionId);
   if (!dim) return {};
@@ -102,7 +102,7 @@ export async function POST(request: NextRequest) {
       const { data: session } = await supabase
         .from("interview_sessions")
         .select(
-          "jobPostingId, userId, messages, agentEvaluations, agentFinalOpinions",
+          "jobPostingId, userId, messages, agentEvaluations",
         )
         .eq("id", sessionId)
         .eq("userId", userId)
@@ -115,10 +115,7 @@ export async function POST(request: NextRequest) {
           ctx.previousQuestions = extractInterviewerQuestions(messages);
         }
 
-        // 약점 증거 — Round 3 finalOpinions 우선, 없으면 Round 0
-        const evaluations = ((session.agentFinalOpinions ??
-          session.agentEvaluations ??
-          []) as unknown) as (AgentEvaluation | AgentFinalOpinion)[];
+        const evaluations = ((session.agentEvaluations ?? []) as unknown) as AgentEvaluation[];
         if (Array.isArray(evaluations) && evaluations.length > 0) {
           const ev = extractWeaknessEvidence(dimensionId, evaluations);
           ctx.weaknessAnswerQuote = ev.answerQuote;

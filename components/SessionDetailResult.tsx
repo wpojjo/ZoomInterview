@@ -13,7 +13,6 @@ export default function SessionDetailResult({ data, sessionId }: Props) {
     <DebateResult
       finalScore={data.finalScore}
       agentEvaluations={data.agentEvaluations}
-      agentFinalOpinions={data.agentFinalOpinions}
       finalFeedback={data.finalFeedback}
       debateSummary={data.debateSummary}
       improvementTips={data.improvementTips}
