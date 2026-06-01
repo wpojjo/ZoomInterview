@@ -1,5 +1,229 @@
 # 서비스 아키텍처 및 데이터 흐름
 
+## 시스템 구성도
+
+```mermaid
+graph TB
+  subgraph Browser["브라우저"]
+    UI["Next.js Pages\n──────────────────\n/ 홈\n/login · /signup\n/onboarding\n/interview\n/sessions/[id]\n/job-posting\n/profile · /account"]
+  end
+
+  subgraph Vercel["Vercel (Next.js 서버)"]
+    AuthLayer["getAuthUser()\nSupabase 세션 쿠키 검증"]
+
+    subgraph APIs["API Routes"]
+      A1["/api/account\nPOST password\nDELETE"]
+      A2["/api/interview\nPOST sessions · question\nPOST follow-up · prepare\nPOST debate\nGET debate/.../status\nPATCH · DELETE sessions/[id]"]
+      A3["/api/job-posting\nGET · POST\nPOST analyze · manual"]
+      A4["/api/practice\nPOST generate · score"]
+      A5["/api/profile\nGET · POST · PATCH"]
+    end
+  end
+
+  subgraph Supabase["Supabase"]
+    SAuth["Auth\n(사용자 세션)"]
+    DB["PostgreSQL\n─────────────────\nprofiles\n  educations · careers\n  certifications · activities\ninterview_sessions\njob_postings\ncompany_cache"]
+  end
+
+  subgraph RunPod["RunPod Serverless"]
+    LLM["LLM\nSubmit Job → Poll Status\n2초 간격 / 최대 290초"]
+  end
+
+  subgraph ExtAPIs["외부 API"]
+    Jina["Jina API\nURL → 마크다운"]
+    DART["DART\n공시 정보"]
+    Naver["Naver News\n뉴스 크롤링"]
+    TTS["TTS\n음성 합성"]
+    OCR["Google Vision\n이미지 OCR"]
+  end
+
+  subgraph Deploy["배포"]
+    GH["GitHub main"]
+    VD["Vercel 자동 배포"]
+  end
+
+  UI -->|"HTTP (세션 쿠키)"| AuthLayer
+  AuthLayer --> APIs
+  AuthLayer -->|"세션 검증"| SAuth
+  APIs -->|"CRUD"| DB
+
+  A2 -->|"질문생성 / 평가 / 토론"| LLM
+  A3 -->|"채용공고 분석"| LLM
+  A4 -->|"문제생성 / 채점"| LLM
+
+  A3 --> Jina
+  A3 --> DART
+  A3 --> Naver
+  A2 --> Naver
+  A2 --> TTS
+  A3 --> OCR
+
+  GH -->|"push → CI/CD"| VD
+```
+
+---
+
+## 면접 평가 플로우
+
+```mermaid
+sequenceDiagram
+  participant C as 클라이언트
+  participant API as /api/interview/debate
+  participant DB as Supabase DB
+  participant LLM as RunPod LLM
+
+  C->>API: POST (messages, difficulty)
+  API->>DB: session INSERT (status: evaluating)
+  API-->>C: { sessionId }
+
+  Note over API,LLM: 백그라운드 실행 (Vercel waitUntil)
+
+  loop Round 0 — 에이전트별 독립 BARS 채점
+    API->>LLM: generateAgentEvaluation()
+    LLM-->>API: score · verdict · highlights
+  end
+  API->>DB: agentEvaluations 저장 (status: debating)
+
+  loop Round 1 — 스탠스 피드백 (−2 ~ +2)
+    API->>LLM: generateAgentReply()
+    LLM-->>API: stance · comment
+  end
+  API->>DB: debateReplies 저장
+
+  loop Round 2a — 재반박
+    API->>LLM: generateAgentRebuttal()
+    LLM-->>API: rebuttals
+  end
+  API->>DB: agentRebuttals 저장 (status: finalizing)
+
+  loop Round 2b — 스탠스 갱신
+    API->>LLM: generateAgentFinalOpinion()
+    LLM-->>API: finalStance
+  end
+  API->>DB: agentFinalOpinions 저장
+
+  API->>LLM: generateModeratorSummary()
+  LLM-->>API: finalScore · finalFeedback · improvementTips
+  API->>DB: 최종 결과 저장 (status: done)
+
+  loop 폴링
+    C->>API: GET /debate/[sessionId]/status
+    API-->>C: { status, finalScore, finalFeedback, ... }
+  end
+```
+
+---
+
+## 채용공고 분석 플로우
+
+```mermaid
+flowchart TD
+  Start([분석 시작]) --> HasText{pastedText\n있음?}
+
+  HasText -->|Yes| TextReady[텍스트 사용]
+  HasText -->|No| Jina[Jina API\nURL → 마크다운]
+  Jina --> ExtImg[이미지 URL 추출\n최대 3개]
+  ExtImg --> OCR[Google Vision OCR]
+  OCR --> Merge[텍스트 + OCR 병합\n더 긴 것 선택]
+  Merge --> TextReady
+
+  TextReady --> LLM[LLM 분석\n8개 필드 추출]
+  LLM -->|성공| SaveDB[job_postings UPSERT]
+  LLM -->|실패| E422[422\nneedsManualInput: true]
+
+  SaveDB --> HasCo{회사명 있음?}
+  HasCo -->|No| Done([완료])
+  HasCo -->|Yes| BG
+
+  subgraph BG["백그라운드 병렬 수집 (fire-and-forget)"]
+    direction LR
+    D[DART\n공시·재무·임직원]
+    H[홈페이지 크롤러\n회사 소개]
+  end
+
+  BG --> Done
+```
+
+---
+
+## DB 스키마
+
+```mermaid
+erDiagram
+  users ||--o| profiles : ""
+  users ||--o{ interview_sessions : ""
+  users ||--o{ job_postings : ""
+  profiles ||--o{ educations : ""
+  profiles ||--o{ careers : ""
+  profiles ||--o{ certifications : ""
+  profiles ||--o{ activities : ""
+
+  users {
+    uuid id PK
+    string email
+  }
+  profiles {
+    uuid id PK
+    uuid userId FK
+    string name
+    timestamp updatedAt
+  }
+  educations {
+    uuid id PK
+    uuid profileId FK
+    string school
+    string major
+    string degree
+  }
+  careers {
+    uuid id PK
+    uuid profileId FK
+    string company
+    string position
+  }
+  certifications {
+    uuid id PK
+    uuid profileId FK
+    string name
+    string date
+  }
+  activities {
+    uuid id PK
+    uuid profileId FK
+    string name
+    string description
+  }
+  interview_sessions {
+    uuid id PK
+    uuid userId FK
+    json messages
+    string difficulty
+    string status
+    json agentEvaluations
+    json debateReplies
+    json agentRebuttals
+    json agentFinalOpinions
+    number finalScore
+    json finalFeedback
+    boolean pinned
+    timestamp updatedAt
+  }
+  job_postings {
+    uuid id PK
+    uuid userId FK
+    string sourceUrl
+    string sourceType
+    string companyName
+    string responsibilities
+    string requirements
+    string techStack
+    string companyDescription
+    timestamp updatedAt
+  }
+```
+
+---
+
 ## 전체 흐름
 
 ```
