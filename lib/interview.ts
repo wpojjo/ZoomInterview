@@ -100,7 +100,6 @@ export interface JobPostingContext {
   foundedYear?: string;
   listingStatus?: string;
   financialSummary?: string;
-  recentDisclosures?: string;
   employeeSummary?: string;
   businessSummary?: string;
   // 홈페이지 수집 데이터
@@ -213,8 +212,8 @@ function classifyFinancialPhase(financialSummary: string | undefined): Financial
 
 const FINANCIAL_PHASE_HINTS: Record<FinancialPhase, string> = {
   확장기: "현재 회사는 매출 성장세(확장기)입니다. 지원자가 변화·확장 환경을 선호하는지, 빠른 성장 속도에 적응할 준비가 됐는지 위주로 파악하세요. 안정 지향 답변이 나오면 직접 인용하며 정합성을 검증하세요.",
-  위기: "현재 회사는 매출 감소세(위기 국면)입니다. 지원자가 회사의 도전 과제를 인지하고 있는지, '왜 이 시점에 이 회사인가'에 대한 답이 명확한지 위주로 파악하세요. 안정성·복지만 기대한 답변이 나오면 파고드세요.",
-  생존모드: "현재 회사는 영업 적자(생존 모드)입니다. 지원자가 회사 상황을 인지하고도 합류하려는 이유가 무엇인지, 단기 성과 압박 환경에 대한 준비가 있는지 위주로 파악하세요.",
+  위기: "현재 회사는 매출 감소세(위기 국면)입니다. 지원자가 회사의 도전 과제를 인지하고 있는지, '왜 이 시점에 이 회사인가'에 대한 답이 명확한지 위주로 파악하세요. 안정성·복지만 기대한 답변이 나오면 파고드세요. 단, 회사의 재무 상태를 직접 언급하거나 부정적으로 단정하지 말 것. 지원동기의 진정성·각오를 우회적으로 확인하세요.",
+  생존모드: "현재 회사는 영업 적자(생존 모드)입니다. 지원자가 회사 상황을 인지하고도 합류하려는 이유가 무엇인지, 단기 성과 압박 환경에 대한 준비가 있는지 위주로 파악하세요. 단, 회사의 재무 상태를 직접 언급하거나 부정적으로 단정하지 말 것. 지원동기의 진정성·각오를 우회적으로 확인하세요.",
 };
 
 type CompanyMaturity = "초기" | "성숙기";
@@ -245,18 +244,6 @@ const COMPANY_MATURITY_HINTS: Record<CompanyMaturity, string> = {
   성숙기: "현재 회사는 성숙 단계 대기업입니다. 지원자가 대규모 조직 내 협업 구조에서 일한 경험, 절차·문서 기반 실행 역량, 전문성의 깊이를 갖췄는지 위주로 파악하세요.",
 };
 
-function detectDisclosureSignal(disclosures: string | undefined): string | null {
-  if (!disclosures) return null;
-  const hasMA = /인수|합병/.test(disclosures);
-  const hasNew = /신사업|투자/.test(disclosures);
-  if (!hasMA && !hasNew) return null;
-
-  const parts: string[] = [];
-  if (hasMA) parts.push("최근 인수·합병이 진행된 회사입니다. 지원자가 조직 변화·통합 과정에서 실행력을 유지한 경험, 불확실한 상황에서 우선순위를 판단한 경험을 갖췄는지 파악하세요.");
-  if (hasNew) parts.push("최근 신사업·신규 투자가 활발한 회사입니다. 지원자가 검증되지 않은 영역에서 빠르게 학습·실행한 경험, 명확한 정답이 없는 문제를 다룬 경험을 갖췄는지 파악하세요.");
-  return parts.join("\n");
-}
-
 const BUSINESS_SUMMARY_HINT = `사업 요약이 컨텍스트에 포함된 경우, 지원자가 "왜 이 회사인가"를 답할 때 사업 방향·고객군·서비스를 실제로 참조하는지 검증하세요. "성장 가능성이 좋아서", "비전에 공감해서" 같은 보편 답변만 하고 사업 특성을 한 번도 언급하지 않으면, 사업 요약의 특정 문구를 인용하며 "이 부분에 대해 어떻게 생각하시는지" 파고드세요.`;
 
 // organization 페르소나 전용: 다트 데이터 기반 4종 힌트를 묶어서 반환.
@@ -267,12 +254,9 @@ function buildOrganizationDartHints(jobPosting: JobPostingContext): string {
     jobPosting.listingStatus,
     jobPosting.employeeSummary,
   );
-  const disclosureSignal = detectDisclosureSignal(jobPosting.recentDisclosures);
-
   const sections: string[] = [];
   if (financialPhase) sections.push(`[재무 국면 — 질문 방향 참고]\n${FINANCIAL_PHASE_HINTS[financialPhase]}`);
   if (maturity) sections.push(`[기업 성숙도 — 질문 방향 참고]\n${COMPANY_MATURITY_HINTS[maturity]}`);
-  if (disclosureSignal) sections.push(`[최근 공시 시그널 — 질문 방향 참고]\n${disclosureSignal}`);
   if (jobPosting.businessSummary) sections.push(`[사업 요약 활용 지침]\n${BUSINESS_SUMMARY_HINT}`);
 
   return sections.length > 0 ? `\n\n${sections.join("\n\n")}` : "";
@@ -533,8 +517,7 @@ function buildAgentSystemPrompt(
       jobPosting.listingStatus ? `상장 현황: ${jobPosting.listingStatus}` : "",
       jobPosting.employeeSummary ? `직원 현황: ${jobPosting.employeeSummary}` : "",
       jobPosting.industrySector ? `업종: ${jobPosting.industrySector}` : "",
-      jobPosting.financialSummary ? `재무 현황:\n${jobPosting.financialSummary}` : "",
-      jobPosting.recentDisclosures ? `최근 주요 공시:\n${jobPosting.recentDisclosures}` : "",
+      // 재무 수치는 국면 힌트(buildOrganizationDartHints)로만 추상화 전달, 공시는 미사용 — 원시 데이터 직접 노출 방지.
       jobPosting.visionMission ? `비전/미션: ${jobPosting.visionMission}` : "",
       jobPosting.targetCustomer ? `타겟 고객: ${jobPosting.targetCustomer}` : "",
       jobPosting.competitivePosition ? `경쟁 포지셔닝: ${jobPosting.competitivePosition}` : "",
@@ -570,15 +553,15 @@ ${DIFFICULTY_QUESTION_HINT[difficulty]}
 [채용공고]
 ${agentJobBlock[agentId]}
 
-${jobPosting.newsContext ? `[최근 업계 뉴스 및 동향 — 면접 질문 생성에 적극 활용할 것]
+${jobPosting.newsContext ? `[최근 업계 뉴스 및 동향 — 관련 있을 때 참고]
 ${jobPosting.newsContext}
 
-[뉴스 활용 필수 지침]
-- 위 "주요 이슈"와 "최근 뉴스"는 회사의 실시간 컨텍스트입니다. 면접 질문 1개 이상에 반드시 자연스럽게 녹여내세요.
+[뉴스 활용 지침]
+- 위 "주요 이슈"와 "최근 뉴스"는 회사의 실시간 컨텍스트입니다. 직무·역할과 직접 관련된 이슈일 때만 자연스럽게 활용하세요. 관련성이 약하면 사용하지 마세요.
 - 뉴스 내용을 그대로 읊지 말 것. 대신 지원자의 입장·판단·경험과 연결해 질문하세요.
   좋은 예: "최근 회사에서 [이슈]를 두고 [상황]에 직면해 있다고 들었습니다. 만약 ${jobPosting.divisionName || "해당 부서"}에서 이런 문제를 만난다면 어떤 관점으로 접근하시겠어요?"
   나쁜 예: "최근 뉴스에서 [이슈]가 있던데 알고 계신가요?" (단순 지식 확인은 금지)
-- 단, 뉴스가 직무·역할과 무관하다면 억지로 끼워넣지 말 것. 자연스러움이 우선.
+- 직무·역할과 무관하다면 억지로 끼워넣지 말 것. 자연스러움이 우선.
 - 첫 질문(자기소개·지원동기)이 아닌 두 번째 이후 질문에서 활용하는 것을 권장합니다.
 ${jobPosting.jobClassification && getNewsQuestionGuide(jobPosting.jobClassification) ? `
 [${jobPosting.jobClassification} 직무 — 뉴스 주제별 질문 가이드]
@@ -651,9 +634,9 @@ export async function generateAgentBaseQuestion(
   const newsHint = jobPosting.newsContext
     ? `
 
-[뉴스 활용 우선 옵션]
+[뉴스 활용 옵션]
 시스템 프롬프트에 [최근 업계 뉴스 및 동향]이 주입돼 있습니다. 뉴스의 "주요 이슈"가 이 직무와 연관성이 있다면,
-지금까지 다루지 않은 경우 이번 질문에서 우선적으로 활용하세요. 단, 뉴스 내용을 그대로 읊지 말고 지원자의
+지금까지 다루지 않은 경우 이번 질문에서 활용을 고려하세요. 단, 뉴스 내용을 그대로 읊지 말고 지원자의
 입장·판단·경험과 연결한 형태로 질문하세요.`
     : "";
 
@@ -845,8 +828,7 @@ async function generateSingleAgentThought(
       jobPosting.listingStatus ? `상장 현황: ${jobPosting.listingStatus}` : "",
       jobPosting.employeeSummary ? `직원 현황: ${jobPosting.employeeSummary}` : "",
       jobPosting.industrySector ? `업종: ${jobPosting.industrySector}` : "",
-      jobPosting.financialSummary ? `재무 현황:\n${jobPosting.financialSummary}` : "",
-      jobPosting.recentDisclosures ? `최근 주요 공시:\n${jobPosting.recentDisclosures}` : "",
+      // 재무 수치는 국면 힌트(buildOrganizationDartHints)로만 추상화 전달, 공시는 미사용 — 원시 데이터 직접 노출 방지.
       jobPosting.visionMission ? `비전/미션: ${jobPosting.visionMission}` : "",
       jobPosting.targetCustomer ? `타겟 고객: ${jobPosting.targetCustomer}` : "",
       jobPosting.competitivePosition ? `경쟁 포지셔닝: ${jobPosting.competitivePosition}` : "",
@@ -887,15 +869,15 @@ async function generateSingleAgentThought(
 [채용공고]
 ${thoughtAgentJobBlock[agentId]}
 
-${jobPosting.newsContext ? `[최근 업계 뉴스 및 동향 — 면접 질문 생성에 적극 활용할 것]
+${jobPosting.newsContext ? `[최근 업계 뉴스 및 동향 — 관련 있을 때 참고]
 ${jobPosting.newsContext}
 
-[뉴스 활용 필수 지침]
-- 위 "주요 이슈"와 "최근 뉴스"는 회사의 실시간 컨텍스트입니다. 면접 질문 1개 이상에 반드시 자연스럽게 녹여내세요.
+[뉴스 활용 지침]
+- 위 "주요 이슈"와 "최근 뉴스"는 회사의 실시간 컨텍스트입니다. 직무·역할과 직접 관련된 이슈일 때만 자연스럽게 활용하세요. 관련성이 약하면 사용하지 마세요.
 - 뉴스 내용을 그대로 읊지 말 것. 대신 지원자의 입장·판단·경험과 연결해 질문하세요.
   좋은 예: "최근 회사에서 [이슈]를 두고 [상황]에 직면해 있다고 들었습니다. 만약 ${jobPosting.divisionName || "해당 부서"}에서 이런 문제를 만난다면 어떤 관점으로 접근하시겠어요?"
   나쁜 예: "최근 뉴스에서 [이슈]가 있던데 알고 계신가요?" (단순 지식 확인은 금지)
-- 단, 뉴스가 직무·역할과 무관하다면 억지로 끼워넣지 말 것. 자연스러움이 우선.
+- 직무·역할과 무관하다면 억지로 끼워넣지 말 것. 자연스러움이 우선.
 - 첫 질문(자기소개·지원동기)이 아닌 두 번째 이후 질문에서 활용하는 것을 권장합니다.
 ${jobPosting.jobClassification && getNewsQuestionGuide(jobPosting.jobClassification) ? `
 [${jobPosting.jobClassification} 직무 — 뉴스 주제별 질문 가이드]

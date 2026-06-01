@@ -519,15 +519,13 @@ export async function collectCompanyInfo(jobPostingId: string, companyName: stri
       let foundedYear: string | null = null;
       let listingStatus: string | null = null;
       let financialSummary: string | null = null;
-      let recentDisclosures: string | null = null;
       let employeeSummary: string | null = null;
       let businessSummary: string | null = null;
 
       if (corp) {
-        const [detail, financial, disclosures, employees, bizReport] = await Promise.all([
+        const [detail, financial, employees, bizReport] = await Promise.all([
           fetchCompanyDetail(corp.corp_code),
           fetchFinancial3Years(corp.corp_code),
-          fetchRecentDisclosures(corp.corp_code),
           fetchEmployeeSummary(corp.corp_code),
           fetchBusinessReportSections(corp.corp_code),
         ]);
@@ -538,7 +536,6 @@ export async function collectCompanyInfo(jobPostingId: string, companyName: stri
           if (ls) listingStatus = ls;
         }
         if (financial) financialSummary = financial;
-        if (disclosures) recentDisclosures = disclosures;
         if (employees) employeeSummary = employees;
         businessSummary = bizReport;
       }
@@ -551,7 +548,6 @@ export async function collectCompanyInfo(jobPostingId: string, companyName: stri
             foundedYear,
             listingStatus,
             financialSummary,
-            recentDisclosures,
             employeeSummary,
             businessSummary,
             isListed,

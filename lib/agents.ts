@@ -190,8 +190,7 @@ function buildContextBlock(profile: ProfileContext, jobPosting: JobPostingContex
       jobPosting.foundedYear ? `설립: ${jobPosting.foundedYear}` : "",
       jobPosting.listingStatus ? `상장 현황: ${jobPosting.listingStatus}` : "",
       jobPosting.employeeSummary ? `직원 현황: ${jobPosting.employeeSummary}` : "",
-      jobPosting.financialSummary ? `재무 현황:\n${jobPosting.financialSummary}` : "",
-      jobPosting.recentDisclosures ? `최근 주요 공시:\n${jobPosting.recentDisclosures}` : "",
+      // 재무 수치·공시는 BARS 채점 기준이 참조하지 않으므로 평가 컨텍스트에서 제외 (답변 기반 채점 원칙 유지).
       jobPosting.companyDescription ? `회사 소개: ${jobPosting.companyDescription}` : "",
       jobPosting.companyCulture ? `조직 문화: ${jobPosting.companyCulture}` : "",
       jobPosting.businessSummary ? `사업 요약:\n${jobPosting.businessSummary}` : "",
