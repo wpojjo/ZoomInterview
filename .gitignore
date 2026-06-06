@@ -31,3 +31,6 @@ next-env.d.ts
 # local notes
 /notes/
 .claude/
+
+# local-only test scripts (이 기기에서만 실행)
+/scripts/test-agents.ts
